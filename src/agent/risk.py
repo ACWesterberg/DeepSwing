@@ -35,6 +35,7 @@ def validate_trade(
     portfolio_equity: float,
     open_positions: list[dict],
     signals: TechnicalSignals,
+    is_drawdown_mode: bool = False,
 ) -> RiskValidation:
     """
     Validate a proposed trade against all risk rules.
@@ -88,7 +89,7 @@ def validate_trade(
     position_value = quantity * entry_price
 
     # Drawdown protocol: if portfolio is down >10%, halve position size
-    if _is_drawdown_mode(portfolio_equity):
+    if is_drawdown_mode:
         quantity *= 0.5
         risk_amount *= 0.5
         logger.warning("Drawdown mode active — position size halved")
@@ -128,7 +129,3 @@ def compute_position_size(
     return risk_sek / risk_per_share
 
 
-def _is_drawdown_mode(current_equity: float) -> bool:
-    # Drawdown detection is handled by the portfolio simulator comparing to peak equity.
-    # This flag is passed in from simulator context — placeholder for now.
-    return False

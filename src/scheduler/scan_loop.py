@@ -83,13 +83,10 @@ def run_scan(market: MarketType) -> dict:
 
         full_news = f"{news_summary}\nInsider activity: {insider_summary}"
 
+        tech_snapshot = candidate.signals.to_prompt_str()
+
         for track in settings.tracks:
             portfolio = get_portfolio(track)
-
-            # Skip if drawdown mode is active
-            if portfolio.is_drawdown_mode:
-                logger.warning("[%s] Drawdown mode — skipping new entries", track)
-                continue
 
             # Retrieve heuristics
             store = get_store(track)
@@ -124,6 +121,7 @@ def run_scan(market: MarketType) -> dict:
                 portfolio_equity=portfolio.equity,
                 open_positions=open_tickers,
                 signals=candidate.signals,
+                is_drawdown_mode=portfolio.is_drawdown_mode,
             )
 
             if not risk.approved:
@@ -147,6 +145,7 @@ def run_scan(market: MarketType) -> dict:
                 regime=candidate.regime.regime,
                 reasoning=decision["reasoning"],
                 confidence=decision["confidence"],
+                technical_snapshot=tech_snapshot,
             )
 
             if position:
@@ -200,7 +199,7 @@ def _trigger_erl(track: str, closed_trade) -> None:
         run_erl(
             track=track,
             trade=trade_dict,
-            technicals_str="See trade entry data",
+            technicals_str=closed_trade.technical_snapshot,
             regime_str=closed_trade.regime,
         )
     except Exception as exc:

@@ -24,6 +24,10 @@ class OpenPosition:
     entry_time: datetime
     trailing_stop: Optional[float] = None
     current_price: float = 0.0
+    regime: str = ""
+    reasoning: str = ""
+    confidence: float = 0.0
+    technical_snapshot: str = ""
 
     @property
     def unrealised_pnl(self) -> float:
@@ -73,6 +77,7 @@ class ClosedTrade:
     reasoning: str
     confidence: float
     exit_reason: str  # "stop_loss" | "take_profit" | "trailing_stop" | "manual"
+    technical_snapshot: str = ""
 
     @property
     def pnl(self) -> float:
@@ -153,6 +158,7 @@ class Portfolio:
         regime: str,
         reasoning: str,
         confidence: float,
+        technical_snapshot: str = "",
     ) -> Optional[OpenPosition]:
         # Apply simulated slippage (adverse, so price moves against us)
         filled_price = entry_price * (1 + settings.simulated_slippage)
@@ -176,6 +182,10 @@ class Portfolio:
             target=target,
             entry_time=datetime.utcnow(),
             current_price=filled_price,
+            regime=regime,
+            reasoning=reasoning,
+            confidence=confidence,
+            technical_snapshot=technical_snapshot,
         )
         self.open_positions.append(position)
         self._next_trade_id += 1
@@ -217,10 +227,11 @@ class Portfolio:
             target=position.target,
             entry_time=position.entry_time,
             exit_time=datetime.utcnow(),
-            regime=regime,
-            reasoning=reasoning,
-            confidence=confidence,
+            regime=regime or position.regime,
+            reasoning=reasoning or position.reasoning,
+            confidence=confidence or position.confidence,
             exit_reason=exit_reason,
+            technical_snapshot=position.technical_snapshot,
         )
         self.closed_trades.append(closed)
 
