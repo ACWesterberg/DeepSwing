@@ -1,0 +1,31 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Runtime data — not committed, lives on the Pi
+data/deepswing.db
+data/*.db
+heuristics/claude/
+heuristics/gpt/
+compiled/
+
+# Logs
+*.log
+
+# macOS
+.DS_Store
+
+# Editor
+.idea/
+.vscode/
+*.swp

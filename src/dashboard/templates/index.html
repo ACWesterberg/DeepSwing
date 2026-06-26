@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeepSwing Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>DeepSwing</h1>
+    <div id="market-status">
+      <span id="nordic-status" class="badge">Nordic: —</span>
+      <span id="us-status" class="badge">US: —</span>
+      <span id="last-update"></span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="comparison">Comparison</button>
+    <button class="tab" data-tab="claude">Claude Track</button>
+    <button class="tab" data-tab="gpt">GPT Track</button>
+    <button class="tab" data-tab="heuristics-claude">Heuristics (Claude)</button>
+    <button class="tab" data-tab="heuristics-gpt">Heuristics (GPT)</button>
+  </nav>
+
+  <!-- Comparison Tab -->
+  <div id="tab-comparison" class="tab-content active">
+    <div class="panel">
+      <h2>Equity Curves</h2>
+      <canvas id="comparison-chart" height="80"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Head-to-Head Metrics</h2>
+      <table id="comparison-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Claude</th>
+            <th>GPT</th>
+          </tr>
+        </thead>
+        <tbody id="comparison-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Per-track tabs (claude / gpt) -->
+  <div id="tab-claude" class="tab-content">
+    <div class="panel">
+      <h2>Portfolio — Claude Track</h2>
+      <div id="claude-snapshot" class="snapshot-grid"></div>
+    </div>
+    <div class="panel">
+      <h2>Open Positions</h2>
+      <table class="data-table">
+        <thead><tr><th>Ticker</th><th>Entry</th><th>Current</th><th>P&L%</th><th>Stop</th><th>Target</th><th>Days</th></tr></thead>
+        <tbody id="claude-positions"></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h2>Trade History</h2>
+      <table class="data-table">
+        <thead><tr><th>Ticker</th><th>P&L%</th><th>RRR</th><th>Duration</th><th>Regime</th><th>Exit Reason</th></tr></thead>
+        <tbody id="claude-trades"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="tab-gpt" class="tab-content">
+    <div class="panel">
+      <h2>Portfolio — GPT Track</h2>
+      <div id="gpt-snapshot" class="snapshot-grid"></div>
+    </div>
+    <div class="panel">
+      <h2>Open Positions</h2>
+      <table class="data-table">
+        <thead><tr><th>Ticker</th><th>Entry</th><th>Current</th><th>P&L%</th><th>Stop</th><th>Target</th><th>Days</th></tr></thead>
+        <tbody id="gpt-positions"></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h2>Trade History</h2>
+      <table class="data-table">
+        <thead><tr><th>Ticker</th><th>P&L%</th><th>RRR</th><th>Duration</th><th>Regime</th><th>Exit Reason</th></tr></thead>
+        <tbody id="gpt-trades"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Heuristics tabs -->
+  <div id="tab-heuristics-claude" class="tab-content">
+    <div class="panel">
+      <h2>Heuristic Library — Claude Track</h2>
+      <div id="heuristics-claude-list"></div>
+    </div>
+  </div>
+
+  <div id="tab-heuristics-gpt" class="tab-content">
+    <div class="panel">
+      <h2>Heuristic Library — GPT Track</h2>
+      <div id="heuristics-gpt-list"></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
