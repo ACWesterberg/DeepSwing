@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -113,6 +113,46 @@ async def heuristics(track: str, page: int = 1, page_size: int = 20):
         "page": page,
         "heuristics": all_h[start: start + page_size],
     }
+
+
+@app.post("/api/backtest")
+async def run_backtest(
+    market: str = "us",
+    start: str = "",
+    end: str = "",
+    n_windows: int = 4,
+    initial_equity: float = 100_000.0,
+):
+    """
+    Run walk-forward backtesting on historical data.
+    No AI calls — uses ATR-based entries, real screener + risk rules.
+    """
+    if market not in ("nordic", "us"):
+        return {"error": "market must be 'nordic' or 'us'"}
+
+    from src.backtesting.engine import BacktestEngine
+    from src.data.watchlist import get_omxs30_tickers
+
+    try:
+        start_date = date.fromisoformat(start) if start else date(date.today().year - 1, 1, 1)
+        end_date = date.fromisoformat(end) if end else date.today()
+    except ValueError as exc:
+        return {"error": f"Invalid date format: {exc}"}
+
+    tickers = get_omxs30_tickers() if market == "nordic" else settings.us_watchlist[:30]
+
+    import asyncio
+    loop = asyncio.get_event_loop()
+    engine = BacktestEngine(
+        market=market,
+        tickers=tickers,
+        start=start_date,
+        end=end_date,
+        initial_equity=initial_equity,
+        n_windows=max(1, min(n_windows, 12)),
+    )
+    result = await loop.run_in_executor(None, engine.run)
+    return result.to_dict()
 
 
 @app.post("/api/scan/{market}")
