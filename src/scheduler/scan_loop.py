@@ -14,7 +14,7 @@ from src.analysis.screener import screen_candidates
 from src.analysis.technical import compute_signals
 from src.data.insider_fetcher import get_insider_summary
 from src.data.macro_data import get_macro_context
-from src.data.market_data import fetch_batch_nordic, fetch_batch_us, get_current_price, get_sector
+from src.data.market_data import fetch_batch_nordic, fetch_batch_us, get_current_price, get_sector, get_vix
 from src.data.news_fetcher import fetch_news_for_ticker
 from src.portfolio.simulator import get_portfolio
 
@@ -52,6 +52,15 @@ def run_scan(market: MarketType) -> dict:
     Returns a summary dict for the dashboard.
     """
     logger.info("=== Scan started: %s market ===", market)
+
+    # VIX circuit-breaker: halt new entries under extreme volatility
+    vix = get_vix()
+    if vix is not None and vix >= settings.vix_halt_threshold:
+        logger.warning(
+            "VIX=%.1f >= threshold %.1f — halting new entries for %s market",
+            vix, settings.vix_halt_threshold, market,
+        )
+        return {"market": market, "candidates": [], "decisions": [], "vix_halt": True, "vix": vix}
 
     watchlist = settings.nordic_watchlist if market == "nordic" else settings.us_watchlist
     macro_context = get_macro_context(market)

@@ -61,31 +61,70 @@ def _fetch_sec_edgar(ticker: str) -> str:
         return f"Insider data unavailable for {ticker}."
 
 
+_FI_COLUMN_ALIASES: dict[str, list[str]] = {
+    "issuer":   ["Emittent", "Issuer", "emittent", "issuer", "Bolag"],
+    "date":     ["Handelsdatum", "TransactionDate", "Datum", "Date", "Transaction date"],
+    "person":   ["Person", "Insider", "Namn", "Name"],
+    "type":     ["Transaktionstyp", "TransactionType", "Typ", "Type", "Transaction type"],
+    "volume":   ["Volym", "Volume", "Antal", "Quantity"],
+    "price":    ["Kurs", "Price", "Pris"],
+}
+
+
+def _resolve_col(row: dict, canonical: str) -> str:
+    """Return the first non-empty value found across all aliases for a canonical column."""
+    for alias in _FI_COLUMN_ALIASES.get(canonical, []):
+        val = row.get(alias, "")
+        if val:
+            return val.strip()
+    return "?"
+
+
+def _detect_delimiter(text: str) -> str:
+    """Guess CSV delimiter from the first non-empty line."""
+    for line in text.splitlines():
+        if line.strip():
+            return ";" if line.count(";") >= line.count(",") else ","
+    return ";"
+
+
+def _decode_fi_response(content: bytes) -> str:
+    """Try UTF-8 then Latin-1; strip BOM."""
+    for enc in ("utf-8-sig", "latin-1"):
+        try:
+            return content.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return content.decode("latin-1", errors="replace")
+
+
 def _fetch_fi_insynsregistret(ticker: str) -> str:
     """
     Fetch from Finansinspektionen's insynsregister (Swedish insider registry).
-    FI publishes a CSV export at a public URL.
+    FI publishes a CSV export at a public URL — column names vary by export version.
     """
     try:
         url = "https://fi.se/contentassets/2c7b86aa49b74e37b3eb8fe91da5ccbc/insynsregistret.csv"
         resp = httpx.get(url, timeout=15, headers={"User-Agent": "DeepSwing/1.0"})
         resp.raise_for_status()
 
+        text = _decode_fi_response(resp.content)
+        delimiter = _detect_delimiter(text)
         ticker_base = ticker.split(".")[0].upper()
-        reader = csv.DictReader(io.StringIO(resp.text), delimiter=";")
+        reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
 
         since = datetime.utcnow() - timedelta(days=30)
         matches = []
         for row in reader:
-            issuer = (row.get("Emittent", "") or row.get("Issuer", "")).upper()
+            issuer = _resolve_col(row, "issuer").upper()
             if ticker_base not in issuer:
                 continue
+            date_str = _resolve_col(row, "date")
             try:
-                trade_date_str = row.get("Handelsdatum", "") or row.get("TransactionDate", "")
-                trade_date = datetime.strptime(trade_date_str[:10], "%Y-%m-%d")
+                trade_date = datetime.strptime(date_str[:10], "%Y-%m-%d")
                 if trade_date >= since:
                     matches.append(row)
-            except (ValueError, KeyError):
+            except ValueError:
                 pass
 
         if not matches:
@@ -93,10 +132,10 @@ def _fetch_fi_insynsregistret(ticker: str) -> str:
 
         summaries = []
         for row in matches[:5]:
-            person = row.get("Person", row.get("Insider", "?"))
-            trans = row.get("Transaktionstyp", row.get("TransactionType", "?"))
-            volume = row.get("Volym", row.get("Volume", "?"))
-            price = row.get("Kurs", row.get("Price", "?"))
+            person = _resolve_col(row, "person")
+            trans = _resolve_col(row, "type")
+            volume = _resolve_col(row, "volume")
+            price = _resolve_col(row, "price")
             summaries.append(f"{person}: {trans} — {volume} shares @ {price}")
 
         return "FI Insider Activity:\n" + "\n".join(summaries)

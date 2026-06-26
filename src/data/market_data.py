@@ -23,6 +23,10 @@ _av_count_date: Optional[date] = None
 # Sector cache: ticker → sector string (never expires; sector rarely changes)
 _sector_cache: dict[str, str] = {}
 
+# VIX cache: updated at most once per hour
+_vix_cache: tuple[Optional[datetime], Optional[float]] = (None, None)
+_VIX_CACHE_TTL_HOURS = 1
+
 
 def fetch_ohlcv(
     ticker: str,
@@ -148,6 +152,22 @@ def get_current_price(ticker: str, market: str) -> Optional[float]:
     if df is None or df.empty:
         return None
     return float(df["Close"].iloc[-1])
+
+
+def get_vix() -> Optional[float]:
+    """Return the latest VIX close. Cached for 1 hour."""
+    global _vix_cache
+    ts, val = _vix_cache
+    if ts and (datetime.utcnow() - ts).total_seconds() < _VIX_CACHE_TTL_HOURS * 3600:
+        return val
+    try:
+        df = yf.Ticker("^VIX").history(period="2d", interval="1d")
+        val = float(df["Close"].iloc[-1]) if not df.empty else None
+    except Exception as exc:
+        logger.warning("VIX fetch error: %s", exc)
+        val = None
+    _vix_cache = (datetime.utcnow(), val)
+    return val
 
 
 def get_sector(ticker: str) -> str:

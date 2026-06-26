@@ -306,3 +306,8 @@ def get_portfolio(track: TrackType) -> Portfolio:
     if track not in _portfolios:
         _portfolios[track] = Portfolio(track)
     return _portfolios[track]
+
+
+def reset_portfolios() -> None:
+    """Clear all portfolio state. Used in tests."""
+    _portfolios.clear()
