@@ -36,6 +36,7 @@ def validate_trade(
     open_positions: list[dict],
     signals: TechnicalSignals,
     is_drawdown_mode: bool = False,
+    candidate_sector: str = "",
 ) -> RiskValidation:
     """
     Validate a proposed trade against all risk rules.
@@ -94,13 +95,28 @@ def validate_trade(
         risk_amount *= 0.5
         logger.warning("Drawdown mode active — position size halved")
 
-    # Correlation check (simplified: reject if same ticker already open)
+    # Duplicate ticker check
     open_tickers = [p.get("ticker") for p in open_positions]
     if signals.ticker in open_tickers:
         return RiskValidation(
             approved=False, quantity=0.0, risk_amount=0.0, rrr=rrr,
             rejection_reason=f"Position already open for {signals.ticker}",
         )
+
+    # Sector concentration check
+    if candidate_sector and candidate_sector != "Unknown":
+        sector_count = sum(
+            1 for p in open_positions
+            if p.get("sector") == candidate_sector
+        )
+        if sector_count >= settings.max_positions_per_sector:
+            return RiskValidation(
+                approved=False, quantity=0.0, risk_amount=0.0, rrr=rrr,
+                rejection_reason=(
+                    f"Sector '{candidate_sector}' already has {sector_count} open position(s) "
+                    f"(max {settings.max_positions_per_sector})"
+                ),
+            )
 
     if quantity <= 0:
         return RiskValidation(

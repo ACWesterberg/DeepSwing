@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime
 from typing import Optional
 
 import httpx
@@ -13,9 +13,15 @@ from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-# Alpha Vantage free tier: 25 requests/day → cache aggressively
+# Alpha Vantage free tier: 25 requests/day → cache aggressively and count
 _av_cache: dict[str, tuple[datetime, pd.DataFrame]] = {}
 AV_CACHE_TTL_HOURS = 4
+AV_FREE_TIER_DAILY_LIMIT = 25
+_av_daily_count: int = 0
+_av_count_date: Optional[date] = None
+
+# Sector cache: ticker → sector string (never expires; sector rarely changes)
+_sector_cache: dict[str, str] = {}
 
 
 def fetch_ohlcv(
@@ -54,15 +60,31 @@ def _fetch_yfinance(ticker: str, period: str, interval: str) -> Optional[pd.Data
 
 def _fetch_alpha_vantage(ticker: str) -> Optional[pd.DataFrame]:
     """Fetch daily OHLCV from Alpha Vantage. Results cached for AV_CACHE_TTL_HOURS."""
+    global _av_daily_count, _av_count_date
+
     if not settings.alpha_vantage_api_key:
         return None
 
     now = datetime.utcnow()
+    today = now.date()
+
+    # Reset counter on a new calendar day
+    if _av_count_date != today:
+        _av_daily_count = 0
+        _av_count_date = today
+
     cached = _av_cache.get(ticker)
     if cached:
         ts, df = cached
         if (now - ts).total_seconds() < AV_CACHE_TTL_HOURS * 3600:
             return df.copy()
+
+    if _av_daily_count >= AV_FREE_TIER_DAILY_LIMIT:
+        logger.warning(
+            "Alpha Vantage daily limit (%d) reached — falling back to yfinance for %s",
+            AV_FREE_TIER_DAILY_LIMIT, ticker,
+        )
+        return None
 
     # Alpha Vantage uses bare symbol without exchange suffix for some endpoints
     symbol = ticker.replace(".STO", "").replace(".ST", "")
@@ -75,6 +97,7 @@ def _fetch_alpha_vantage(ticker: str) -> Optional[pd.DataFrame]:
     )
 
     try:
+        _av_daily_count += 1
         resp = httpx.get(url, timeout=15)
         resp.raise_for_status()
         data = resp.json()
@@ -125,6 +148,20 @@ def get_current_price(ticker: str, market: str) -> Optional[float]:
     if df is None or df.empty:
         return None
     return float(df["Close"].iloc[-1])
+
+
+def get_sector(ticker: str) -> str:
+    """Return the sector for a ticker (yfinance info). Cached indefinitely."""
+    if ticker in _sector_cache:
+        return _sector_cache[ticker]
+    yf_ticker = ticker.replace(".STO", ".ST")
+    try:
+        info = yf.Ticker(yf_ticker).info
+        sector = info.get("sector") or "Unknown"
+    except Exception:
+        sector = "Unknown"
+    _sector_cache[ticker] = sector
+    return sector
 
 
 def fetch_batch_nordic(tickers: list[str], delay_seconds: float = 2.5) -> dict[str, pd.DataFrame]:

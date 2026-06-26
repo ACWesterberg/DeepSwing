@@ -28,6 +28,7 @@ class OpenPosition:
     reasoning: str = ""
     confidence: float = 0.0
     technical_snapshot: str = ""
+    sector: str = ""
 
     @property
     def unrealised_pnl(self) -> float:
@@ -159,6 +160,7 @@ class Portfolio:
         reasoning: str,
         confidence: float,
         technical_snapshot: str = "",
+        sector: str = "",
     ) -> Optional[OpenPosition]:
         # Apply simulated slippage (adverse, so price moves against us)
         filled_price = entry_price * (1 + settings.simulated_slippage)
@@ -186,6 +188,7 @@ class Portfolio:
             reasoning=reasoning,
             confidence=confidence,
             technical_snapshot=technical_snapshot,
+            sector=sector,
         )
         self.open_positions.append(position)
         self._next_trade_id += 1

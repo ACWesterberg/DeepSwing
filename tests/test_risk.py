@@ -181,6 +181,56 @@ class TestValidateTrade:
         assert result.quantity == pytest.approx(expected_qty, rel=1e-3)
 
 
+    def test_sector_concentration_rejected_at_limit(self):
+        open_positions = [
+            {"ticker": "MSFT", "sector": "Technology"},
+            {"ticker": "GOOGL", "sector": "Technology"},
+        ]
+        result = validate_trade(
+            action="BUY",
+            entry_price=VALID_ENTRY,
+            stop_loss=VALID_STOP,
+            target=VALID_TARGET,
+            portfolio_equity=EQUITY,
+            open_positions=open_positions,
+            signals=_make_signals(ticker="NVDA"),
+            candidate_sector="Technology",
+        )
+        assert result.approved is False
+        assert "Sector" in result.rejection_reason or "sector" in result.rejection_reason
+
+    def test_sector_concentration_allowed_below_limit(self):
+        open_positions = [{"ticker": "MSFT", "sector": "Technology"}]
+        result = validate_trade(
+            action="BUY",
+            entry_price=VALID_ENTRY,
+            stop_loss=VALID_STOP,
+            target=VALID_TARGET,
+            portfolio_equity=EQUITY,
+            open_positions=open_positions,
+            signals=_make_signals(ticker="NVDA"),
+            candidate_sector="Technology",
+        )
+        assert result.approved is True
+
+    def test_unknown_sector_skips_concentration_check(self):
+        open_positions = [
+            {"ticker": "X", "sector": "Unknown"},
+            {"ticker": "Y", "sector": "Unknown"},
+        ]
+        result = validate_trade(
+            action="BUY",
+            entry_price=VALID_ENTRY,
+            stop_loss=VALID_STOP,
+            target=VALID_TARGET,
+            portfolio_equity=EQUITY,
+            open_positions=open_positions,
+            signals=_make_signals(ticker="Z"),
+            candidate_sector="Unknown",
+        )
+        assert result.approved is True
+
+
 class TestComputePositionSize:
     def test_basic_sizing(self):
         qty = compute_position_size(entry_price=100.0, stop_loss=97.0, portfolio_equity=100_000.0)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Literal
+from typing import Callable, Literal, Optional
 
 from config.settings import settings
 from src.agent.decision import get_decision
@@ -14,13 +14,30 @@ from src.analysis.screener import screen_candidates
 from src.analysis.technical import compute_signals
 from src.data.insider_fetcher import get_insider_summary
 from src.data.macro_data import get_macro_context
-from src.data.market_data import fetch_batch_nordic, fetch_batch_us, get_current_price
+from src.data.market_data import fetch_batch_nordic, fetch_batch_us, get_current_price, get_sector
 from src.data.news_fetcher import fetch_news_for_ticker
 from src.portfolio.simulator import get_portfolio
 
 logger = logging.getLogger(__name__)
 
 MarketType = Literal["nordic", "us"]
+
+# Optional callback for pushing trade events to the dashboard WebSocket.
+# Injected by app.py on startup; called synchronously from the scan loop thread.
+_on_trade_event: Optional[Callable[[dict], None]] = None
+
+
+def set_trade_event_handler(fn: Callable[[dict], None]) -> None:
+    global _on_trade_event
+    _on_trade_event = fn
+
+
+def _emit(event: dict) -> None:
+    if _on_trade_event is not None:
+        try:
+            _on_trade_event(event)
+        except Exception as exc:
+            logger.warning("Trade event callback error: %s", exc)
 
 
 def run_scan(market: MarketType) -> dict:
@@ -84,6 +101,7 @@ def run_scan(market: MarketType) -> dict:
         full_news = f"{news_summary}\nInsider activity: {insider_summary}"
 
         tech_snapshot = candidate.signals.to_prompt_str()
+        sector = get_sector(candidate.ticker)
 
         for track in settings.tracks:
             portfolio = get_portfolio(track)
@@ -112,16 +130,20 @@ def run_scan(market: MarketType) -> dict:
                 continue
 
             # Risk validation
-            open_tickers = [{"ticker": t} for t in portfolio.get_open_tickers()]
+            open_pos_info = [
+                {"ticker": p.ticker, "sector": p.sector}
+                for p in portfolio.open_positions
+            ]
             risk = validate_trade(
                 action="BUY",
                 entry_price=candidate.signals.current_price,
                 stop_loss=decision["stop_loss"],
                 target=decision["target"],
                 portfolio_equity=portfolio.equity,
-                open_positions=open_tickers,
+                open_positions=open_pos_info,
                 signals=candidate.signals,
                 is_drawdown_mode=portfolio.is_drawdown_mode,
+                candidate_sector=sector,
             )
 
             if not risk.approved:
@@ -146,10 +168,11 @@ def run_scan(market: MarketType) -> dict:
                 reasoning=decision["reasoning"],
                 confidence=decision["confidence"],
                 technical_snapshot=tech_snapshot,
+                sector=sector,
             )
 
             if position:
-                decisions_log.append({
+                trade_event = {
                     "track": track,
                     "ticker": candidate.ticker,
                     "action": "BUY",
@@ -158,7 +181,10 @@ def run_scan(market: MarketType) -> dict:
                     "target": decision["target"],
                     "confidence": decision["confidence"],
                     "rrr": risk.rrr,
-                })
+                    "sector": sector,
+                }
+                decisions_log.append(trade_event)
+                _emit({"event": "trade_opened", "data": trade_event})
 
     # --- Update open positions and trigger ERL for closed trades ---
     for track in settings.tracks:
@@ -167,6 +193,17 @@ def run_scan(market: MarketType) -> dict:
         closed_trades = portfolio.update_prices(current_prices)
 
         for closed in closed_trades:
+            _emit({
+                "event": "trade_closed",
+                "data": {
+                    "track": track,
+                    "ticker": closed.ticker,
+                    "exit_reason": closed.exit_reason,
+                    "pnl_pct": round(closed.pnl_pct * 100, 2),
+                    "pnl": round(closed.pnl, 2),
+                    "exit_price": closed.exit_price,
+                },
+            })
             _trigger_erl(track, closed)
 
     logger.info("=== Scan complete: %s | %d candidates | %d decisions ===",

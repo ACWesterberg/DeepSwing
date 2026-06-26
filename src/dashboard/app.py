@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from datetime import datetime
@@ -15,7 +16,7 @@ from config.settings import settings
 from src.portfolio.metrics import compute_metrics
 from src.portfolio.simulator import get_portfolio
 from src.scheduler.market_hours import active_markets, is_market_open
-from src.scheduler.scan_loop import run_scan
+from src.scheduler.scan_loop import run_scan, set_trade_event_handler
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,17 @@ app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
 # Active WebSocket connections
 _ws_clients: list[WebSocket] = []
+
+
+@app.on_event("startup")
+async def _register_trade_event_handler() -> None:
+    """Wire scan_loop trade events into the WebSocket broadcast."""
+    loop = asyncio.get_event_loop()
+
+    def _sync_emit(event: dict) -> None:
+        asyncio.run_coroutine_threadsafe(_broadcast(event), loop)
+
+    set_trade_event_handler(_sync_emit)
 
 
 @app.get("/", response_class=HTMLResponse)

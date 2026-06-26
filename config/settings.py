@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     atr_stop_multiplier: float = 1.5
     drawdown_pause_threshold: float = 0.10
     max_sector_correlation: float = 0.7
+    max_positions_per_sector: int = 2
     simulated_slippage: float = 0.0005     # 0.05%
 
     # Screener thresholds
