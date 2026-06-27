@@ -20,6 +20,11 @@ class TradeDecision(dspy.Signature):
     Analyze a stock setup as an experienced swing trader and decide whether to buy, sell, or hold.
     You must justify every output with specific references to the provided data.
     Return HOLD unless there is a high-conviction setup with clear risk/reward.
+
+    If action is BUY, you MUST ensure the risk/reward ratio (RRR) is at least 2.0:
+      RRR = (target - entry) / (entry - stop_loss) >= 2.0
+    Example: entry=100, stop_loss=95 (risk=5) → target must be >= 110 (reward >= 10).
+    A BUY with RRR below 2.0 will be automatically rejected — so set a wide enough target.
     """
     technicals: str = dspy.InputField(desc="Technical indicator summary for the stock")
     regime: str = dspy.InputField(desc="Market regime classification and recommended tactics")
@@ -126,6 +131,7 @@ class DecisionEngine:
             confidence = _clamp(float(result.confidence), 0.0, 1.0)
             stop_loss = float(result.stop_loss)
             target = float(result.target)
+            action, target = _fix_rrr(action, candidate.signals.current_price, stop_loss, target, settings.min_rrr)
 
             return {
                 "action": action,
@@ -161,3 +167,34 @@ def get_decision(
 
 def _clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
+
+
+def _fix_rrr(
+    action: str,
+    entry: float,
+    stop_loss: float,
+    target: float,
+    min_rrr: float,
+) -> tuple[str, float]:
+    """
+    If a BUY decision has RRR between 1.0 and min_rrr, stretch the target to meet
+    the minimum. If RRR < 1.0 (target barely above or below stop), leave it as-is
+    so the risk validator rejects it — the stop placement itself is bad.
+    Returns (action, corrected_target).
+    """
+    if action != "BUY":
+        return action, target
+    risk = entry - stop_loss
+    if risk <= 0:
+        return action, target
+    rrr = (target - entry) / risk
+    if rrr < 1.0:
+        return action, target  # bad stop placement — let risk validator reject
+    if rrr < min_rrr:
+        corrected = entry + min_rrr * risk
+        logger.debug(
+            "Stretched target from %.4f to %.4f to meet RRR %.1f (was %.2f)",
+            target, corrected, min_rrr, rrr,
+        )
+        return action, corrected
+    return action, target
