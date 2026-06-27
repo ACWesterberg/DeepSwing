@@ -31,8 +31,8 @@ def get_omxs30_tickers() -> list[str]:
         return cached
 
     tickers = _fetch_nasdaq_nordic() or _fetch_wikipedia()
-    if not tickers:
-        logger.warning("OMXS30 dynamic fetch failed — using hardcoded fallback list")
+    if len(tickers) < 20:
+        logger.warning("OMXS30 dynamic fetch returned %d tickers — using hardcoded fallback list", len(tickers))
         tickers = list(_OMXS30_FALLBACK)
 
     _omxs30_cache = (datetime.utcnow(), tickers)
