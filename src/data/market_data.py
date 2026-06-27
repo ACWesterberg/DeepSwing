@@ -31,7 +31,7 @@ _VIX_CACHE_TTL_HOURS = 1
 def fetch_ohlcv(
     ticker: str,
     market: str,
-    period: str = "6mo",
+    period: str = "1y",
     interval: str = "1d",
 ) -> Optional[pd.DataFrame]:
     """Fetch OHLCV data. Nordic stocks try Alpha Vantage first, fall back to yfinance."""
@@ -96,7 +96,7 @@ def _fetch_alpha_vantage(ticker: str) -> Optional[pd.DataFrame]:
         "https://www.alphavantage.co/query"
         f"?function=TIME_SERIES_DAILY_ADJUSTED"
         f"&symbol={symbol}"
-        f"&outputsize=compact"
+        f"&outputsize=full"
         f"&apikey={settings.alpha_vantage_api_key}"
     )
 
@@ -203,7 +203,7 @@ def fetch_batch_us(tickers: list[str]) -> dict[str, pd.DataFrame]:
     try:
         raw = yf.download(
             tickers,
-            period="6mo",
+            period="1y",
             interval="1d",
             auto_adjust=True,
             group_by="ticker",

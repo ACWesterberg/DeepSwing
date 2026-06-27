@@ -70,8 +70,8 @@ class Settings(BaseSettings):
             "SWED-A.STO", "AZN.STO", "INVE-B.STO", "ATCO-A.STO", "TELIA.STO",
             "ABB.STO", "ALFA.STO", "ALIV-SDB.STO", "ASSA-B.STO", "ATCO-B.STO",
             "BOL.STO", "EVO.STO", "GETI-B.STO", "HM-B.STO", "HEXA-B.STO",
-            "HUSQ-B.STO", "KINV-B.STO", "LUND-B.STO", "NIBE-B.STO", "NOKIA.STO",
-            "SSAB-A.STO", "SKA-B.STO", "SKF-B.STO", "SWMA.STO", "TEL2-B.STO",
+            "HUSQ-B.STO", "KINV-B.STO", "LUND-B.STO", "NIBE-B.STO", "NDA-SE.STO",
+            "SSAB-A.STO", "SKA-B.STO", "SKF-B.STO", "ESSITY-B.STO", "TEL2-B.STO",
         ]
     )
     us_watchlist: list[str] = Field(
