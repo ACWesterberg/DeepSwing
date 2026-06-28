@@ -51,7 +51,10 @@ class Settings(BaseSettings):
     max_sector_correlation: float = 0.7
     max_positions_per_sector: int = 2
     vix_halt_threshold: float = 35.0   # halt new entries when VIX >= this
-    simulated_slippage: float = 0.0005     # 0.05%
+    simulated_slippage: float = 0.0005     # 0.05% bid/ask spread approximation
+    # Montrose Premium: 0.10% courtage each way; 0.10% FX fee for non-SEK trades
+    commission_pct: float = 0.001          # 0.10% per trade leg (buy + sell)
+    fx_commission_pct: float = 0.001       # 0.10% extra on USD/EUR legs (US market)
 
     # Screener thresholds
     rsi_min: float = 40.0
@@ -64,14 +67,16 @@ class Settings(BaseSettings):
     news_refresh_interval_minutes: int = 60
 
     # Watchlists (configurable)
+    # Emergency fallback only — universe.csv is the live source for Nordic tickers.
+    # These are OMXS30 constituents in Yahoo Finance format (.ST not .STO).
     nordic_watchlist: list[str] = Field(
         default=[
-            "ERIC-B.STO", "VOLV-B.STO", "SAND.STO", "SEB-A.STO", "SHB-A.STO",
-            "SWED-A.STO", "AZN.STO", "INVE-B.STO", "ATCO-A.STO", "TELIA.STO",
-            "ABB.STO", "ALFA.STO", "ALIV-SDB.STO", "ASSA-B.STO", "ATCO-B.STO",
-            "BOL.STO", "EVO.STO", "GETI-B.STO", "HM-B.STO", "HEXA-B.STO",
-            "HUSQ-B.STO", "KINV-B.STO", "LUND-B.STO", "NIBE-B.STO", "NDA-SE.STO",
-            "SSAB-A.STO", "SKA-B.STO", "SKF-B.STO", "ESSITY-B.STO", "TEL2-B.STO",
+            "ERIC-B.ST", "VOLV-B.ST", "SAND.ST", "SEB-A.ST", "SHB-A.ST",
+            "SWED-A.ST", "AZN.ST", "INVE-B.ST", "ATCO-A.ST", "TELIA.ST",
+            "ABB.ST", "ALFA.ST", "ALIV-SDB.ST", "ASSA-B.ST", "ATCO-B.ST",
+            "BOL.ST", "EVO.ST", "GETI-B.ST", "HM-B.ST", "HEXA-B.ST",
+            "HUSQ-B.ST", "KINV-B.ST", "LUND-B.ST", "NIBE-B.ST", "NDA-SE.ST",
+            "SSAB-A.ST", "SKA-B.ST", "SKF-B.ST", "ESSITY-B.ST", "TEL2-B.ST",
         ]
     )
     us_watchlist: list[str] = Field(

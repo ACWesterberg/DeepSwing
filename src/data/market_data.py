@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from datetime import date, datetime
 from typing import Optional
 
@@ -38,7 +37,8 @@ def fetch_ohlcv(
     if market == "nordic":
         df = _fetch_alpha_vantage(ticker)
         if df is None or df.empty:
-            yf_ticker = ticker.replace(".STO", ".ST")
+            # Support both legacy .STO and current .ST/.OL/.HE/.CO formats
+            yf_ticker = ticker.replace(".STO", ".ST") if ".STO" in ticker else ticker
             df = _fetch_yfinance(yf_ticker, period, interval)
     else:
         df = _fetch_yfinance(ticker, period, interval)
@@ -90,8 +90,8 @@ def _fetch_alpha_vantage(ticker: str) -> Optional[pd.DataFrame]:
         )
         return None
 
-    # Alpha Vantage uses bare symbol without exchange suffix for some endpoints
-    symbol = ticker.replace(".STO", "").replace(".ST", "")
+    # Strip any Nordic exchange suffix (.STO legacy, .ST, .OL, .HE, .CO, .IC)
+    symbol = ticker.split(".")[0]
     url = (
         "https://www.alphavantage.co/query"
         f"?function=TIME_SERIES_DAILY_ADJUSTED"
@@ -171,30 +171,58 @@ def get_vix() -> Optional[float]:
 
 
 def get_sector(ticker: str) -> str:
-    """Return the sector for a ticker (yfinance info). Cached indefinitely."""
-    if ticker in _sector_cache:
-        return _sector_cache[ticker]
-    yf_ticker = ticker.replace(".STO", ".ST")
-    try:
-        info = yf.Ticker(yf_ticker).info
-        sector = info.get("sector") or "Unknown"
-    except Exception:
-        sector = "Unknown"
+    """Return sector for a ticker. Checks universe CSV first, then yfinance (for US stocks)."""
+    from src.data.universe import get_sector_from_universe
+    cached = _sector_cache.get(ticker)
+    if cached:
+        return cached
+    sector = get_sector_from_universe(ticker)
+    if sector is None:
+        # Fallback for US stocks not in universe
+        yf_ticker = ticker.replace(".STO", ".ST") if ".STO" in ticker else ticker
+        try:
+            info = yf.Ticker(yf_ticker).info
+            sector = info.get("sector") or "Unknown"
+        except Exception:
+            sector = "Unknown"
     _sector_cache[ticker] = sector
     return sector
 
 
-def fetch_batch_nordic(tickers: list[str], delay_seconds: float = 2.5) -> dict[str, pd.DataFrame]:
+def fetch_batch_nordic(tickers: list[str]) -> dict[str, pd.DataFrame]:
     """
-    Fetch OHLCV for multiple Nordic tickers.
-    Respects Alpha Vantage free tier by spacing requests.
+    Fetch OHLCV for multiple Nordic tickers using yfinance batch download.
+    Tickers must be in Yahoo Finance format (.ST, .OL, .HE, .CO).
+    Alpha Vantage is reserved for individual re-fetches when yfinance fails.
     """
+    try:
+        raw = yf.download(
+            tickers,
+            period="1y",
+            interval="1d",
+            auto_adjust=True,
+            group_by="ticker",
+            progress=False,
+            threads=True,
+        )
+    except Exception as exc:
+        logger.error("yfinance batch download error (Nordic): %s", exc)
+        return {}
+
     results: dict[str, pd.DataFrame] = {}
-    for ticker in tickers:
-        df = fetch_ohlcv(ticker, "nordic")
-        if df is not None and not df.empty:
-            results[ticker] = df
-        time.sleep(delay_seconds)  # rate-limit guard
+    if len(tickers) == 1:
+        df = _standardize_columns(raw)
+        if not df.empty:
+            results[tickers[0]] = df
+    else:
+        for ticker in tickers:
+            try:
+                df = raw[ticker].dropna(how="all")
+                df = _standardize_columns(df)
+                if not df.empty:
+                    results[ticker] = df
+            except Exception:
+                pass
     return results
 
 

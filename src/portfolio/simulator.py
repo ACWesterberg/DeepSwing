@@ -131,6 +131,7 @@ class Portfolio:
         self.peak_equity = settings.starting_capital_sek
         self.open_positions: list[OpenPosition] = []
         self.closed_trades: list[ClosedTrade] = []
+        self.total_commission: float = 0.0
         self._next_trade_id = 1
 
     @property
@@ -165,15 +166,19 @@ class Portfolio:
         # Apply simulated slippage (adverse, so price moves against us)
         filled_price = entry_price * (1 + settings.simulated_slippage)
         cost = filled_price * quantity
+        commission = cost * settings.commission_pct
+        if market == "us":
+            commission += cost * settings.fx_commission_pct
 
-        if cost > self.cash:
+        if cost + commission > self.cash:
             logger.warning(
                 "[%s] Insufficient cash for %s: need %.2f, have %.2f",
-                self.track, ticker, cost, self.cash,
+                self.track, ticker, cost + commission, self.cash,
             )
             return None
 
-        self.cash -= cost
+        self.cash -= cost + commission
+        self.total_commission += commission
         position = OpenPosition(
             trade_id=self._next_trade_id,
             ticker=ticker,
@@ -216,7 +221,11 @@ class Portfolio:
         # Apply slippage (adverse for exit)
         filled_price = exit_price * (1 - settings.simulated_slippage)
         proceeds = filled_price * position.quantity
-        self.cash += proceeds
+        commission = proceeds * settings.commission_pct
+        if position.market == "us":
+            commission += proceeds * settings.fx_commission_pct
+        self.cash += proceeds - commission
+        self.total_commission += commission
         self.open_positions.remove(position)
 
         closed = ClosedTrade(
@@ -291,6 +300,7 @@ class Portfolio:
             "open_positions_value": round(sum(p.market_value for p in self.open_positions), 2),
             "open_positions_count": len(self.open_positions),
             "total_trades": len(self.closed_trades),
+            "total_commission": round(self.total_commission, 2),
             "drawdown_pct": round(self.drawdown * 100, 2),
             "is_drawdown_mode": self.is_drawdown_mode,
         }
