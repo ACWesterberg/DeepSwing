@@ -49,9 +49,8 @@ def analyze_news(
         return "No recent relevant news found."
 
     articles_text = "\n\n".join(
-        f"[{a.get('source', 'Unknown')} | {a.get('published', '?')}]\n"
-        f"Headline: {a.get('title', '')}\n"
-        f"Summary: {a.get('description') or a.get('summary', '')[:300]}"
+        f"[{a.get('source', 'Unknown')} | {a.get('published_at', '?')}]\n"
+        f"Headline: {a.get('headline', '')}"
         for a in relevant[:8]  # cap at 8 articles to control tokens
     )
 
@@ -81,11 +80,7 @@ def _prefilter(ticker: str, articles: list[dict]) -> list[dict]:
     ticker_base = ticker.split(".")[0].lower()
     relevant = []
     for article in articles:
-        text = (
-            (article.get("title") or "")
-            + " "
-            + (article.get("description") or article.get("summary") or "")
-        ).lower()
+        text = (article.get("headline") or "").lower()
 
         if ticker_base in text:
             relevant.append(article)
