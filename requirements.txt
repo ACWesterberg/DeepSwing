@@ -27,6 +27,7 @@ python-multipart>=0.0.9
 # Scheduling
 apscheduler>=3.10.4
 pytz>=2024.1
+exchange-calendars>=4.5
 
 # Config
 python-dotenv>=1.0.0
