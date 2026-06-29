@@ -66,6 +66,10 @@ async function refreshStatus() {
   nb.className = "badge " + (data.nordic_open ? "open" : "closed");
   ub.textContent = "US: " + (data.us_open ? "OPEN" : "CLOSED");
   ub.className = "badge " + (data.us_open ? "open" : "closed");
+
+  // Show warning banner if a track's API key is missing
+  const warn = document.getElementById("gpt-key-warning");
+  if (warn) warn.style.display = data.gpt_configured === false ? "block" : "none";
 }
 
 async function refreshComparison() {

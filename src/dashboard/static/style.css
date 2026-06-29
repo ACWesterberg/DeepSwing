@@ -52,7 +52,11 @@ header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.05em; }
   padding: 12px 24px 0;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+.tabs::-webkit-scrollbar { display: none; }
 
 .tab {
   background: none;
@@ -63,6 +67,8 @@ header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.05em; }
   border-bottom: 2px solid transparent;
   font-size: 13px;
   transition: color 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--text); border-bottom-color: var(--accent-claude); }
@@ -137,5 +143,39 @@ header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.05em; }
 }
 .heuristic-card .trigger { font-weight: 600; margin-bottom: 4px; }
 .heuristic-card .action { color: var(--text-muted); font-size: 13px; margin-bottom: 6px; }
-.heuristic-meta { display: flex; gap: 12px; font-size: 11px; color: var(--text-muted); }
+.heuristic-meta { display: flex; gap: 12px; font-size: 11px; color: var(--text-muted); flex-wrap: wrap; }
 .core-badge { background: #1a2a3a; color: var(--accent-gpt); padding: 1px 6px; border-radius: 10px; font-size: 10px; }
+
+/* Horizontal scroll for tables on narrow screens */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Warning banner (e.g. missing API key) */
+.warning-banner {
+  background: rgba(210, 153, 34, 0.12);
+  border: 1px solid var(--yellow);
+  color: var(--yellow);
+  border-radius: 6px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  display: none;
+}
+
+/* Mobile breakpoints */
+@media (max-width: 600px) {
+  header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 16px;
+  }
+  header h1 { width: 100%; }
+  #market-status { width: 100%; flex-wrap: wrap; }
+  .tab-content { padding: 12px; }
+  .panel { padding: 12px 14px; }
+  .snapshot-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .snapshot-item .value { font-size: 15px; }
+  .data-table th, .data-table td { padding: 6px 8px; font-size: 12px; }
+}

@@ -56,6 +56,8 @@ async def status():
         "nordic_open": is_market_open("nordic"),
         "us_open": is_market_open("us"),
         "tracks": settings.tracks,
+        "claude_configured": bool(settings.anthropic_api_key),
+        "gpt_configured": bool(settings.openai_api_key),
     }
 
 
