@@ -14,7 +14,7 @@ from starlette.requests import Request
 
 from config.settings import settings
 from src.portfolio.metrics import compute_metrics
-from src.portfolio.simulator import get_portfolio
+from src.portfolio.simulator import get_portfolio, reset_portfolios
 from src.scheduler.market_hours import active_markets, is_market_open
 from src.scheduler.scan_loop import run_scan, set_trade_event_handler
 
@@ -155,6 +155,42 @@ async def run_backtest(
     )
     result = await loop.run_in_executor(None, engine.run)
     return result.to_dict()
+
+
+@app.post("/api/reset")
+async def reset_simulation(tracks: list[str] | None = None):
+    """
+    Reset simulation state for the given tracks (default: all).
+    Clears in-memory portfolios and deletes all on-disk heuristic files.
+    """
+    import src.agent.memory as _memory
+    import shutil
+
+    target_tracks = tracks if tracks else list(settings.tracks)
+    invalid = [t for t in target_tracks if t not in settings.tracks]
+    if invalid:
+        return {"error": f"Unknown tracks: {invalid}"}
+
+    cleared: dict = {}
+    for track in target_tracks:
+        # Count and delete heuristic files
+        heuristic_dir = settings.heuristics_dir / track
+        heuristic_count = len(list(heuristic_dir.glob("*.json"))) if heuristic_dir.exists() else 0
+        if heuristic_dir.exists():
+            shutil.rmtree(heuristic_dir)
+            heuristic_dir.mkdir(parents=True, exist_ok=True)
+
+        # Clear cached heuristic store so next call rebuilds from empty dir
+        _memory._stores.pop(track, None)
+
+        cleared[track] = {"heuristics_deleted": heuristic_count}
+
+    # Reset all in-memory portfolios (even non-targeted ones get a fresh object on next access)
+    reset_portfolios()
+
+    await _broadcast({"event": "simulation_reset", "data": {"tracks": target_tracks}})
+    logger.info("Simulation reset for tracks: %s", target_tracks)
+    return {"reset": True, "tracks": target_tracks, "cleared": cleared}
 
 
 @app.post("/api/scan/{market}")
