@@ -10,6 +10,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from starlette.requests import Request
 
 from config.settings import settings
@@ -157,16 +158,24 @@ async def run_backtest(
     return result.to_dict()
 
 
+class _ResetRequest(BaseModel):
+    pin: str
+    tracks: list[str] | None = None
+
+
 @app.post("/api/reset")
-async def reset_simulation(tracks: list[str] | None = None):
+async def reset_simulation(body: _ResetRequest):
     """
     Reset simulation state for the given tracks (default: all).
-    Clears in-memory portfolios and deletes all on-disk heuristic files.
+    Requires the correct PIN. Clears in-memory portfolios and all heuristic files.
     """
     import src.agent.memory as _memory
     import shutil
 
-    target_tracks = tracks if tracks else list(settings.tracks)
+    if body.pin != settings.reset_pin:
+        return {"error": "Invalid PIN"}
+
+    target_tracks = body.tracks if body.tracks else list(settings.tracks)
     invalid = [t for t in target_tracks if t not in settings.tracks]
     if invalid:
         return {"error": f"Unknown tracks: {invalid}"}

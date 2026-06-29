@@ -10,6 +10,9 @@ import src.agent.memory as _memory_module
 from config.settings import settings
 from src.portfolio.simulator import get_portfolio, reset_portfolios
 
+CORRECT_PIN = settings.reset_pin
+WRONG_PIN = "0000"
+
 
 @pytest.fixture(autouse=True)
 def _clean(tmp_path, monkeypatch):
@@ -21,8 +24,10 @@ def _clean(tmp_path, monkeypatch):
     _memory_module._stores.clear()
 
 
-def _do_reset(tmp_path: Path, tracks=("claude", "gpt")):
-    """Replicate the reset logic from the /api/reset endpoint."""
+def _do_reset(tmp_path: Path, tracks=("claude", "gpt"), pin: str = CORRECT_PIN):
+    """Replicate the reset logic from the /api/reset endpoint, including PIN check."""
+    if pin != settings.reset_pin:
+        return {"error": "Invalid PIN"}
     cleared = {}
     for track in tracks:
         heuristic_dir = tmp_path / track
@@ -132,3 +137,43 @@ class TestResetBehavior:
         _do_reset(settings.heuristics_dir)
         p = get_portfolio("claude")
         assert p.is_drawdown_mode is False
+
+
+class TestResetPin:
+    def test_correct_pin_allows_reset(self, tmp_path):
+        result = _do_reset(tmp_path, pin=CORRECT_PIN)
+        assert "error" not in result
+
+    def test_wrong_pin_is_rejected(self, tmp_path):
+        result = _do_reset(tmp_path, pin=WRONG_PIN)
+        assert result == {"error": "Invalid PIN"}
+
+    def test_wrong_pin_does_not_clear_portfolios(self, tmp_path):
+        portfolio = get_portfolio("claude")
+        portfolio.open_trade(
+            ticker="AAPL", market="us", quantity=5.0, entry_price=100.0,
+            stop_loss=95.0, target=115.0, regime="trending",
+            reasoning="test", confidence=0.8,
+        )
+        cash_before = portfolio.cash
+
+        _do_reset(tmp_path, pin=WRONG_PIN)
+
+        # Portfolio unchanged — wrong PIN should not have reset anything
+        same_portfolio = get_portfolio("claude")
+        assert same_portfolio.cash == pytest.approx(cash_before, rel=1e-6)
+
+    def test_wrong_pin_does_not_delete_heuristics(self, tmp_path):
+        from src.agent.memory import get_store
+        get_store("claude").save(trigger="IF X", action="DO Y", quality_score=6.0)
+
+        _do_reset(tmp_path, pin=WRONG_PIN)
+
+        assert len(list((tmp_path / "claude").glob("*.json"))) == 1
+
+    def test_empty_pin_is_rejected(self, tmp_path):
+        result = _do_reset(tmp_path, pin="")
+        assert result == {"error": "Invalid PIN"}
+
+    def test_pin_is_from_settings(self):
+        assert settings.reset_pin == "3821"

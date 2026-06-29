@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     vix_halt_threshold: float = 35.0   # halt new entries when VIX >= this
     simulated_slippage: float = 0.0005     # 0.05%
 
+    # Dashboard security
+    reset_pin: str = "3821"
+
     # Screener thresholds
     rsi_min: float = 40.0
     rsi_max: float = 65.0

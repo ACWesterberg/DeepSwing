@@ -186,17 +186,22 @@ async function fetchJSON(url) {
 
 // Reset button
 document.getElementById("reset-btn").addEventListener("click", async () => {
-  if (!confirm("Reset BOTH tracks to zero?\n\nThis clears all trades, positions, and heuristics for Claude and GPT. This cannot be undone.")) return;
-  const r = await fetch("/api/reset", { method: "POST" });
-  if (r.ok) {
-    const data = await r.json();
+  const pin = prompt("Enter PIN to reset both tracks:");
+  if (pin === null) return;  // cancelled
+  const r = await fetch("/api/reset", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pin }),
+  });
+  const data = await r.json();
+  if (data.reset) {
     const summary = Object.entries(data.cleared)
       .map(([t, c]) => `${t}: ${c.heuristics_deleted} heuristics deleted`)
       .join("\n");
     alert("Simulation reset.\n" + summary);
     refreshAll();
   } else {
-    alert("Reset failed — check server logs.");
+    alert(data.error || "Reset failed — check server logs.");
   }
 });
 
