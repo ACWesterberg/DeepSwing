@@ -23,6 +23,30 @@ logger = logging.getLogger(__name__)
 
 MarketType = Literal["nordic", "us"]
 
+# Optional financedata integrations — gracefully absent until installed on the Pi
+try:
+    from financedata.live import get_live_prices as _get_live_prices
+    _HAS_LIVE = True
+except ImportError:
+    _HAS_LIVE = False
+
+try:
+    from financedata.fx import to_sek as _to_sek_fn
+    _HAS_FX = True
+except ImportError:
+    _HAS_FX = False
+
+
+def _to_sek_price(price: float, market: str) -> float:
+    """Convert a price to SEK. Nordic prices are already in SEK; US prices are in USD."""
+    if market == "nordic" or not _HAS_FX:
+        return price
+    sek = _to_sek_fn(price, "USD")
+    if sek is None:
+        logger.warning("USD→SEK FX rate unavailable; using raw USD price %.4f", price)
+        return price
+    return sek
+
 # Optional callback for pushing trade events to the dashboard WebSocket.
 # Injected by app.py on startup; called synchronously from the scan loop thread.
 _on_trade_event: Optional[Callable[[dict], None]] = None
@@ -139,6 +163,11 @@ def run_scan(market: MarketType) -> dict:
                 decisions_log.append({"track": track, "ticker": candidate.ticker, "action": decision.get("action", "HOLD") if decision else "ERROR"})
                 continue
 
+            # Convert prices to SEK (US prices come in USD; Nordic already in SEK)
+            entry_sek = _to_sek_price(candidate.signals.current_price, market)
+            stop_sek = _to_sek_price(decision["stop_loss"], market)
+            target_sek = _to_sek_price(decision["target"], market)
+
             # Risk validation
             open_pos_info = [
                 {"ticker": p.ticker, "sector": p.sector}
@@ -146,9 +175,9 @@ def run_scan(market: MarketType) -> dict:
             ]
             risk = validate_trade(
                 action="BUY",
-                entry_price=candidate.signals.current_price,
-                stop_loss=decision["stop_loss"],
-                target=decision["target"],
+                entry_price=entry_sek,
+                stop_loss=stop_sek,
+                target=target_sek,
                 portfolio_equity=portfolio.equity,
                 open_positions=open_pos_info,
                 signals=candidate.signals,
@@ -171,9 +200,9 @@ def run_scan(market: MarketType) -> dict:
                 ticker=candidate.ticker,
                 market=market,
                 quantity=risk.quantity,
-                entry_price=candidate.signals.current_price,
-                stop_loss=decision["stop_loss"],
-                target=decision["target"],
+                entry_price=entry_sek,
+                stop_loss=stop_sek,
+                target=target_sek,
                 regime=candidate.regime.regime,
                 reasoning=decision["reasoning"],
                 confidence=decision["confidence"],
@@ -187,8 +216,8 @@ def run_scan(market: MarketType) -> dict:
                     "ticker": candidate.ticker,
                     "action": "BUY",
                     "entry_price": position.entry_price,
-                    "stop_loss": decision["stop_loss"],
-                    "target": decision["target"],
+                    "stop_loss": stop_sek,
+                    "target": target_sek,
                     "confidence": decision["confidence"],
                     "rrr": risk.rrr,
                     "sector": sector,
@@ -227,11 +256,25 @@ def run_scan(market: MarketType) -> dict:
 
 
 def _get_current_prices(tickers: list[str], market: str) -> dict[str, float]:
+    if not tickers:
+        return {}
+    if _HAS_LIVE:
+        yf_tickers = [t.replace(".STO", ".ST") if market == "nordic" else t for t in tickers]
+        ticker_map = dict(zip(yf_tickers, tickers))
+        try:
+            raw = _get_live_prices(yf_tickers)
+            return {
+                ticker_map[yf]: _to_sek_price(price, market)
+                for yf, price in raw.items()
+                if price is not None and yf in ticker_map
+            }
+        except Exception as exc:
+            logger.warning("get_live_prices failed, falling back: %s", exc)
     prices: dict[str, float] = {}
     for ticker in tickers:
         price = get_current_price(ticker, market)
         if price is not None:
-            prices[ticker] = price
+            prices[ticker] = _to_sek_price(price, market)
     return prices
 
 

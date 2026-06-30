@@ -14,6 +14,7 @@
       <span id="nordic-status" class="badge">Nordic: —</span>
       <span id="us-status" class="badge">US: —</span>
       <span id="last-update"></span>
+      <button id="reset-btn" class="reset-btn" title="Reset both tracks to starting state">Reset Sim</button>
     </div>
   </header>
 
@@ -33,16 +34,18 @@
     </div>
     <div class="panel">
       <h2>Head-to-Head Metrics</h2>
-      <table id="comparison-table">
-        <thead>
-          <tr>
-            <th>Metric</th>
-            <th>Claude</th>
-            <th>GPT</th>
-          </tr>
-        </thead>
-        <tbody id="comparison-tbody"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table id="comparison-table">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Claude</th>
+              <th>GPT</th>
+            </tr>
+          </thead>
+          <tbody id="comparison-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -54,38 +57,50 @@
     </div>
     <div class="panel">
       <h2>Open Positions</h2>
-      <table class="data-table">
-        <thead><tr><th>Ticker</th><th>Entry</th><th>Current</th><th>P&L%</th><th>Stop</th><th>Target</th><th>Days</th></tr></thead>
-        <tbody id="claude-positions"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Ticker</th><th>Entry</th><th>Current</th><th>P&L%</th><th>Stop</th><th>Target</th><th>Days</th></tr></thead>
+          <tbody id="claude-positions"></tbody>
+        </table>
+      </div>
     </div>
     <div class="panel">
       <h2>Trade History</h2>
-      <table class="data-table">
-        <thead><tr><th>Ticker</th><th>P&L%</th><th>RRR</th><th>Duration</th><th>Regime</th><th>Exit Reason</th></tr></thead>
-        <tbody id="claude-trades"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Ticker</th><th>P&L%</th><th>RRR</th><th>Duration</th><th>Regime</th><th>Exit Reason</th></tr></thead>
+          <tbody id="claude-trades"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
   <div id="tab-gpt" class="tab-content">
+    <div id="gpt-key-warning" class="warning-banner">
+      ⚠ OpenAI API key not configured — GPT track will not make trading decisions.
+      Add <code>OPENAI_API_KEY</code> to your <code>.env</code> file and restart.
+    </div>
     <div class="panel">
       <h2>Portfolio — GPT Track</h2>
       <div id="gpt-snapshot" class="snapshot-grid"></div>
     </div>
     <div class="panel">
       <h2>Open Positions</h2>
-      <table class="data-table">
-        <thead><tr><th>Ticker</th><th>Entry</th><th>Current</th><th>P&L%</th><th>Stop</th><th>Target</th><th>Days</th></tr></thead>
-        <tbody id="gpt-positions"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Ticker</th><th>Entry</th><th>Current</th><th>P&L%</th><th>Stop</th><th>Target</th><th>Days</th></tr></thead>
+          <tbody id="gpt-positions"></tbody>
+        </table>
+      </div>
     </div>
     <div class="panel">
       <h2>Trade History</h2>
-      <table class="data-table">
-        <thead><tr><th>Ticker</th><th>P&L%</th><th>RRR</th><th>Duration</th><th>Regime</th><th>Exit Reason</th></tr></thead>
-        <tbody id="gpt-trades"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Ticker</th><th>P&L%</th><th>RRR</th><th>Duration</th><th>Regime</th><th>Exit Reason</th></tr></thead>
+          <tbody id="gpt-trades"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 

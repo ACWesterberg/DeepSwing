@@ -66,6 +66,10 @@ async function refreshStatus() {
   nb.className = "badge " + (data.nordic_open ? "open" : "closed");
   ub.textContent = "US: " + (data.us_open ? "OPEN" : "CLOSED");
   ub.className = "badge " + (data.us_open ? "open" : "closed");
+
+  // Show warning banner if a track's API key is missing
+  const warn = document.getElementById("gpt-key-warning");
+  if (warn) warn.style.display = data.gpt_configured === false ? "block" : "none";
 }
 
 async function refreshComparison() {
@@ -179,6 +183,27 @@ async function fetchJSON(url) {
     return r.ok ? r.json() : null;
   } catch { return null; }
 }
+
+// Reset button
+document.getElementById("reset-btn").addEventListener("click", async () => {
+  const pin = prompt("Enter PIN to reset both tracks:");
+  if (pin === null) return;  // cancelled
+  const r = await fetch("/api/reset", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pin }),
+  });
+  const data = await r.json();
+  if (data.reset) {
+    const summary = Object.entries(data.cleared)
+      .map(([t, c]) => `${t}: ${c.heuristics_deleted} heuristics deleted`)
+      .join("\n");
+    alert("Simulation reset.\n" + summary);
+    refreshAll();
+  } else {
+    alert(data.error || "Reset failed — check server logs.");
+  }
+});
 
 // Initial load + refresh every 60s
 refreshAll();

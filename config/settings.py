@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     commission_pct: float = 0.001          # 0.10% per trade leg (buy + sell)
     fx_commission_pct: float = 0.001       # 0.10% extra on USD/EUR legs (US market)
 
+    # Dashboard security
+    reset_pin: str = "3821"
+
     # Screener thresholds
     rsi_min: float = 40.0
     rsi_max: float = 65.0
