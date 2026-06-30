@@ -30,26 +30,43 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="DeepSwing Dashboard", version="1.0.0")
 
 
-class _BasicAuthMiddleware(BaseHTTPMiddleware):
+_SESSION_COOKIE = "ds_session"
+
+
+def _valid_session(request: Request) -> bool:
+    """Return True if the request carries a valid session cookie."""
+    token = request.cookies.get(_SESSION_COOKIE, "")
+    return bool(token) and secrets.compare_digest(token, settings.dashboard_password)
+
+
+class _AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if not settings.dashboard_password:
             return await call_next(request)
-        auth = request.headers.get("Authorization", "")
-        if auth.startswith("Basic "):
-            try:
-                user, pwd = base64.b64decode(auth[6:]).decode().split(":", 1)
-                if secrets.compare_digest(user, settings.dashboard_user) and \
-                   secrets.compare_digest(pwd, settings.dashboard_password):
-                    return await call_next(request)
-            except Exception:
-                pass
+
+        path = request.url.path
+
+        # Always allow static assets and the login form itself
+        if path.startswith("/static/") or path == "/login":
+            return await call_next(request)
+
+        # WebSocket: check cookie in query param fallback (browser can't set headers on WS)
+        if path == "/ws":
+            if _valid_session(request):
+                return await call_next(request)
+            return Response("Unauthorized", status_code=401)
+
+        # All other routes: valid session cookie lets you through
+        if _valid_session(request):
+            return await call_next(request)
+
+        # No valid session — send to login page
         return Response(
-            "Unauthorized",
-            status_code=401,
-            headers={"WWW-Authenticate": 'Basic realm="DeepSwing"'},
+            status_code=302,
+            headers={"Location": "/login"},
         )
 
-app.add_middleware(_BasicAuthMiddleware)
+app.add_middleware(_AuthMiddleware)
 
 _template_dir = str(__file__).replace("app.py", "templates")
 _static_dir = str(__file__).replace("app.py", "static")
@@ -70,6 +87,45 @@ async def _register_trade_event_handler() -> None:
         asyncio.run_coroutine_threadsafe(_broadcast(event), loop)
 
     set_trade_event_handler(_sync_emit)
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page():
+    return HTMLResponse("""<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>DeepSwing — Login</title>
+<style>
+body{background:#0d1117;color:#e6edf3;font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+form{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:32px;display:flex;flex-direction:column;gap:14px;width:280px}
+h2{margin:0;font-size:18px;text-align:center}
+input{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px 10px;color:#e6edf3;font-size:14px;outline:none}
+input:focus{border-color:#7c3aed}
+button{background:#7c3aed;border:none;border-radius:6px;padding:9px;color:#fff;font-size:14px;cursor:pointer}
+button:hover{background:#6d28d9}
+.err{color:#f85149;font-size:13px;text-align:center;display:none}
+</style></head>
+<body><form method="POST" action="/login">
+<h2>DeepSwing</h2>
+<input name="password" type="password" placeholder="Password" autofocus autocomplete="current-password"/>
+<button type="submit">Sign in</button>
+<div class="err" id="e"></div>
+</form></body></html>""")
+
+
+@app.post("/login")
+async def login(request: Request):
+    form = await request.form()
+    pwd = form.get("password", "")
+    if settings.dashboard_password and secrets.compare_digest(str(pwd), settings.dashboard_password):
+        resp = Response(status_code=302, headers={"Location": "/"})
+        resp.set_cookie(
+            _SESSION_COOKIE,
+            settings.dashboard_password,
+            httponly=True,
+            samesite="lax",
+            max_age=60 * 60 * 24 * 30,  # 30 days
+        )
+        return resp
+    return Response(status_code=302, headers={"Location": "/login?err=1"})
 
 
 @app.get("/", response_class=HTMLResponse)
