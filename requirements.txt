@@ -1,6 +1,6 @@
 # financedata is installed separately (shared local library — not on PyPI yet).
 # Local:  pip install -e ../FinanceData
-# Pi:     handled in deploy/deploy.sh
+# Pi:     pip install -e ../FinanceData  (handled in deploy/deploy.sh)
 
 # AI / LLM
 anthropic>=0.40.0
