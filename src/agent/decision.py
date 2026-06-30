@@ -12,14 +12,16 @@ from src.analysis.screener import ScreenerCandidate
 logger = logging.getLogger(__name__)
 
 TrackType = Literal["claude", "gpt"]
-ActionType = Literal["BUY", "SELL", "HOLD"]
+ActionType = Literal["BUY", "PASS"]
 
 
 class TradeDecision(dspy.Signature):
     """
-    Analyze a stock setup as an experienced swing trader and decide whether to buy, sell, or hold.
-    You must justify every output with specific references to the provided data.
-    Return HOLD unless there is a high-conviction setup with clear risk/reward.
+    You are evaluating a stock as a potential LONG ENTRY for swing trading.
+    We do not currently own this stock. The only question is: should we open a position?
+
+    Return BUY only if there is a high-conviction bullish setup with clear risk/reward.
+    Return PASS if the setup is unclear, bearish, or does not meet the criteria.
 
     If action is BUY, you MUST ensure the risk/reward ratio (RRR) is at least 2.0:
       RRR = (target - entry) / (entry - stop_loss) >= 2.0
@@ -32,8 +34,8 @@ class TradeDecision(dspy.Signature):
     macro_context: str = dspy.InputField(desc="Macro economic context relevant to this trade")
     heuristics: str = dspy.InputField(desc="Relevant learned rules from past trades")
 
-    action: Literal["BUY", "SELL", "HOLD"] = dspy.OutputField(
-        desc="Trading decision: BUY (enter long), SELL (exit/short), or HOLD (no action)"
+    action: Literal["BUY", "PASS"] = dspy.OutputField(
+        desc="BUY to open a long position, or PASS to skip this stock"
     )
     confidence: float = dspy.OutputField(
         desc="Confidence in the decision from 0.0 (no confidence) to 1.0 (maximum confidence)"
@@ -124,9 +126,10 @@ class DecisionEngine:
                 )
 
             action = str(result.action).upper()
-            if action not in ("BUY", "SELL", "HOLD"):
-                logger.warning("Invalid action '%s' from %s track — defaulting to HOLD", action, self.track)
-                action = "HOLD"
+            if action not in ("BUY", "PASS"):
+                # Model may still output HOLD/SELL from training — treat as PASS
+                logger.debug("Mapping action '%s' → PASS for %s/%s", action, self.track, candidate.ticker)
+                action = "PASS"
 
             confidence = _clamp(float(result.confidence), 0.0, 1.0)
             stop_loss = float(result.stop_loss)

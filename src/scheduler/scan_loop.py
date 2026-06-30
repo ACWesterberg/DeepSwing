@@ -205,7 +205,7 @@ def run_scan(market: MarketType) -> dict:
                 decisions_log.append({
                     "track": track,
                     "ticker": candidate.ticker,
-                    "action": decision.get("action", "HOLD") if decision else "ERROR",
+                    "action": decision.get("action", "PASS") if decision else "ERROR",
                     "confidence": round(decision.get("confidence", 0.0), 2) if decision else 0.0,
                     "reasoning": decision.get("reasoning", "") if decision else "",
                     "regime": candidate.regime.regime,
