@@ -357,7 +357,13 @@ def run_scan(market: MarketType) -> dict:
     # --- Update open positions and trigger ERL for closed trades ---
     for track in settings.tracks:
         portfolio = get_portfolio(track)
-        current_prices = _get_current_prices(portfolio.get_open_tickers(), market)
+        # Fetch prices per position's own market — mixing markets here causes wrong FX conversion
+        positions_by_market: dict[str, list[str]] = {}
+        for p in portfolio.open_positions:
+            positions_by_market.setdefault(p.market, []).append(p.ticker)
+        current_prices: dict[str, float] = {}
+        for pos_market, pos_tickers in positions_by_market.items():
+            current_prices.update(_get_current_prices(pos_tickers, pos_market))
         closed_trades = portfolio.update_prices(current_prices)
 
         for closed in closed_trades:
