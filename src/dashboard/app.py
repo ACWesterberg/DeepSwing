@@ -50,17 +50,15 @@ class _AuthMiddleware(BaseHTTPMiddleware):
         if path.startswith("/static/") or path == "/login":
             return await call_next(request)
 
-        # WebSocket: check cookie in query param fallback (browser can't set headers on WS)
-        if path == "/ws":
-            if _valid_session(request):
-                return await call_next(request)
-            return Response("Unauthorized", status_code=401)
-
-        # All other routes: valid session cookie lets you through
+        # Valid session cookie — let everything through
         if _valid_session(request):
             return await call_next(request)
 
-        # No valid session — send to login page
+        # API calls and WebSocket get 401 (not a redirect — JS can't follow login redirects)
+        if path.startswith("/api/") or path == "/ws":
+            return Response("Unauthorized", status_code=401)
+
+        # Browser navigation — redirect to login page
         return Response(
             status_code=302,
             headers={"Location": "/login"},
