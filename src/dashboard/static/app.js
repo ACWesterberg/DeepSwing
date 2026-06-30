@@ -261,6 +261,29 @@ async function fetchJSON(url) {
 }
 
 // Reset button
+async function runScan(market) {
+  const btn = document.getElementById(`scan-${market}-btn`);
+  const orig = btn.textContent;
+  btn.textContent = "Scanning…";
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/api/scan/${market}`, { method: "POST" });
+    const data = await r.json();
+    const count = data.decisions?.length ?? 0;
+    const candidates = data.candidates?.length ?? 0;
+    alert(`${market.toUpperCase()} scan complete.\n${candidates} candidate(s), ${count} decision(s).`);
+    refreshAll();
+  } catch (e) {
+    alert("Scan failed — check server logs.");
+  } finally {
+    btn.textContent = orig;
+    btn.disabled = false;
+  }
+}
+
+document.getElementById("scan-nordic-btn").addEventListener("click", () => runScan("nordic"));
+document.getElementById("scan-us-btn").addEventListener("click", () => runScan("us"));
+
 document.getElementById("reset-btn").addEventListener("click", async () => {
   const pin = prompt("Enter PIN to reset both tracks:");
   if (pin === null) return;  // cancelled
