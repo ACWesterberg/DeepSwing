@@ -37,6 +37,11 @@ for _mod in [
     "feedparser",
     "newsapi",
     "newsapi.newsapi_client",
+    # financedata shared library (installed on Pi, absent in CI)
+    "financedata",
+    "financedata.live",
+    "financedata.fx",
+    "financedata.cache",
 ]:
     if _mod not in sys.modules:
         sys.modules[_mod] = _stub(_mod)
