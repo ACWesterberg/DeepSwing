@@ -69,11 +69,13 @@ SCAN_PATCHES = [
     "src.scheduler.scan_loop.get_decision",
     "src.scheduler.scan_loop.get_sector",
     "src.scheduler.scan_loop.get_current_price",
+    "src.scheduler.scan_loop._get_current_prices",
     "src.scheduler.scan_loop.run_erl",
     "src.scheduler.scan_loop.get_vix",
     "src.scheduler.scan_loop.screen_candidates",
     "src.scheduler.scan_loop.compute_signals",
     "src.scheduler.scan_loop.classify_regime",
+    "src.scheduler.scan_loop._to_sek_price",
 ]
 
 
@@ -99,6 +101,12 @@ def _apply_patches(patches: list, **overrides):
     started["compute_signals"].return_value = _make_signals("AAPL")
     started["classify_regime"].return_value = _make_regime()
     started["get_decision"].return_value = _buy_decision(100.0)
+    # Pass prices through unchanged — FX conversion tested separately in TestToSekPrice
+    started["_to_sek_price"].side_effect = lambda price, market: price
+    # Use the mocked get_current_price value so tests can control stop-hit behaviour
+    started["_get_current_prices"].side_effect = (
+        lambda tickers, market: {t: started["get_current_price"].return_value for t in tickers}
+    )
 
     for key, val in overrides.items():
         started[key].return_value = val

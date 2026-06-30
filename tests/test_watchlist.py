@@ -1,79 +1,116 @@
 from __future__ import annotations
 
+import csv
+import io
+from unittest.mock import patch
+
 import pytest
 
-from src.data.watchlist import _parse_nasdaq_nordic_html, _parse_wikipedia_html
+from src.data.universe import get_nordic_tickers, get_sector_from_universe
+from src.data.watchlist import get_omxs30_tickers
 
 
-class TestParseNasdaqNordicHtml:
-    def test_extracts_ticker_from_td(self):
-        html = "<table><tr><td>ERIC-B</td><td>Ericsson</td></tr></table>"
-        result = _parse_nasdaq_nordic_html(html)
-        assert "ERIC-B.STO" in result
-
-    def test_skips_html_tag_names(self):
-        html = "<table><tr><td>TD</td><td>TR</td><td>SAND</td></tr></table>"
-        result = _parse_nasdaq_nordic_html(html)
-        assert "TD.STO" not in result
-        assert "TR.STO" not in result
-
-    def test_deduplicates_tickers(self):
-        html = "<table><tr><td>ERIC-B</td><td>ERIC-B</td><td>VOLV-B</td></tr></table>"
-        result = _parse_nasdaq_nordic_html(html)
-        assert result.count("ERIC-B.STO") == 1
-
-    def test_empty_html_returns_empty(self):
-        assert _parse_nasdaq_nordic_html("") == []
-
-    def test_all_results_have_sto_suffix(self):
-        html = "<table><tr><td>SAND</td><td>SEB-A</td></tr></table>"
-        result = _parse_nasdaq_nordic_html(html)
-        assert all(r.endswith(".STO") for r in result)
-
-    def test_caps_at_35(self):
-        tickers = " ".join(f"<td>T{i:02d}</td>" for i in range(50))
-        html = f"<table><tr>{tickers}</tr></table>"
-        result = _parse_nasdaq_nordic_html(html)
-        assert len(result) <= 35
+def _write_universe(path, rows: list[dict]) -> None:
+    fieldnames = ["yahoo_ticker", "exchange", "enabled", "sector", "name"]
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({k: row.get(k, "") for k in fieldnames})
 
 
-class TestParseWikipediaHtml:
-    def _make_wiki_table(self, rows: list[str]) -> str:
-        rows_html = "\n".join(f"<tr>{r}</tr>" for r in rows)
-        return f'<table class="wikitable sortable">{rows_html}</table>'
+@pytest.fixture(autouse=True)
+def _clear_cache():
+    from src.data.universe import _load_rows
+    _load_rows.cache_clear()
+    yield
+    _load_rows.cache_clear()
 
-    def test_extracts_linked_ticker(self):
-        html = self._make_wiki_table([
-            '<td><a href="/wiki/Ericsson">ERIC-B</a></td>'
+
+class TestGetNordicTickersFromUniverse:
+    """Tests for universe.get_nordic_tickers() — the core filtering logic."""
+
+    def test_returns_enabled_omxs_tickers(self, tmp_path):
+        _write_universe(tmp_path / "universe.csv", [
+            {"yahoo_ticker": "ERIC-B.ST", "exchange": "OMXS", "enabled": "true"},
+            {"yahoo_ticker": "VOLV-B.ST", "exchange": "OMXS", "enabled": "true"},
+            {"yahoo_ticker": "HIDDEN.ST", "exchange": "OMXS", "enabled": "false"},
         ])
-        result = _parse_wikipedia_html(html)
-        assert "ERIC-B.STO" in result
+        with patch("src.data.universe.UNIVERSE_PATH", tmp_path / "universe.csv"):
+            result = get_nordic_tickers()
+        assert "ERIC-B.ST" in result
+        assert "VOLV-B.ST" in result
+        assert "HIDDEN.ST" not in result
 
-    def test_extracts_plain_ticker_cell(self):
-        html = self._make_wiki_table(["<td>VOLV-B</td>"])
-        result = _parse_wikipedia_html(html)
-        assert "VOLV-B.STO" in result
+    def test_excludes_non_main_board_exchanges(self, tmp_path):
+        _write_universe(tmp_path / "universe.csv", [
+            {"yahoo_ticker": "MAIN.ST", "exchange": "OMXS", "enabled": "true"},
+            {"yahoo_ticker": "SMALL.ST", "exchange": "FIRST_NORTH", "enabled": "true"},
+        ])
+        with patch("src.data.universe.UNIVERSE_PATH", tmp_path / "universe.csv"):
+            result = get_nordic_tickers()
+        assert "MAIN.ST" in result
+        assert "SMALL.ST" not in result
 
-    def test_rejects_non_ticker_content(self):
-        html = self._make_wiki_table(["<td>This is a description with words</td>"])
-        result = _parse_wikipedia_html(html)
+    def test_includes_all_supported_nordic_exchanges(self, tmp_path):
+        _write_universe(tmp_path / "universe.csv", [
+            {"yahoo_ticker": "SE.ST", "exchange": "OMXS", "enabled": "true"},
+            {"yahoo_ticker": "NO.OL", "exchange": "OSLO", "enabled": "true"},
+            {"yahoo_ticker": "FI.HE", "exchange": "OMXH", "enabled": "true"},
+            {"yahoo_ticker": "DK.CO", "exchange": "OMXC", "enabled": "true"},
+        ])
+        with patch("src.data.universe.UNIVERSE_PATH", tmp_path / "universe.csv"):
+            result = get_nordic_tickers()
+        assert set(result) == {"SE.ST", "NO.OL", "FI.HE", "DK.CO"}
+
+    def test_empty_csv_returns_empty(self, tmp_path):
+        _write_universe(tmp_path / "universe.csv", [])
+        with patch("src.data.universe.UNIVERSE_PATH", tmp_path / "universe.csv"):
+            result = get_nordic_tickers()
         assert result == []
 
-    def test_no_table_returns_empty(self):
-        assert _parse_wikipedia_html("<html><body>no table</body></html>") == []
 
-    def test_deduplicates(self):
-        html = self._make_wiki_table([
-            '<td><a href="#">SAND</a></td>',
-            '<td><a href="#">SAND</a></td>',
+class TestGetSectorFromUniverse:
+    def test_returns_sector_for_known_ticker(self, tmp_path):
+        _write_universe(tmp_path / "universe.csv", [
+            {"yahoo_ticker": "ERIC-B.ST", "exchange": "OMXS", "enabled": "true", "sector": "Technology"},
         ])
-        result = _parse_wikipedia_html(html)
-        assert result.count("SAND.STO") == 1
+        with patch("src.data.universe.UNIVERSE_PATH", tmp_path / "universe.csv"):
+            assert get_sector_from_universe("ERIC-B.ST") == "Technology"
 
-    def test_all_results_have_sto_suffix(self):
-        html = self._make_wiki_table([
-            '<td><a href="#">HEXA-B</a></td>',
-            '<td><a href="#">SEB-A</a></td>',
+    def test_returns_none_for_unknown_ticker(self, tmp_path):
+        _write_universe(tmp_path / "universe.csv", [])
+        with patch("src.data.universe.UNIVERSE_PATH", tmp_path / "universe.csv"):
+            assert get_sector_from_universe("UNKNOWN.ST") is None
+
+
+class TestGetOmxs30TickersFallback:
+    """Tests for watchlist.get_omxs30_tickers() — specifically the fallback behaviour."""
+
+    def test_falls_back_to_hardcoded_list_on_missing_file(self, tmp_path):
+        missing = tmp_path / "nonexistent.csv"
+        with patch("src.data.universe.UNIVERSE_PATH", missing):
+            result = get_omxs30_tickers()
+        assert len(result) >= 20
+        assert all(isinstance(t, str) for t in result)
+
+    def test_falls_back_when_universe_returns_fewer_than_20_tickers(self, tmp_path):
+        _write_universe(tmp_path / "universe.csv", [
+            {"yahoo_ticker": f"T{i}.ST", "exchange": "OMXS", "enabled": "true"}
+            for i in range(5)
         ])
-        result = _parse_wikipedia_html(html)
-        assert all(r.endswith(".STO") for r in result)
+        with patch("src.data.universe.UNIVERSE_PATH", tmp_path / "universe.csv"):
+            result = get_omxs30_tickers()
+        # Falls back to hardcoded list
+        assert len(result) >= 20
+
+    def test_uses_universe_when_20_or_more_tickers(self, tmp_path):
+        rows = [
+            {"yahoo_ticker": f"T{i:02d}.ST", "exchange": "OMXS", "enabled": "true"}
+            for i in range(25)
+        ]
+        _write_universe(tmp_path / "universe.csv", rows)
+        with patch("src.data.universe.UNIVERSE_PATH", tmp_path / "universe.csv"):
+            result = get_omxs30_tickers()
+        assert len(result) == 25
+        assert "T00.ST" in result

@@ -114,14 +114,14 @@ class DecisionEngine:
             return None
 
         try:
-            dspy.configure(lm=self._lm)
-            result = self._program(
-                technicals=candidate.signals.to_prompt_str(),
-                regime=candidate.regime.to_prompt_str(),
-                news_summary=news_summary or "No recent news available.",
-                macro_context=macro_context or "No macro data available.",
-                heuristics=heuristics_text or "No relevant heuristics yet.",
-            )
+            with dspy.context(lm=self._lm):
+                result = self._program(
+                    technicals=candidate.signals.to_prompt_str(),
+                    regime=candidate.regime.to_prompt_str(),
+                    news_summary=news_summary or "No recent news available.",
+                    macro_context=macro_context or "No macro data available.",
+                    heuristics=heuristics_text or "No relevant heuristics yet.",
+                )
 
             action = str(result.action).upper()
             if action not in ("BUY", "SELL", "HOLD"):
