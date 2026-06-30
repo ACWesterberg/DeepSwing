@@ -4,6 +4,7 @@ import logging
 
 from config.settings import settings
 from src.data.universe import get_nordic_tickers as _universe_nordic
+from src.data.universe import get_us_tickers as _universe_us
 
 logger = logging.getLogger(__name__)
 
@@ -26,3 +27,19 @@ def get_omxs30_tickers() -> list[str]:
     except Exception as exc:
         logger.warning("universe.csv load failed: %s — using hardcoded fallback", exc)
     return _FALLBACK
+
+
+def get_us_tickers() -> list[str]:
+    """
+    Return the US watchlist from universe_global.csv (NYSE + NASDAQ enabled stocks).
+    Falls back to the hardcoded settings list if the universe file is unavailable.
+    """
+    try:
+        tickers = _universe_us()
+        if len(tickers) >= 50:
+            logger.debug("US watchlist: %d tickers from universe_global.csv", len(tickers))
+            return tickers
+        logger.warning("Universe returned only %d US tickers — using fallback", len(tickers))
+    except Exception as exc:
+        logger.warning("universe_global.csv load failed: %s — using hardcoded fallback", exc)
+    return settings.us_watchlist

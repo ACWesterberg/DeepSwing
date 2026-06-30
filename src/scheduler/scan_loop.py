@@ -16,7 +16,7 @@ from src.analysis.technical import compute_signals
 from src.data.insider_fetcher import get_insider_summary
 from src.data.macro_data import get_macro_context
 from src.data.market_data import fetch_batch_nordic, fetch_batch_us, get_current_price, get_sector, get_vix
-from src.data.watchlist import get_omxs30_tickers
+from src.data.watchlist import get_omxs30_tickers, get_us_tickers
 from src.data.news_fetcher import fetch_news_for_ticker
 from src.portfolio.simulator import get_portfolio
 
@@ -129,7 +129,7 @@ def run_scan(market: MarketType) -> dict:
         )
         return {"market": market, "candidates": [], "decisions": [], "vix_halt": True, "vix": vix}
 
-    watchlist = get_omxs30_tickers() if market == "nordic" else settings.us_watchlist
+    watchlist = get_omxs30_tickers() if market == "nordic" else get_us_tickers()
     macro_context = get_macro_context(market)
 
     # --- Fetch OHLCV ---

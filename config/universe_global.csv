@@ -1,0 +1,3001 @@
+name,yahoo_ticker,isin,country,exchange,sector,enabled
+Volvo B,VOLV-B.ST,SE0000115446,SE,OMXS,Industrials,true
+Sandvik,SAND.ST,SE0000667891,SE,OMXS,Industrials,true
+ABB,ABB.ST,CH0012221716,SE,OMXS,Industrials,true
+Ericsson B,ERIC-B.ST,SE0000108656,SE,OMXS,Technology,true
+Alfa Laval,ALFA.ST,SE0000695876,SE,OMXS,Industrials,true
+ASSA ABLOY B,ASSA-B.ST,SE0007100581,SE,OMXS,Industrials,true
+Atlas Copco A,ATCO-A.ST,SE0011166610,SE,OMXS,Industrials,true
+Atlas Copco B,ATCO-B.ST,SE0011166628,SE,OMXS,Industrials,true
+H&M B,HM-B.ST,SE0000106270,SE,OMXS,Consumer Discretionary,true
+Investor B,INVE-B.ST,SE0015811955,SE,OMXS,Financials,true
+Nordea,NDA-SE.ST,FI4000297767,SE,OMXS,Financials,true
+SEB A,SEB-A.ST,SE0000148884,SE,OMXS,Financials,true
+Swedbank A,SWED-A.ST,SE0000242455,SE,OMXS,Financials,true
+Handelsbanken A,SHB-A.ST,SE0007100599,SE,OMXS,Financials,true
+Hexagon B,HEXA-B.ST,SE0015961909,SE,OMXS,Technology,true
+Essity B,ESSITY-B.ST,SE0009922164,SE,OMXS,Consumer Staples,true
+NIBE Industrier B,NIBE-B.ST,SE0015988019,SE,OMXS,Industrials,true
+Electrolux B,ELUX-B.ST,SE0000103814,SE,OMXS,Consumer Discretionary,true
+Telia,TELIA.ST,SE0000667925,SE,OMXS,Communication Services,true
+Tele2 B,TEL2-B.ST,SE0005190238,SE,OMXS,Communication Services,true
+Skanska B,SKA-B.ST,SE0000113250,SE,OMXS,Industrials,true
+Boliden,BOL.ST,SE0015811751,SE,OMXS,Materials,true
+SCA B,SCA-B.ST,SE0000112724,SE,OMXS,Materials,true
+SKF B,SKF-B.ST,SE0000108227,SE,OMXS,Industrials,true
+SSAB A,SSAB-A.ST,SE0008321755,SE,OMXS,Materials,true
+Trelleborg B,TREL-B.ST,SE0000114837,SE,OMXS,Industrials,true
+Getinge B,GETI-B.ST,SE0000202624,SE,OMXS,Health Care,true
+Evolution,EVO.ST,SE0012673267,SE,OMXS,Consumer Discretionary,true
+AstraZeneca,AZN.ST,GB0009895292,SE,OMXS,Health Care,true
+Lifco B,LIFCO-B.ST,SE0008320200,SE,OMXS,Industrials,true
+Latour B,LATO-B.ST,SE0002575729,SE,OMXS,Financials,true
+Bure Equity,BURE.ST,SE0000195810,SE,OMXS,Financials,true
+Industrivärden C,INDU-C.ST,SE0000190126,SE,OMXS,Financials,true
+Husqvarna B,HUSQ-B.ST,SE0001662230,SE,OMXS,Consumer Discretionary,true
+Sweco B,SWEC-B.ST,SE0014960373,SE,OMXS,Industrials,true
+PEAB B,PEAB-B.ST,SE0000106205,SE,OMXS,Industrials,true
+Mycronic,MYCR.ST,SE0000688795,SE,OMXS,Technology,true
+NCAB Group,NCAB.ST,SE0011167956,SE,OMXS,Technology,true
+Castellum,CAST.ST,SE0000379190,SE,OMXS,Real Estate,true
+Sagax B,SAGA-B.ST,SE0005127818,SE,OMXS,Real Estate,true
+Sinch,SINCH.ST,SE0016101844,SE,OMXS,Technology,true
+Clas Ohlson B,CLAS-B.ST,SE0000584948,SE,OMXS,Consumer Discretionary,true
+OEM International B,OEM-B.ST,SE0000537838,SE,OMXS,Industrials,true
+Nyfosa,NYF.ST,SE0011426428,SE,OMXS,Real Estate,true
+Betsson B,BETS-B.ST,SE0015671997,SE,OMXS,Consumer Discretionary,true
+Fabege,FABG.ST,SE0011166787,SE,OMXS,Real Estate,true
+JM,JM.ST,SE0000507185,SE,OMXS,Real Estate,true
+XVIVO Perfusion,XVIVO.ST,SE0002575340,SE,OMXS,Health Care,true
+Lagercrantz B,LAGR-B.ST,SE0014990966,SE,OMXS,Industrials,true
+Addtech B,ADDT-B.ST,SE0005568136,SE,OMXS,Industrials,true
+Novo Nordisk B,NOVO-B.CO,DK0060534915,DK,OMXC,Health Care,true
+DSV,DSV.CO,DK0060079531,DK,OMXC,Industrials,true
+Ørsted,ORSTED.CO,DK0060094928,DK,OMXC,Utilities,true
+AP Møller-Mærsk B,MAERSK-B.CO,DK0010244508,DK,OMXC,Industrials,true
+Carlsberg B,CARL-B.CO,DK0010181759,DK,OMXC,Consumer Staples,true
+Coloplast B,COLO-B.CO,DK0060448595,DK,OMXC,Health Care,true
+GN Store Nord,GN.CO,DK0010272632,DK,OMXC,Health Care,true
+Demant,DEMANT.CO,DK0060738599,DK,OMXC,Health Care,true
+Tryg,TRYG.CO,DK0060477503,DK,OMXC,Financials,true
+Nokia,NOKIA.HE,FI0009000681,FI,OMXH,Technology,true
+Neste,NESTE.HE,FI0009013296,FI,OMXH,Energy,true
+Fortum,FORTUM.HE,FI0009007132,FI,OMXH,Utilities,true
+Sampo A,SAMPO.HE,FI0009003305,FI,OMXH,Financials,true
+UPM-Kymmene,UPM.HE,FI0009005987,FI,OMXH,Materials,true
+Stora Enso R,STERV.HE,FI0009005961,FI,OMXH,Materials,true
+KONE B,KNEBV.HE,FI0009013403,FI,OMXH,Industrials,true
+Wärtsilä,WRT1V.HE,FI0009003727,FI,OMXH,Industrials,true
+Metso,METSO.HE,FI4000291245,FI,OMXH,Industrials,true
+Equinor,EQNR.OL,NO0010096985,NO,OSLO,Energy,true
+DNB Bank,DNB.OL,NO0010161896,NO,OSLO,Financials,true
+Telenor,TEL.OL,NO0010063308,NO,OSLO,Communication Services,true
+Mowi,MOWI.OL,NO0003054108,NO,OSLO,Consumer Staples,true
+Yara International,YAR.OL,NO0010208051,NO,OSLO,Materials,true
+Norsk Hydro,NHY.OL,NO0005052605,NO,OSLO,Materials,true
+Orkla,ORK.OL,NO0003733800,NO,OSLO,Consumer Staples,true
+Aker BP,AKRBP.OL,NO0010345853,NO,OSLO,Energy,true
+Schibsted A,SCHA.OL,NO0003028904,NO,OSLO,Communication Services,false
+Subsea 7,SUBC.OL,LU0075646355,NO,OSLO,Energy,true
+Securitas B,SECU-B.ST,,SE,OMXS,Industrials,true
+Axfood,AXFO.ST,,SE,OMXS,Consumer Staples,true
+Volvo Cars B,VOLCAR-B.ST,,SE,OMXS,Consumer Discretionary,true
+Indutrade,INDT.ST,,SE,OMXS,Industrials,true
+Beijer Ref B,BEIJ-B.ST,,SE,OMXS,Industrials,true
+Hexpol B,HPOL-B.ST,,SE,OMXS,Materials,true
+Thule Group,THULE.ST,,SE,OMXS,Consumer Discretionary,true
+Lindab International,LIAB.ST,,SE,OMXS,Industrials,true
+Coor Service Management,COOR.ST,,SE,OMXS,Industrials,true
+Medicover B,MCOV-B.ST,,SE,OMXS,Health Care,true
+Vitrolife,VITR.ST,,SE,OMXS,Health Care,true
+Mekonomen,MEKO.ST,,SE,OMXS,Consumer Discretionary,true
+Wihlborgs,WIHL.ST,,SE,OMXS,Real Estate,true
+Hufvudstaden A,HUFV-A.ST,,SE,OMXS,Real Estate,true
+Lime Technologies,LIME.ST,SE0011870195,SE,OMXS,Technology,true
+Paradox Interactive,PDX.ST,,SE,OMXS,Consumer Discretionary,true
+Note AB,NOTE.ST,,SE,OMXS,Industrials,true
+Tobii,TOBII.ST,,SE,OMXS,Technology,true
+Embracer Group B,EMBRAC-B.ST,,SE,OMXS,Consumer Discretionary,true
+Pandora,PNDORA.CO,,DK,OMXC,Consumer Discretionary,true
+Vestas Wind Systems,VWS.CO,,DK,OMXC,Utilities,true
+Genmab,GMAB.CO,,DK,OMXC,Health Care,true
+Ambu B,AMBU-B.CO,,DK,OMXC,Health Care,true
+Zealand Pharma,ZEAL.CO,,DK,OMXC,Health Care,true
+Kongsberg Gruppen,KOG.OL,,NO,OSLO,Industrials,true
+Tomra Systems,TOM.OL,,NO,OSLO,Industrials,true
+SalMar,SALM.OL,,NO,OSLO,Consumer Staples,true
+Gjensidige Forsikring,GJF.OL,,NO,OSLO,Financials,true
+Nordic Semiconductor,NOD.OL,,NO,OSLO,Technology,true
+Storebrand,STB.OL,,NO,OSLO,Financials,true
+Borregaard,BRG.OL,,NO,OSLO,Materials,true
+Elisa,ELISA.HE,,FI,OMXH,Communication Services,true
+Huhtamäki,HUH1V.HE,,FI,OMXH,Materials,true
+Valmet,VALMT.HE,,FI,OMXH,Industrials,true
+Kemira,KEMIRA.HE,,FI,OMXH,Materials,true
+Orion B,ORNAV.HE,,FI,OMXH,Health Care,true
+Holmen B,HOLM-B.ST,,SE,OMXS,Materials,true
+Billerud,BILL.ST,,SE,OMXS,Materials,true
+Lundbergföretagen B,LUND-B.ST,,SE,OMXS,Financials,true
+Dometic Group,DOM.ST,,SE,OMXS,Consumer Discretionary,true
+Intrum,INTRUM.ST,,SE,OMXS,Financials,true
+Kinnevik B,KINV-B.ST,,SE,OMXS,Financials,true
+Ratos B,RATO-B.ST,,SE,OMXS,Financials,true
+AFRY,AFRY.ST,,SE,OMXS,Industrials,true
+Nolato B,NOLA-B.ST,,SE,OMXS,Industrials,true
+Addlife B,ALIF-B.ST,,SE,OMXS,Health Care,true
+Bravida,BRAV.ST,,SE,OMXS,Industrials,true
+Catena,CATE.ST,,SE,OMXS,Real Estate,true
+Fastighets AB Balder B,BALD-B.ST,,SE,OMXS,Real Estate,true
+Dustin Group,DUST.ST,,SE,OMXS,Technology,true
+Bufab,BUFAB.ST,,SE,OMXS,Industrials,true
+Inwido,INWI.ST,,SE,OMXS,Industrials,true
+Troax Group,TROAX.ST,,SE,OMXS,Industrials,true
+Momentum Group B,MMGR-B.ST,,SE,OMXS,Industrials,true
+Platzer Fastigheter B,PLAZ-B.ST,,SE,OMXS,Real Estate,true
+Sdiptech B,SDIP-B.ST,,SE,OMXS,Industrials,true
+Ambea,AMBEA.ST,,SE,OMXS,Health Care,true
+Hoist Finance,HOFI.ST,,SE,OMXS,Financials,true
+BioArctic B,BIOA-B.ST,,SE,OMXS,Health Care,true
+Surgical Science,SUS.ST,,SE,OMXS,Health Care,true
+Mips,MIPS.ST,,SE,OMXS,Consumer Discretionary,true
+Eolus Vind B,EOLU-B.ST,,SE,OMXS,Utilities,true
+BTS Group B,BTS-B.ST,,SE,OMXS,Industrials,true
+Invisio,IVSO.ST,,SE,OMXS,Technology,true
+RaySearch Labs B,RAY-B.ST,,SE,OMXS,Health Care,true
+Catella B,CAT-B.ST,,SE,OMXS,Financials,true
+Elanders B,ELAN-B.ST,,SE,OMXS,Industrials,true
+Hansa Biopharma,HNSA.ST,,SE,OMXS,Health Care,true
+ISS A/S,ISS.CO,,DK,OMXC,Industrials,true
+NKT,NKT.CO,,DK,OMXC,Industrials,true
+Novonesis B,NSIS-B.CO,,DK,OMXC,Health Care,true
+FLSmidth,FLS.CO,,DK,OMXC,Industrials,true
+DFDS,DFDS.CO,,DK,OMXC,Industrials,true
+Royal Unibrew,RBREW.CO,,DK,OMXC,Consumer Staples,true
+Netcompany,NETC.CO,,DK,OMXC,Technology,true
+Bavarian Nordic,BAVA.CO,,DK,OMXC,Health Care,true
+ALK-Abelló B,ALK-B.CO,,DK,OMXC,Health Care,true
+Jyske Bank,JYSK.CO,,DK,OMXC,Financials,true
+H+H International,HH.CO,,DK,OMXC,Materials,true
+AutoStore,AUTO.OL,,NO,OSLO,Industrials,true
+Aker ASA,AKER.OL,,NO,OSLO,Financials,true
+Lerøy Seafood,LSG.OL,,NO,OSLO,Consumer Staples,true
+Elkem,ELK.OL,,NO,OSLO,Materials,true
+Aker Solutions,AKSO.OL,,NO,OSLO,Energy,true
+Scatec,SCATC.OL,,NO,OSLO,Utilities,true
+Wallenius Wilhelmsen,WAWI.OL,,NO,OSLO,Industrials,true
+Nel ASA,NEL.OL,,NO,OSLO,Industrials,true
+Grieg Seafood,GSF.OL,,NO,OSLO,Consumer Staples,true
+Pexip Holding,PEXIP.OL,,NO,OSLO,Technology,true
+Multiconsult,MULTI.OL,,NO,OSLO,Industrials,true
+LINK Mobility,LINK.OL,,NO,OSLO,Technology,true
+Outokumpu,OUT1V.HE,,FI,OMXH,Materials,true
+Nokian Tyres,TYRES.HE,,FI,OMXH,Consumer Discretionary,true
+Tokmanni,TOKMAN.HE,,FI,OMXH,Consumer Staples,true
+Fiskars,FSKRS.HE,,FI,OMXH,Consumer Discretionary,true
+Harvia,HARVIA.HE,,FI,OMXH,Consumer Discretionary,true
+Olvi A,OLVAS.HE,,FI,OMXH,Consumer Staples,true
+Hemnet Group,HEM.ST,,SE,OMXS,Technology,true
+Truecaller B,TRUE-B.ST,,SE,OMXS,Technology,true
+BICO Group,BICO.ST,,SE,OMXS,Health Care,true
+Camurus,CAMX.ST,,SE,OMXS,Health Care,true
+Pandox B,PNDX-B.ST,,SE,OMXS,Real Estate,true
+Addnode Group B,ANOD-B.ST,,SE,OMXS,Technology,true
+Rejlers B,REJL-B.ST,,SE,OMXS,Industrials,true
+Vimian Group,VIMIAN.ST,,SE,OMXS,Health Care,true
+Boozt,BOOZT.ST,,SE,OMXS,Consumer Discretionary,true
+Matas A/S,MATAS.CO,,DK,OMXC,Consumer Staples,true
+Entra,ENTRA.OL,,NO,OSLO,Real Estate,true
+Europris,EPR.OL,,NO,OSLO,Consumer Staples,true
+Bakkafrost,BAKKA.OL,,NO,OSLO,Consumer Staples,true
+Bouvet,BOUV.OL,,NO,OSLO,Technology,true
+SATS,SATS.OL,,NO,OSLO,Consumer Discretionary,true
+SpareBank 1 SMN,MING.OL,,NO,OSLO,Financials,true
+Veidekke,VEI.OL,,NO,OSLO,Industrials,true
+REC Silicon,RECSI.OL,,NO,OSLO,Technology,true
+Wilh. Wilhelmsen,WWI.OL,,NO,OSLO,Industrials,true
+Konecranes,KCR.HE,,FI,OMXH,Industrials,true
+Revenio Group,REG1V.HE,,FI,OMXH,Health Care,true
+Rockwool B,ROCK-B.CO,,DK,OMXC,Materials,true
+Austevoll Seafood,AUSS.OL,,NO,OSLO,Consumer Staples,true
+BioGaia B,BIOG-B.ST,,SE,OMXS,Health Care,true
+Nordnet B,SAVE.ST,,SE,OMXS,Financials,true
+CTEK,CTEK.ST,,SE,OMXS-FN,Consumer Discretionary,true
+Engcon B,ENGCON-B.ST,,SE,OMXS-FN,Industrials,true
+Enea,ENEA.ST,,SE,OMXS-FN,Technology,true
+HANZA,HANZA.ST,,SE,OMXS-FN,Industrials,true
+GARO,GARO.ST,,SE,OMXS-FN,Industrials,true
+Qliro,QLIRO.ST,,SE,OMXS-FN,Financials,true
+CDON,CDON.ST,,SE,OMXS-FN,Consumer Discretionary,true
+Moment Group,MOMENT.ST,,SE,OMXS-FN,Industrials,true
+Xspray Pharma,XSPRAY.ST,,SE,OMXS-FN,Healthcare,true
+Stillfront,SF.ST,,SE,OMXS-FN,Consumer Discretionary,true
+AcadeMedia,ACAD.ST,,SE,OMXS-FN,Consumer Discretionary,true
+Dedicare,DEDI.ST,,SE,OMXS-FN,Industrials,true
+Acast,ACAST.ST,,SE,OMXS-FN,Technology,true
+Instalco,INSTAL.ST,,SE,OMXS,Industrials,true
+Cellavision,CEVI.ST,,SE,OMXS,Healthcare,true
+Duni,DUNI.ST,,SE,OMXS,Consumer Staples,true
+Alm. Brand,ALMB.CO,,DK,OMXC,Financials,true
+Komplett,KOMPL.OL,,NO,OSLO,Consumer Discretionary,true
+Stolt-Nielsen,SNI.OL,,NO,OSLO,Industrials,true
+Selvaag Bolig,SBO.OL,,NO,OSLO,Real Estate,true
+Atea,ATEA.OL,,NO,OSLO,Technology,true
+Vistin Pharma,VISTN.OL,,NO,OSLO,Healthcare,true
+Nekkar,NKR.OL,,NO,OSLO,Industrials,true
+Cloudberry Clean Energy,CLOUD.OL,,NO,OSLO,Energy,true
+Aker Horizons,AKH.OL,,NO,OSLO,Energy,false
+A.P. Moller - Maersk A,MAERSK-A.CO,,DK,OMXC,Industrials,true
+Bang & Olufsen,BO.CO,,DK,OMXC,Consumer Discretionary,true
+Boozt,BOOZT-DKK.CO,,DK,OMXC,Consumer Discretionary,true
+Brdr. Hartmann,HART.CO,,DK,OMXC,Materials,false
+ChemoMetec,CHEMM.CO,,DK,OMXC,Health Care,true
+D/S Norden,DNORD.CO,,DK,OMXC,Industrials,true
+HusCompagniet,HUSCO.CO,,DK,OMXC,Consumer Discretionary,true
+NTG Nordic Transport Group,NTG.CO,,DK,OMXC,Industrials,true
+Nilfisk Holding,NLFSK.CO,,DK,OMXC,Industrials,false
+Per Aarsleff B,PAAL-B.CO,,DK,OMXC,Industrials,true
+Ringkjoebing Landbobank,RILBA.CO,,DK,OMXC,Financials,true
+Scandinavian Tobacco Group,STG.CO,,DK,OMXC,Consumer Staples,true
+Schouw & Co,SCHO.CO,,DK,OMXC,Industrials,true
+Solar B,SOLAR-B.CO,,DK,OMXC,Industrials,true
+Spar Nord Bank,SPNO.CO,,DK,OMXC,Financials,false
+Sydbank,SYDB.CO,,DK,OMXC,Financials,false
+Tivoli,TIV.CO,,DK,OMXC,Consumer Discretionary,true
+Afry,AFRY.HE,,FI,OMXH,Industrials,false
+Aspo,ASPO.HE,,FI,OMXH,Industrials,true
+Atria A,ATRAV.HE,,FI,OMXH,Consumer Staples,true
+Bittium,BITTI.HE,,FI,OMXH,Technology,true
+CapMan,CAPMAN.HE,,FI,OMXH,Financials,true
+Citycon,CTY1S.HE,,FI,OMXH,Real Estate,true
+Digitalist Group,DIGIGR.HE,,FI,OMXH,Technology,true
+Duell,DUELL.HE,,FI,OMXH,Consumer Discretionary,true
+Enento Group,ENENTO.HE,,FI,OMXH,Industrials,true
+Exel Composites,EXL1V.HE,,FI,OMXH,Industrials,false
+F-Secure,FSECURE.HE,,FI,OMXH,Technology,true
+Glaston,GLA1V.HE,,FI,OMXH,Industrials,true
+Incap,ICP1V.HE,,FI,OMXH,Industrials,true
+Innofactor,IFA1V.HE,,FI,OMXH,Technology,false
+Kamux,KAMUX.HE,,FI,OMXH,Consumer Discretionary,true
+Kempower,KEMPOWR.HE,,FI,OMXH,Industrials,true
+Marimekko,MEKKO.HE,,FI,OMXH,Consumer Discretionary,true
+Musti Group,MUSTI.HE,,FI,OMXH,Consumer Discretionary,true
+NoHo Partners,NOHO.HE,,FI,OMXH,Consumer Discretionary,true
+Nurminen Logistics,NLG1V.HE,,FI,OMXH,Industrials,true
+Oma Savings Bank,OMASP.HE,,FI,OMXH,Financials,true
+Orthex,ORTHEX.HE,,FI,OMXH,Consumer Discretionary,true
+Ponsse,PON1V.HE,,FI,OMXH,Industrials,true
+Puuilo,PUUILO.HE,,FI,OMXH,Consumer Discretionary,true
+Qt Group,QTCOM.HE,,FI,OMXH,Technology,true
+Rapala VMC,RAP1V.HE,,FI,OMXH,Consumer Discretionary,true
+Robit,ROBIT.HE,,FI,OMXH,Industrials,true
+Scanfil,SCANFL.HE,,FI,OMXH,Industrials,true
+Siili Solutions,SIILI.HE,,FI,OMXH,Technology,true
+Sitowise Group,SITOWS.HE,,FI,OMXH,Industrials,true
+Solteq,SOLTEQ.HE,,FI,OMXH,Technology,true
+Tecnotree,TEM1V.HE,,FI,OMXH,Technology,true
+Terveystalo,TTALO.HE,,FI,OMXH,Health Care,true
+Vaisala A,VAIAS.HE,,FI,OMXH,Technology,true
+Verkkokauppa.com,VERK.HE,,FI,OMXH,Consumer Discretionary,true
+WithSecure,WITH.HE,,FI,OMXH,Technology,false
+Arion Banki,ARION.IC,,IS,OMXI,Financials,true
+Brim,BRIM.IC,,IS,OMXI,Consumer Staples,true
+Eimskipafelag Islands,EIM.IC,,IS,OMXI,Industrials,true
+Festarfelagid Eik,EIK.IC,,IS,OMXI,Real Estate,true
+Hagar,HAGA.IC,,IS,OMXI,Consumer Staples,true
+Hampidjan,HAMP.IC,,IS,OMXI,Consumer Discretionary,true
+Icelandair Group,ICEAIR.IC,,IS,OMXI,Industrials,true
+Islandsbanki,ISB.IC,,IS,OMXI,Financials,true
+Kvika Banki,KVIKA.IC,,IS,OMXI,Financials,true
+Nova Klubburinn,NOVA.IC,,IS,OMXI,Communication Services,true
+Origo,ORIGO.IC,,IS,OMXI,Technology,false
+Reginn,REGINN.IC,,IS,OMXI,Real Estate,false
+Reitir fasteignafelag,REITIR.IC,,IS,OMXI,Real Estate,true
+Sildarvinnslan,SVN.IC,,IS,OMXI,Consumer Staples,true
+Siminn,SIMINN.IC,,IS,OMXI,Communication Services,true
+Skel fjarfestingafelag,SKEL.IC,,IS,OMXI,Financials,true
+Solid Clouds,SOLID.IC,,IS,OMXI,Technology,true
+Syn,SYN.IC,,IS,OMXI,Communication Services,true
+ABG Sundal Collier,ABG.OL,,NO,OSLO,Financials,true
+Akastor,AKAST.OL,,NO,OSLO,Energy,true
+ArcticZymes Technologies,AZT.OL,,NO,OSLO,Health Care,true
+Atlantic Sapphire,ASA.OL,,NO,OSLO,Consumer Staples,true
+Avance Gas Holding,AGAS.OL,,NO,OSLO,Energy,false
+BW Energy,BWE.OL,,NO,OSLO,Energy,true
+BW LPG,BWLPG.OL,,NO,OSLO,Energy,true
+BW Offshore,BWO.OL,,NO,OSLO,Energy,true
+Belships,BELCO.OL,,NO,OSLO,Industrials,false
+Bonheur,BONHR.OL,,NO,OSLO,Industrials,true
+Borr Drilling,BORR.OL,,NO,OSLO,Energy,true
+Crayon Group Holding,CRAYN.OL,,NO,OSLO,Technology,false
+DNO,DNO.OL,,NO,OSLO,Energy,true
+DOF Group,DOFG.OL,,NO,OSLO,Energy,true
+Elmera Group,ELMRA.OL,,NO,OSLO,Utilities,true
+Fjordkraft Holding,FKRAFT.OL,,NO,OSLO,Utilities,false
+Flex LNG,FLNG.OL,,NO,OSLO,Energy,false
+Hafnia,HAFNI.OL,,NO,OSLO,Energy,true
+Hexagon Composites,HEX.OL,,NO,OSLO,Industrials,true
+Hexagon Purus,HPUR.OL,,NO,OSLO,Industrials,true
+Höegh Autoliners,HAUTO.OL,,NO,OSLO,Industrials,true
+Kid,KID.OL,,NO,OSLO,Consumer Discretionary,true
+Kitron,KIT.OL,,NO,OSLO,Technology,true
+Komplett Bank,KOMP.OL,,NO,OSLO,Financials,false
+Norsk Titanium,NTI.OL,,NO,OSLO,Industrials,true
+Norwegian Air Shuttle,NAS.OL,,NO,OSLO,Industrials,true
+OKEA,OKEA.OL,,NO,OSLO,Energy,true
+Odfjell Drilling,ODL.OL,,NO,OSLO,Energy,true
+Odfjell SE A,ODF.OL,,NO,OSLO,Industrials,true
+Otovo,OTOVO.OL,,NO,OSLO,Energy,true
+Protector Forsikring,PROT.OL,,NO,OSLO,Financials,true
+Seadrill,SDRL.OL,,NO,OSLO,Energy,false
+SpareBank 1 Nord-Norge,NONG.OL,,NO,OSLO,Financials,true
+SpareBank 1 SR-Bank,SRBNK.OL,,NO,OSLO,Financials,false
+TGS,TGS.OL,,NO,OSLO,Energy,true
+Webstep,WSTEP.OL,,NO,OSLO,Technology,true
+XXL,XXL.OL,,NO,OSLO,Consumer Discretionary,false
+Zaptec,ZAP.OL,,NO,OSLO,Industrials,true
+Agtira B,AGTIRA-B.ST,,SE,NGM,Consumer Staples,true
+Archelon Natural Resources,ALONNR-B.ST,,SE,NGM,Materials,true
+Arctic Blue Beverages,ARCTIC.ST,,SE,NGM,Consumer Staples,true
+Argo Defence Group,ARGO.ST,,SE,NGM,Industrials,true
+Audientes,AUDNTS.ST,,SE,NGM,Health Care,false
+Bonzun,BONZUN.ST,,SE,NGM,Health Care,false
+By MHGard,BYMGARD.ST,,SE,NGM,Consumer Discretionary,false
+Cardeon,CARD.ST,,SE,NGM,Health Care,false
+Coegin Pharma,COEGIN.ST,,SE,NGM,Health Care,true
+Creturner Group,CRET.ST,,SE,NGM,Technology,true
+Dividend Sweden B,DIVI-B.ST,,SE,NGM,Financials,false
+Eevia Health,EEVIA.ST,,SE,NGM,Health Care,false
+Episurf Medical B,EPIS-B.ST,,SE,NGM,Health Care,true
+Fram Skandinavien B,FRAM-B.ST,,SE,NGM,Financials,true
+H&D Wireless Sweden Holding B,HDW-B.ST,,SE,NGM,Technology,false
+Insplorion,INSP.ST,,SE,NGM,Industrials,true
+JonDeTech Sensors,JDT.ST,,SE,NGM,Technology,true
+Kontigo Care,KONT.ST,,SE,NGM,Health Care,true
+Lifeclean International,LCLEAN.ST,,SE,NGM,Consumer Staples,true
+Maven Wireless Sweden,MAVEN.ST,,SE,NGM,Technology,true
+Medclair,MCLR.ST,,SE,NGM,Health Care,true
+NFO Drives,NFO.ST,,SE,NGM,Industrials,true
+NOSIUM,NOSIUM.ST,,SE,NGM,Financials,false
+Obducat B,OBDU-B.ST,,SE,NGM,Technology,true
+Orgo Tech,ORGO.ST,,SE,NGM,Technology,false
+Plejd,PLEJD.ST,,SE,NGM,Industrials,true
+RanLOS,RLOS.ST,,SE,NGM,Technology,false
+Raytelligence,RAYTL.ST,,SE,NGM,Health Care,false
+Referring Pages,RPAG.ST,,SE,NGM,Technology,false
+Scandinavian Astor Group,ASTOR.ST,,SE,NGM,Industrials,true
+SealWacs,SEALW.ST,,SE,NGM,Technology,false
+Sensys Gatso Group,SENS.ST,,SE,NGM,Technology,true
+Sivers Semiconductors,SIVE.ST,,SE,NGM,Technology,true
+TC Connect,TCC-A.ST,,SE,NGM,Technology,true
+TCECUR Sweden,TCC-B.ST,,SE,NGM,Industrials,false
+Trophy Games Development,TGAMES.ST,,SE,NGM,Communication Services,false
+Vadsbo SwitchTech,VADS.ST,,SE,NGM,Industrials,false
+Alleima,ALLEI.ST,,SE,OMXS,Industrials,true
+Alligator Bioscience,ATORX.ST,,SE,OMXS,Health Care,true
+Anoto Group,ANOT.ST,,SE,OMXS,Technology,true
+Arjo B,ARJO-B.ST,,SE,OMXS,Health Care,true
+Bambuser,BUSER.ST,,SE,OMXS,Technology,true
+BeammWave,BEAMMW-B.ST,,SE,OMXS,Technology,true
+Bergs Timber B,BRG-B.ST,,SE,OMXS,Materials,false
+Better Collective,BETCO.ST,,SE,OMXS,Communication Services,true
+BioInvent International,BINV.ST,,SE,OMXS,Health Care,true
+Bonava B,BONAV-B.ST,,SE,OMXS,Real Estate,true
+Boule Diagnostics,BOUL.ST,,SE,OMXS,Health Care,true
+Calliditas Therapeutics,CALTX.ST,,SE,OMXS,Health Care,false
+Cibus Nordic Real Estate,CIBUS.ST,,SE,OMXS,Real Estate,true
+Cint Group,CINT.ST,,SE,OMXS,Technology,true
+Climeon B,CLIME-B.ST,,SE,OMXS,Industrials,true
+Cloetta B,CLA-B.ST,,SE,OMXS,Consumer Staples,true
+Corem Property B,CORE-B.ST,,SE,OMXS,Real Estate,true
+Creades A,CRED-A.ST,,SE,OMXS,Financials,true
+Dios Fastigheter,DIOS.ST,,SE,OMXS,Real Estate,true
+Egetis Therapeutics,EGTX.ST,,SE,OMXS,Health Care,true
+Electrolux Professional B,EPRO-B.ST,,SE,OMXS,Industrials,true
+Exsitec Holding,EXS.ST,,SE,OMXS,Technology,true
+G5 Entertainment,G5EN.ST,,SE,OMXS,Communication Services,true
+Genovis,GENO.ST,,SE,OMXS,Health Care,true
+Granges,GRNG.ST,,SE,OMXS,Materials,true
+Humana,HUM.ST,,SE,OMXS,Health Care,true
+IAR Systems Group,IAR-B.ST,,SE,OMXS,Technology,false
+Isofol Medical,ISOFOL.ST,,SE,OMXS,Health Care,true
+Kabe Group B,KABE-B.ST,,SE,OMXS,Consumer Discretionary,true
+Karnov Group,KAR.ST,,SE,OMXS,Industrials,true
+KlaraBo B,KLARA-B.ST,,SE,OMXS,Real Estate,true
+Loomis,LOOMIS.ST,,SE,OMXS,Industrials,true
+Mentice,MNTC.ST,,SE,OMXS,Health Care,true
+MilDef Group,MILDEF.ST,,SE,OMXS,Industrials,true
+Modern Times Group B,MTG-B.ST,,SE,OMXS,Communication Services,true
+Munters Group,MTRS.ST,,SE,OMXS,Industrials,true
+NP3 Fastigheter,NP3.ST,,SE,OMXS,Real Estate,true
+Nederman Holding,NMAN.ST,,SE,OMXS,Industrials,true
+Netel Holding,NETEL.ST,,SE,OMXS,Industrials,true
+New Wave Group B,NEWA-B.ST,,SE,OMXS,Consumer Discretionary,true
+Nivika Fastigheter B,NIVI-B.ST,,SE,OMXS,Real Estate,true
+Nobia,NOBI.ST,,SE,OMXS,Consumer Discretionary,true
+Oncopeptides,ONCO.ST,,SE,OMXS,Health Care,true
+Pierce Group,PIERCE.ST,,SE,OMXS,Consumer Discretionary,true
+Proact IT Group,PACT.ST,,SE,OMXS,Technology,true
+Samhallsbyggnadsbolaget i Norden B,SBB-B.ST,,SE,OMXS,Real Estate,true
+Scandic Hotels Group,SHOT.ST,,SE,OMXS,Consumer Discretionary,true
+Sedana Medical,SEDANA.ST,,SE,OMXS,Health Care,true
+Sobi,SOBI.ST,,SE,OMXS,Health Care,true
+Storskogen Group B,STOR-B.ST,,SE,OMXS,Industrials,true
+Storytel B,STORY-B.ST,,SE,OMXS,Communication Services,true
+Systemair,SYSR.ST,,SE,OMXS,Industrials,true
+TF Bank,TFBANK.ST,,SE,OMXS,Financials,False
+Tobii Dynavox,TDVOX.ST,,SE,OMXS,Technology,false
+VNV Global,VNV.ST,,SE,OMXS,Financials,true
+Volati,VOLO.ST,,SE,OMXS,Industrials,true
+Yubico,YUBICO.ST,,SE,OMXS,Technology,true
+Zinzino B,ZZ-B.ST,,SE,OMXS,Consumer Staples,true
+24SevenOffice Group,247.ST,,SE,OMXS-FN,Technology,false
+4C Group,4C.ST,,SE,OMXS-FN,Technology,true
+AAC Clyde Space,AAC.ST,,SE,OMXS-FN,Industrials,true
+Acconeer,ACCON.ST,,SE,OMXS-FN,Technology,true
+AcouSort,ACOU.ST,,SE,OMXS-FN,Health Care,true
+Adtraction Group,ADTR.ST,,SE,OMXS-FN,Communication Services,true
+Adventure Box Technology,ADVBOX.ST,,SE,OMXS-FN,Communication Services,false
+Alcadon Group,ALCA.ST,,SE,OMXS-FN,Technology,true
+AroCell,AROC.ST,,SE,OMXS-FN,Health Care,false
+Aros Bostadsutveckling,AROS.ST,,SE,OMXS-FN,Real Estate,false
+Ascelia Pharma,ACE.ST,,SE,OMXS-FN,Health Care,true
+Bactiguard Holding B,BACTI-B.ST,,SE,OMXS-FN,Health Care,true
+BiBBInstruments,BIBB.ST,,SE,OMXS-FN,Health Care,true
+Bioservo Technologies,BIOS.ST,,SE,OMXS-FN,Health Care,false
+Bonesupport Holding,BONEX.ST,,SE,OMXS-FN,Health Care,true
+C Security Systems,CSEC.ST,,SE,OMXS-FN,Technology,false
+Cantargia,CANTA.ST,,SE,OMXS-FN,Health Care,true
+Clemondo Group,CLEM.ST,,SE,OMXS-FN,Consumer Staples,true
+Crunchfish,CFISH.ST,,SE,OMXS-FN,Technology,true
+Desenio Group,DSNO.ST,,SE,OMXS-FN,Consumer Discretionary,true
+DistIT,DIST.ST,,SE,OMXS-FN,Technology,true
+Elicera Therapeutics,ELIC.ST,,SE,OMXS-FN,Health Care,true
+Enad Global 7,EG7.ST,,SE,OMXS-FN,Communication Services,true
+Enzymatica,ENZY.ST,,SE,OMXS-FN,Health Care,true
+Fasadgruppen Group,FG.ST,,SE,OMXS-FN,Industrials,true
+FlexQube,FLEXQ.ST,,SE,OMXS-FN,Industrials,true
+Freemelt Holding,FREEM.ST,,SE,OMXS-FN,Industrials,true
+GomSpace Group,GOMX.ST,,SE,OMXS-FN,Industrials,true
+Humble Group,HUMBLE.ST,,SE,OMXS-FN,Consumer Staples,true
+I-Tech,ITECH.ST,,SE,OMXS-FN,Materials,true
+Implantica,IMP-A-SDB.ST,,SE,OMXS-FN,Health Care,true
+Kjell Group,KJELL.ST,,SE,OMXS-FN,Consumer Discretionary,true
+Lipigon Pharmaceuticals,LPGO.ST,,SE,OMXS-FN,Health Care,false
+Lyko Group A,LYKO-A.ST,,SE,OMXS-FN,Consumer Discretionary,true
+M.O.B.A. Network,MOBA.ST,,SE,OMXS-FN,Communication Services,true
+MPC Container Ships,MPCC.OL,,SE,OMXS-FN,Industrials,true
+Maha Energy,MAHA-A.ST,,SE,OMXS-FN,Energy,true
+Minesto,MINEST.ST,,SE,OMXS-FN,Energy,true
+MyFirstApp Sweden,MFA.ST,,SE,OMXS-FN,Communication Services,false
+Net Insight B,NETI-B.ST,,SE,OMXS-FN,Technology,true
+Nordic Paper Holding,NPAPER.ST,,SE,OMXS-FN,Materials,false
+Norrlands Online,NOL.ST,,SE,OMXS-FN,Technology,false
+Norse Atlantic,NORSE.OL,,SE,OMXS-FN,Industrials,true
+Norva24 Group,NORVA.ST,,SE,OMXS-FN,Industrials,false
+OptiCept Technologies,OPTI.ST,,SE,OMXS-FN,Industrials,true
+OssDsign,OSSD.ST,,SE,OMXS-FN,Health Care,true
+Paxman,PAX.ST,,SE,OMXS-FN,Health Care,true
+Physitrack,PTRK.ST,,SE,OMXS-FN,Health Care,true
+Pricer B,PRIC-B.ST,,SE,OMXS-FN,Technology,true
+Promimic,PRO.ST,,SE,OMXS-FN,Health Care,true
+Qlucore,QLIFE.ST,,SE,OMXS-FN,Health Care,true
+Railcare Group,RAIL.ST,,SE,OMXS-FN,Industrials,true
+Rugvista Group,RUG.ST,,SE,OMXS-FN,Consumer Discretionary,true
+S2Medical,S2M.ST,,SE,OMXS-FN,Health Care,true
+Scandion Oncology,SCOL.ST,,SE,OMXS-FN,Health Care,false
+Scout Gaming Group,SCOUT.ST,,SE,OMXS-FN,Communication Services,false
+Seamless Distribution Systems,SDS.ST,,SE,OMXS-FN,Technology,true
+Smart Eye,SEYE.ST,,SE,OMXS-FN,Technology,true
+Soltech Energy Sweden,SOLT.ST,,SE,OMXS-FN,Energy,true
+SynAct Pharma,SYNACT.ST,,SE,OMXS-FN,Health Care,true
+Viva Wine Group,VIVA.ST,,SE,OMXS-FN,Consumer Staples,true
+W5 Solutions,W5.ST,,SE,OMXS-FN,Industrials,true
+AB Igrene,ABI.ST,,SE,SPOTLIGHT,Energy,true
+ABAS Protect,ABAS.ST,,SE,SPOTLIGHT,Industrials,true
+Abera Bioscience,ABERA.ST,,SE,SPOTLIGHT,Health Care,true
+Absolicon Solar Collector,ABSL.ST,,SE,SPOTLIGHT,Energy,false
+AcuCort,ACUC.ST,,SE,SPOTLIGHT,Health Care,true
+Aerowash,AERW-B.ST,,SE,SPOTLIGHT,Industrials,true
+Aixia Group,AIXIA-B.ST,,SE,SPOTLIGHT,Technology,true
+BPC Instruments,BPCINS.ST,,SE,SPOTLIGHT,Industrials,true
+Biofrigas Sweden,BIOF.ST,,SE,SPOTLIGHT,Energy,true
+Blick Global Group,BLICK.ST,,SE,SPOTLIGHT,Technology,true
+C100,C100.ST,,SE,SPOTLIGHT,Technology,true
+CHOSA Oncology,CHOSA.ST,,SE,SPOTLIGHT,Health Care,true
+Comintelli,COMINT.ST,,SE,SPOTLIGHT,Technology,true
+Cyclezyme,CYCLE.ST,,SE,SPOTLIGHT,Industrials,true
+DexTech Medical,DEX.ST,,SE,SPOTLIGHT,Health Care,true
+Double Bond Pharmaceutical,DBP-B.ST,,SE,SPOTLIGHT,Health Care,true
+EasyFill B,EASY-B.ST,,SE,SPOTLIGHT,Industrials,true
+EatGood Sweden,EATG.ST,,SE,SPOTLIGHT,Consumer Discretionary,true
+EcoRub B,ECO-B.ST,,SE,SPOTLIGHT,Materials,true
+Edyoutec,EDYOU.ST,,SE,SPOTLIGHT,Technology,true
+Envirologic,ENVI-B.ST,,SE,SPOTLIGHT,Industrials,true
+Gosol Energy Group,GOSOL.ST,,SE,SPOTLIGHT,Energy,true
+Gullberg & Jansson,GJAB.ST,,SE,SPOTLIGHT,Industrials,true
+Hamlet BioPharma B,HAMLET-B.ST,,SE,SPOTLIGHT,Health Care,true
+HomeMaid B,HOMEMAID-B.ST,,SE,SPOTLIGHT,Consumer Discretionary,false
+Hoodin,HOODIN.ST,,SE,SPOTLIGHT,Technology,true
+Hunter Capital,HUNT.ST,,SE,SPOTLIGHT,Financials,false
+Spermosens,SPERM.ST,,SE,SPOTLIGHT,Health Care,true
+Spotlight Group,SPGR.ST,,SE,SPOTLIGHT,Financials,true
+Suntrade Group,SUN.ST,,SE,SPOTLIGHT,Energy,false
+Sustainion Group,SUSG.ST,,SE,SPOTLIGHT,Industrials,true
+SyntheticMR,SYNT.ST,,SE,SPOTLIGHT,Health Care,true
+Tessin Nordic Holding,TESSIN.ST,,SE,SPOTLIGHT,Technology,true
+ABER,ABER.ST,,SE,OMXS-FN,Industrials,false
+ABSO,ABSO.ST,,SE,OMXS-FN,Technology,true
+AERO,AERO.ST,,SE,OMXS-FN,Consumer Discretionary,true
+AIXIA,AIXIA.ST,,SE,OMXS-FN,Energy,false
+ALZCUR,ALZCUR.ST,,SE,OMXS-FN,Real Estate,true
+APTR,APTR.ST,,SE,OMXS-FN,Utilities,false
+ARCANE,ARCANE.ST,,SE,OMXS-FN,Health Care,false
+ARCOMA,ARCOMA.ST,,SE,OMXS-FN,Financials,true
+ASCE,ASCE.ST,,SE,OMXS-FN,Consumer Staples,false
+ASPIRE,ASPIRE.ST,,SE,OMXS-FN,Materials,false
+AURANT,AURANT.ST,,SE,OMXS-FN,Communication Services,false
+AYIMA,AYIMA.ST,,SE,OMXS-FN,Industrials,false
+BACTI,BACTI.ST,,SE,OMXS-FN,Technology,false
+BALT,BALT.ST,,SE,OMXS-FN,Consumer Discretionary,false
+BBS,BBS.ST,,SE,OMXS-FN,Energy,false
+BIOVICA,BIOVICA.ST,,SE,OMXS-FN,Real Estate,false
+BRAIN,BRAIN.ST,,SE,OMXS-FN,Utilities,true
+BRIGHT,BRIGHT.ST,,SE,OMXS-FN,Health Care,true
+CALLID,CALLID.ST,,SE,OMXS-FN,Financials,false
+CARBIOS,CARBIOS.ST,,SE,OMXS-FN,Consumer Staples,false
+CATENA,CATENA.ST,,SE,OMXS-FN,Materials,false
+CELLINK,CELLINK.ST,,SE,OMXS-FN,Communication Services,false
+CLIME,CLIME.ST,,SE,OMXS-FN,Industrials,false
+COGN,COGN.ST,,SE,OMXS-FN,Technology,false
+CORLINE,CORLINE.ST,,SE,OMXS-FN,Consumer Discretionary,false
+DIGNIT,DIGNIT.ST,,SE,OMXS-FN,Energy,false
+DOXA,DOXA.ST,,SE,OMXS-FN,Real Estate,true
+DRONE,DRONE.ST,,SE,OMXS-FN,Utilities,false
+EBLITZ,EBLITZ.ST,,SE,OMXS-FN,Health Care,true
+ECOMB,ECOMB.ST,,SE,OMXS-FN,Financials,false
+ELLWEE,ELLWEE.ST,,SE,OMXS-FN,Consumer Staples,false
+ENER,ENER.ST,,SE,OMXS-FN,Materials,false
+ENIRO,ENIRO.ST,,SE,OMXS-FN,Communication Services,false
+EPIS,EPIS.ST,,SE,OMXS-FN,Industrials,false
+ETTEPLAN,ETTEPLAN.ST,,SE,OMXS-FN,Technology,false
+EXSALT,EXSALT.ST,,SE,OMXS-FN,Consumer Discretionary,false
+FABLE,FABLE.ST,,SE,OMXS-FN,Energy,true
+FINW,FINW.ST,,SE,OMXS-FN,Real Estate,false
+FORTNOX,FORTNOX.ST,,SE,OMXS-FN,Utilities,false
+GAPWAV,GAPWAV.ST,,SE,OMXS-FN,Health Care,false
+GIGSEK,GIGSEK.ST,,SE,OMXS-FN,Financials,false
+GOMERO,GOMERO.ST,,SE,OMXS-FN,Consumer Staples,true
+GREENM,GREENM.ST,,SE,OMXS-FN,Materials,false
+HELIOS,HELIOS.ST,,SE,OMXS-FN,Communication Services,false
+HEMNET,HEMNET.ST,,SE,OMXS-FN,Industrials,false
+HILBERT,HILBERT.ST,,SE,OMXS-FN,Technology,false
+HUMB,HUMB.ST,,SE,OMXS-FN,Consumer Discretionary,false
+KANAL,KANAL.ST,,SE,OMXS-FN,Energy,false
+KEBNI,KEBNI.ST,,SE,OMXS-FN,Real Estate,false
+KFAST,KFAST.ST,,SE,OMXS-FN,Utilities,false
+KLARA,KLARA.ST,,SE,OMXS-FN,Health Care,false
+KNW,KNW.ST,,SE,OMXS-FN,Financials,false
+KOPY,KOPY.ST,,SE,OMXS-FN,Consumer Staples,false
+LAMOR,LAMOR.ST,,SE,OMXS-FN,Materials,false
+LIDDS,LIDDS.ST,,SE,OMXS-FN,Communication Services,false
+LINC,LINC.ST,,SE,OMXS-FN,Industrials,true
+LOHILO,LOHILO.ST,,SE,OMXS-FN,Technology,true
+LUMITO,LUMITO.ST,,SE,OMXS-FN,Consumer Discretionary,false
+MAGLE,MAGLE.ST,,SE,OMXS-FN,Energy,true
+MANGOLD,MANGOLD.ST,,SE,OMXS-FN,Real Estate,false
+MANTEX,MANTEX.ST,,SE,OMXS-FN,Utilities,true
+MIDS,MIDS.ST,,SE,OMXS-FN,Health Care,true
+MNDR,MNDR.ST,,SE,OMXS-FN,Financials,false
+NETMORE,NETMORE.ST,,SE,OMXS-FN,Consumer Staples,false
+NEXAM,NEXAM.ST,,SE,OMXS-FN,Materials,true
+NICO,NICO.ST,,SE,OMXS-FN,Communication Services,true
+NORDIG,NORDIG.ST,,SE,OMXS-FN,Industrials,true
+NORDISK,NORDISK.ST,,SE,OMXS-FN,Technology,false
+NOVUS,NOVUS.ST,,SE,OMXS-FN,Consumer Discretionary,false
+PAXMAN,PAXMAN.ST,,SE,OMXS-FN,Energy,false
+PROSTAT,PROSTAT.ST,,SE,OMXS-FN,Real Estate,false
+RAKETE,RAKETE.ST,,SE,OMXS-FN,Utilities,false
+REFINE,REFINE.ST,,SE,OMXS-FN,Health Care,false
+RLS,RLS.ST,,SE,OMXS-FN,Financials,false
+RUGVISTA,RUGVISTA.ST,,SE,OMXS-FN,Consumer Staples,false
+SAFETURE,SAFETURE.ST,,SE,OMXS-FN,Materials,false
+SBB,SBB.ST,,SE,OMXS-FN,Communication Services,false
+SERNEKE,SERNEKE.ST,,SE,OMXS-FN,Industrials,false
+SIMRIS,SIMRIS.ST,,SE,OMXS-FN,Technology,false
+SLEEP,SLEEP.ST,,SE,OMXS-FN,Consumer Discretionary,true
+SOLTECH,SOLTECH.ST,,SE,OMXS-FN,Energy,false
+SPAGO,SPAGO.ST,,SE,OMXS-FN,Real Estate,true
+STILLE,STILLE.ST,,SE,OMXS-FN,Utilities,false
+STRAX,STRAX.ST,,SE,OMXS-FN,Health Care,false
+SUST,SUST.ST,,SE,OMXS-FN,Financials,false
+TANGIAM,TANGIAM.ST,,SE,OMXS-FN,Consumer Staples,false
+TEQ,TEQ.ST,,SE,OMXS-FN,Materials,true
+TRUE,TRUE.ST,,SE,OMXS-FN,Communication Services,false
+TRIBONA,TRIBONA.ST,,SE,OMXS-FN,Industrials,false
+VERTISEIT,VERTISEIT.ST,,SE,OMXS-FN,Technology,false
+VNVIO,VNVIO.ST,,SE,OMXS-FN,Consumer Discretionary,false
+XANO,XANO.ST,,SE,OMXS-FN,Energy,false
+XBRANE,XBRANE.ST,,SE,OMXS-FN,Real Estate,true
+ZICC,ZICC.ST,,SE,OMXS-FN,Utilities,false
+ZIGNSEC,ZIGNSEC.ST,,SE,OMXS-FN,Health Care,false
+Hofseth BioCare,HBC.OL,NO0010598683,NO,OSLO,Consumer Staples,true
+HydrogenPro,HYPRO.OL,NO0010892359,NO,OSLO,Industrials,true
+IDEX Biometrics,IDEX.OL,NO0013536078,NO,OSLO,Technology,true
+Integrated Wind Solutions,IWS.OL,NO0013461350,NO,OSLO,Industrials,true
+Interoil Exploration and Production,IOX.OL,NO0013119255,NO,OSLO,Energy,true
+KMC Properties,KMC.OL,NO0013637181,NO,OSLO,Real Estate,false
+Kongsberg Automotive,KOA.OL,NO0003033102,NO,OSLO,Consumer Discretionary,true
+Lifecare,LIFE.OL,NO0013355859,NO,OSLO,Health Care,true
+Magnora,MGN.OL,NO0010187032,NO,OSLO,Energy,true
+Medistim,MEDI.OL,NO0010159684,NO,OSLO,Health Care,true
+Napatech,NAPA.OL,DK0060520450,NO,OSLO,Technology,true
+Navamedic,NAVA.OL,NO0010205966,NO,OSLO,Health Care,true
+Norske Skog,NSKOG.OL,NO0010861115,NO,OSLO,Materials,true
+Northern Ocean,NOL.OL,BMG6682J1036,NO,OSLO,Energy,true
+NRC Group,NRC.OL,NO0003679102,NO,OSLO,Industrials,true
+Nykode Therapeutics,NYKD.OL,NO0010714785,NO,OSLO,Health Care,true
+Odfjell Technology,OTL.OL,BMG6716L1081,NO,OSLO,Energy,true
+Okeanis Eco Tankers,OET.OL,MHY641771016,NO,OSLO,Energy,true
+Olav Thon Eiendomsselskap,OLT.OL,NO0005638858,NO,OSLO,Real Estate,false
+Oncoinvent,ONCIN.OL,NO0013251173,NO,OSLO,Health Care,true
+Otello Corporation,OTEC.OL,NO0010040611,NO,OSLO,Technology,true
+PCI Biotech Holding,PCIB.OL,NO0010405640,NO,OSLO,Health Care,false
+PetroNor E&P,PNOR.OL,NO0012942525,NO,OSLO,Energy,true
+Photocure,PHO.OL,NO0010000045,NO,OSLO,Health Care,true
+Polaris Media,POL.OL,NO0010466022,NO,OSLO,Communication Services,true
+poLight,PLT.OL,NO0012535832,NO,OSLO,Technology,true
+Prosafe,PRS.OL,NO0010861990,NO,OSLO,Energy,true
+Questor Technology,QEC.OL,CA74836K1003,NO,OSLO,Energy,true
+Rana Gruber,RANA.OL,NO0010907389,NO,OSLO,Materials,false
+Reach Subsea,REACH.OL,NO0003117202,NO,OSLO,Energy,true
+S.D. Standard ETC,SDSD.OL,CY0101550917,NO,OSLO,Energy,true
+Saga Pure,SAGA.OL,NO0010572589,NO,OSLO,Financials,true
+SmartCraft,SMCRT.OL,NO0011008971,NO,OSLO,Technology,false
+Smartoptics Group,SMOP.OL,NO0011012502,NO,OSLO,Technology,true
+Apetit,APETIT.HE,,FI,OMXH,Consumer Staples,true
+Detection Technology,DETEC.HE,,FI,OMXH,Technology,true
+Digital Workforce Services,DWF.HE,,FI,OMXH,Technology,true
+Eezy,EEZY.HE,,FI,OMXH,Industrials,true
+Enersense International,ESENSE.HE,,FI,OMXH,Industrials,true
+Fodelia,FODELIA.HE,,FI,OMXH,Consumer Staples,true
+Koskisen,KOSKI.HE,,FI,OMXH,Materials,true
+Lassila & Tikanoja,LAT1V.HE,,FI,OMXH,Industrials,false
+Modulight,MODU.HE,,FI,OMXH,Health Care,true
+Raute,RAUTE.HE,,FI,OMXH,Industrials,true
+Spinnova,SPINN.HE,,FI,OMXH,Materials,true
+Taaleri,TAALA.HE,,FI,OMXH,Financials,true
+Talenom,TNOM.HE,,FI,OMXH,Industrials,true
+H. Lundbeck B,HLUN-B.CO,,DK,OMXC,Health Care,true
+TCM Group,TCM.CO,,DK,OMXC,Consumer Discretionary,true
+Avanza Bank Holding,AZA.ST,,SE,OMXS,Financials,true
+Bilia A,BILI-A.ST,,SE,OMXS,Consumer Discretionary,true
+BHG Group,BHG.ST,,SE,OMXS,Consumer Discretionary,true
+Bulten,BULTEN.ST,,SE,OMXS,Consumer Discretionary,true
+Fagerhult,FAG.ST,,SE,OMXS,Industrials,true
+RevolutionRace,RVRC.ST,,SE,OMXS,Consumer Discretionary,true
+Vitec Software Group B,VIT-B.ST,,SE,OMXS,Technology,true
+Festi,FESTI.IC,,IS,OMXI,Consumer Staples,true
+VÍS,VIS.IC,,IS,OMXI,Financials,true
+Vår Energi,VAR.OL,,NO,OSLO,Energy,true
+SpareBank 1 Sør-Norge,SB1NO.OL,,NO,OSLO,Financials,true
+Frontline,FRO.OL,,NO,OSLO,Energy,true
+CMB.TECH,CMBTO.OL,,NO,OSLO,Energy,true
+Sparebanken Norge,SBNOR.OL,,NO,OSLO,Financials,true
+SpareBank 1 Østlandet,SPOL.OL,,NO,OSLO,Financials,true
+Tietoevry,TIETO.OL,,NO,OSLO,Technology,true
+Wilhelm Wilhelmsen Holding B,WWIB.OL,,NO,OSLO,Industrials,true
+SoftwareOne Holding,SWON.OL,,NO,OSLO,Technology,true
+AF Gruppen,AFG.OL,,NO,OSLO,Industrials,true
+Norconsult,NORCO.OL,,NO,OSLO,Industrials,true
+Elopak,ELO.OL,,NO,OSLO,Industrials,true
+BlueNord,BNOR.OL,,NO,OSLO,Energy,true
+Norbit,NORBT.OL,,NO,OSLO,Technology,true
+Solstad Maritime Holding,SOMA.OL,,NO,OSLO,Energy,true
+Aker BioMarine,AKBM.OL,,NO,OSLO,Consumer Staples,true
+Public Property Invest,PUBLI.OL,,NO,OSLO,Real Estate,true
+Arendals Fossekompani,AFK.OL,,NO,OSLO,Utilities,true
+Paratus Energy Services,PLSV.OL,,NO,OSLO,Energy,true
+B2 Impact,B2I.OL,,NO,OSLO,Financials,true
+Pareto Bank,PARB.OL,,NO,OSLO,Financials,true
+SpareBank 1 Ringerike Hadeland,RING.OL,,NO,OSLO,Financials,true
+Sentia,SNTIA.OL,,NO,OSLO,Financials,true
+Sparebanken Møre,MORG.OL,,NO,OSLO,Financials,true
+SpareBank 1 Østfold Akershus,SOAG.OL,,NO,OSLO,Financials,true
+SED Energy Holdings,ENH.OL,,NO,OSLO,Energy,true
+Klaveness Combination Carriers,KCC.OL,,NO,OSLO,Industrials,true
+SpareBank 1 Helgeland,HELG.OL,,NO,OSLO,Financials,true
+Cadeler,CADLR.OL,,NO,OSLO,Energy,true
+Endúr,ENDUR.OL,,NO,OSLO,Industrials,true
+Himalaya Shipping,HSHP.OL,,NO,OSLO,Industrials,true
+Lumi Education Group,LUMI.OL,NO0010927288,NO,OSLO,Consumer Discretionary,true
+Akobo Minerals,AKOBO.OL,,NO,OSLO,Materials,true
+ALNG,ALNG.OL,NO0010607971,NO,OSLO,Energy,true
+River Tech,RIVER.OL,MT0001710103,NO,OSLO,Consumer Discretionary,true
+Norwegian Property,NPRO.OL,NO0010317811,NO,OSLO,Real Estate,false
+Aasen Sparebank,AASB.OL,,NO,OSLO,Unknown,true
+ABL Group,ABL.OL,,NO,OSLO,Unknown,true
+Aker Carbon Capture,ACC.OL,,NO,OSLO,Unknown,false
+American Shipping Company,AMSC.OL,,NO,OSLO,Unknown,false
+Aqua Bio Technology,ABT.OL,,NO,OSLO,Unknown,false
+Arribatec Group,ARR.OL,,NO,OSLO,Unknown,true
+Borgestad,BORG.OL,,NO,OSLO,Unknown,false
+Carasent,CARA.OL,,NO,OSLO,Unknown,false
+Dolphin Drilling,DDRIL.OL,,NO,OSLO,Unknown,true
+ECIT,ECIT.OL,,NO,OSLO,Unknown,false
+Electromagnetic Geoservices,EMGS.OL,,NO,OSLO,Unknown,true
+Gentian Diagnostics,GENT.OL,,NO,OSLO,Unknown,true
+Havila Kystruten,HKY.OL,,NO,OSLO,Unknown,true
+Havila Shipping,HAV.OL,,NO,OSLO,Unknown,true
+Huddly,HDLY.OL,,NO,OSLO,Unknown,true
+Hunter Group,HUNT.OL,,NO,OSLO,Unknown,true
+Jinhui Shipping and Transportation,JIN.OL,,NO,OSLO,Unknown,true
+Meltwater,MWTR.OL,,NO,OSLO,Unknown,false
+Morrow Bank,MOBA.OL,,NO,OSLO,Unknown,false
+Norwegian Block Exchange,NBX.OL,,NO,OSLO,Unknown,true
+Northern Drilling,NODL.OL,,NO,OSLO,Unknown,false
+RomReal,ROM.OL,,NO,OSLO,Unknown,true
+Scana,SCANA.OL,,NO,OSLO,Unknown,true
+SeaBird Exploration,SBX.OL,,NO,OSLO,Unknown,false
+Solstad Offshore,SOFF.OL,,NO,OSLO,Unknown,true
+StrongPoint,STRO.OL,,NO,OSLO,Unknown,true
+Techstep,TECH.OL,,NO,OSLO,Unknown,true
+Treasure,TRE.OL,,NO,OSLO,Unknown,false
+Vow,VOW.OL,,NO,OSLO,Unknown,true
+Zalaris,ZAL.OL,,NO,OSLO,Unknown,true
+2020 Bulkers,2020.OL,,NO,OSLO,Unknown,true
+5th Planet Games,5PG.OL,,NO,OSLO,Unknown,true
+Agillic,AGILC.CO,,DK,OMXC,Unknown,true
+Ambea?,AMBEA.CO,,DK,OMXC,Unknown,false
+Atlantic Sapphire,ASA.CO,,DK,OMXC,Unknown,false
+BioPorto,BIOPOR.CO,,DK,OMXC,Unknown,true
+Boliga Gruppen,BOLIGA.CO,,DK,OMXC,Unknown,false
+Brain+,BRAINP.CO,,DK,OMXC,Unknown,false
+Brødrene A & O Johansen,AOJ-B.CO,,DK,OMXC,Unknown,true
+Cemat,CEMAT.CO,,DK,OMXC,Unknown,true
+Columbus,COLUM.CO,,DK,OMXC,Unknown,true
+Copenhagen Capital,CPHCAP.CO,,DK,OMXC,Unknown,false
+Copyright Agent,COPY.CO,,DK,OMXC,Unknown,false
+CS Medica,CSMED.CO,,DK,OMXC,Unknown,false
+Dantax,DANT.CO,,DK,OMXC,Unknown,true
+Djurslands Bank,DJUR.CO,,DK,OMXC,Unknown,true
+DonkeyRepublic,DONKEY.CO,,DK,OMXC,Unknown,true
+FastPassCorp,FASTPC.CO,,DK,OMXC,Unknown,true
+Flügger Group B,FLUG-B.CO,,DK,OMXC,Unknown,true
+Gabriel Holding,GABR.CO,,DK,OMXC,Unknown,true
+Green Hydrogen Systems,GREENH.CO,,DK,OMXC,Unknown,false
+Gubra,GUBRA.CO,,DK,OMXC,Unknown,true
+Gyldendal B,GYLD-B.CO,,DK,OMXC,Unknown,true
+Harboes Bryggeri B,HARB-B.CO,,DK,OMXC,Unknown,true
+Hvidbjerg Bank,HVID.CO,,DK,OMXC,Unknown,true
+InterMail B,IMAIL-B.CO,,DK,OMXC,Unknown,false
+Jeudan,JDAN.CO,,DK,OMXC,Unknown,true
+Kreditbanken,KRE.CO,,DK,OMXC,Unknown,true
+Lån & Spar Bank,LASP.CO,,DK,OMXC,Unknown,true
+Lollands Bank,LOLB.CO,,DK,OMXC,Unknown,true
+Luxor B,LUXOR-B.CO,,DK,OMXC,Unknown,true
+MapsPeople,MAPS.CO,,DK,OMXC,Unknown,false
+Monsenso,MONSO.CO,,DK,OMXC,Unknown,true
+Newcap Holding,NEWCAP.CO,,DK,OMXC,Unknown,true
+NNIT,NNIT.CO,,DK,OMXC,Unknown,true
+North Media,NORTHM.CO,,DK,OMXC,Unknown,true
+NTR Holding B,NTR-B.CO,,DK,OMXC,Unknown,false
+Odico,ODICO.CO,,DK,OMXC,Unknown,false
+Orphazyme,ORPHA.CO,,DK,OMXC,Unknown,false
+Parken Sport & Entertainment,PARKEN.CO,,DK,OMXC,Unknown,true
+Penneo,PENNEO.CO,,DK,OMXC,Unknown,false
+Prime Office,PRIMOF.CO,,DK,OMXC,Unknown,true
+Roblon B,ROBL-B.CO,,DK,OMXC,Unknown,false
+Rovsing,ROV.CO,,DK,OMXC,Unknown,true
+Scandinavian Brake Systems,SBS.CO,,DK,OMXC,Unknown,false
+Scape Technologies,SCAPE.CO,,DK,OMXC,Unknown,false
+Shape Robotics,SHAPE.CO,,DK,OMXC,Unknown,true
+Silkeborg IF Invest,SILKE.CO,,DK,OMXC,Unknown,false
+SKAKO,SKAKO.CO,,DK,OMXC,Unknown,true
+SP Group,SPG.CO,,DK,OMXC,Unknown,true
+Totalbanken,TOTAL.CO,,DK,OMXC,Unknown,false
+Trifork Group,TRIFOR.CO,,DK,OMXC,Unknown,true
+UIE,UIE.CO,,DK,OMXC,Unknown,true
+ViroGates,VIRO.CO,,DK,OMXC,Unknown,true
+WindowMaster International,WMA.CO,,DK,OMXC,Unknown,true
+Wirtek,WIRTEK.CO,,DK,OMXC,Unknown,true
+Aktia Bank,AKTIA.HE,,FI,OMXH,Unknown,true
+Alma Media,ALMA.HE,,FI,OMXH,Unknown,true
+Boreo,BOREO.HE,,FI,OMXH,Unknown,true
+Digia,DIGIA.HE,,FI,OMXH,Unknown,true
+Heeros,HEEROS.HE,,FI,OMXH,Unknown,false
+Kesko B,KESKOB.HE,,FI,OMXH,Unknown,true
+Kojamo,KOJAMO.HE,,FI,OMXH,Unknown,false
+Kreate Group,KREATE.HE,,FI,OMXH,Unknown,true
+Lifa Air,LIFA.HE,,FI,OMXH,Unknown,false
+Mandatum,MANTA.HE,,FI,OMXH,Unknown,true
+Metsä Board B,METSB.HE,,FI,OMXH,Unknown,true
+Optomed,OPTOMED.HE,,FI,OMXH,Unknown,true
+Pihlajalinna,PIHLIS.HE,,FI,OMXH,Unknown,true
+Reka Industrial,REKA.HE,,FI,OMXH,Unknown,true
+Remedy Entertainment,REMEDY.HE,,FI,OMXH,Unknown,true
+SSH Communications Security,SSH1V.HE,,FI,OMXH,Unknown,true
+Viking Line,VIK1V.HE,,FI,OMXH,Unknown,true
+Wetteri,WETTERI.HE,,FI,OMXH,Unknown,true
+YIT,YIT.HE,,FI,OMXH,Unknown,true
+Amaroq Minerals,AMRQ.IC,,IS,OMXI,Unknown,true
+Kaldalón,KALD.IC,,IS,OMXI,Unknown,true
+Sjóvá-Almennar,SJOVA.IC,,IS,OMXI,Unknown,true
+Acarix,ACARIX.ST,,SE,OMXS,Unknown,true
+Acroud,ACROUD.ST,,SE,OMXS,Unknown,true
+Active Biotech,ACTI.ST,,SE,OMXS,Unknown,true
+Alligo B,ALLIGO-B.ST,,SE,OMXS,Unknown,true
+Alelion Energy Systems,ALELIO.ST,,SE,OMXS,Unknown,false
+Alimak Group,ALIG.ST,,SE,OMXS,Unknown,true
+Annehem Fastigheter B,ANNE-B.ST,,SE,OMXS,Unknown,true
+Arise,ARISE.ST,,SE,OMXS,Unknown,false
+Artificial Solutions,ASAI.ST,,SE,OMXS,Unknown,false
+Attendo,ATT.ST,,SE,OMXS,Unknown,true
+Avensia,AVEN.ST,,SE,OMXS,Unknown,true
+Beijer Alma B,BEIA-B.ST,,SE,OMXS,Unknown,true
+Bredband2 i Skandinavien,BRE2.ST,,SE,OMXS,Unknown,false
+Byggmax Group,BMAX.ST,,SE,OMXS,Unknown,true
+C-Rad B,CRAD-B.ST,,SE,OMXS,Unknown,true
+Careium,CARE.ST,,SE,OMXS,Unknown,true
+Cavotec,CCC.ST,,SE,OMXS,Unknown,true
+Christian Berner Tech Trade B,CBTT-B.ST,,SE,OMXS,Unknown,false
+Clavister Holding,CLAV.ST,,SE,OMXS,Unknown,true
+Concentric,COIC.ST,,SE,OMXS,Unknown,false
+Copperstone Resources B,COPP-B.ST,,SE,OMXS,Unknown,false
+Doro,DORO.ST,,SE,OMXS,Unknown,false
+Electra Gruppen,ELEC.ST,,SE,OMXS,Unknown,false
+Eltel,ELTEL.ST,,SE,OMXS,Unknown,true
+Ependion,EPEN.ST,,SE,OMXS,Unknown,true
+EQL Pharma,EQL.ST,,SE,OMXS,Unknown,true
+Ework Group,EWRK.ST,,SE,OMXS,Unknown,true
+Fastpartner A,FPAR-A.ST,,SE,OMXS,Unknown,true
+Firefly,FIRE.ST,,SE,OMXS,Unknown,true
+Formpipe Software,FPIP.ST,,SE,OMXS,Unknown,true
+Generic Sweden,GENI.ST,,SE,OMXS,Unknown,true
+GHP Specialty Care,GHP.ST,,SE,OMXS,Unknown,false
+Havsfrun Investment B,HAV-B.ST,,SE,OMXS,Unknown,true
+Hifab Group B,HIFA-B.ST,,SE,OMXS,Unknown,false
+InCoax Networks,INCOAX.ST,,SE,OMXS,Unknown,true
+Inission B,INISS-B.ST,,SE,OMXS,Unknown,true
+Irisity,IRIS.ST,,SE,OMXS,Unknown,true
+Kancera,KAN.ST,,SE,OMXS,Unknown,false
+Kopparbergs Bryggeri B,KOBR-B.ST,,SE,OMXS,Unknown,true
+Lammhults Design Group B,LAMM-B.ST,,SE,OMXS,Unknown,true
+Medivir B,MVIR-B.ST,,SE,OMXS,Unknown,false
+Micro Systemation B,MSAB-B.ST,,SE,OMXS,Unknown,true
+Midsona B,MIDSONA-B.ST,,SE,OMXS,Unknown,false
+Misen Energy,MISEN.ST,,SE,OMXS,Unknown,false
+Nanexa,NANEXA.ST,,SE,OMXS,Unknown,true
+Nilörngruppen B,NIL-B.ST,,SE,OMXS,Unknown,true
+Nordic Waterproofing Holding,NWG.ST,,SE,OMXS,Unknown,false
+Ortoma B,ORT-B.ST,,SE,OMXS,Unknown,true
+Ovzon,OVZON.ST,,SE,OMXS,Unknown,true
+Prevas B,PREV-B.ST,,SE,OMXS,Unknown,true
+Precise Biometrics,PREC.ST,,SE,OMXS,Unknown,true
+Rottneros,RROS.ST,,SE,OMXS,Unknown,true
+SinterCast,SINT.ST,,SE,OMXS,Unknown,true
+SkiStar B,SKIS-B.ST,,SE,OMXS,Unknown,true
+Starbreeze A,STAR-A.ST,,SE,OMXS,Unknown,true
+Starbreeze B,STAR-B.ST,,SE,OMXS,Unknown,true
+Studsvik,SVIK.ST,,SE,OMXS,Unknown,true
+Svedbergs Group B,SVED-B.ST,,SE,OMXS,Unknown,true
+Tethys Oil,TETY.ST,,SE,OMXS,Unknown,false
+Transtema Group,TRANS.ST,,SE,OMXS,Unknown,true
+VBG Group B,VBG-B.ST,,SE,OMXS,Unknown,true
+Vicore Pharma Holding,VICO.ST,,SE,OMXS,Unknown,true
+Wise Group,WISE.ST,,SE,OMXS,Unknown,true
+2cureX,2CUREX.ST,,SE,OMXS-FN,Unknown,true
+A1M Pharma,A1M.ST,,SE,OMXS-FN,Unknown,false
+Abliva,ABLI.ST,,SE,OMXS-FN,Unknown,false
+Admicom,ADMCM.ST,,SE,OMXS-FN,Unknown,false
+Advenica,ADVE.ST,,SE,OMXS-FN,Unknown,true
+AegirBio,AEGIR.ST,,SE,OMXS-FN,Unknown,true
+Annexin Pharmaceuticals,ANNX.ST,,SE,OMXS-FN,Unknown,true
+Aptahem,APTA.ST,,SE,OMXS-FN,Unknown,true
+Audiodo,AUDO.ST,,SE,OMXS-FN,Unknown,false
+Avtech Sweden B,AVT-B.ST,,SE,OMXS-FN,Unknown,true
+BellPal Holding,BELLP.ST,,SE,OMXS-FN,Unknown,false
+Bonäsudden Holding,BONAS.ST,,SE,OMXS-FN,Unknown,true
+CAG Group,CAG.ST,,SE,OMXS-FN,Unknown,true
+Candles Scandinavia,CANDLE-B.ST,,SE,OMXS-FN,Unknown,true
+Cell Impact B,CI-B.ST,,SE,OMXS-FN,Unknown,false
+Coala-Life Group,COALA.ST,,SE,OMXS-FN,Unknown,false
+Curasight,CURAS.ST,,SE,OMXS-FN,Unknown,true
+Dignitana,DIGN.ST,,SE,OMXS-FN,Unknown,false
+Emplicure,EMPLI.ST,,SE,OMXS-FN,Unknown,false
+Enorama Pharma,ERMA.ST,,SE,OMXS-FN,Unknown,true
+Euroafrica Digital Ventures,EURA.ST,,SE,OMXS-FN,Unknown,false
+ExpreS2ion Biotech,EXPRS2.ST,,SE,OMXS-FN,Unknown,true
+Fragbite Group,FRAG.ST,,SE,OMXS-FN,Unknown,true
+Free2move Holding,F2M.ST,,SE,OMXS-FN,Unknown,true
+Gapwaves B,GAPW-B.ST,,SE,OMXS-FN,Unknown,true
+Guard Therapeutics,GUARD.ST,,SE,OMXS-FN,Unknown,true
+Hilbert Group,HILB.ST,,SE,OMXS-FN,Unknown,false
+Hubbster Group,HUBS.ST,,SE,OMXS-FN,Unknown,false
+Immunovia,IMMNOV.ST,,SE,OMXS-FN,Unknown,true
+Infracom Group,INFRA.ST,,SE,OMXS-FN,Unknown,true
+Lipidor,LIPI.ST,,SE,OMXS-FN,Unknown,false
+Lundin Gold Swedish Depository Receipts,LUG.ST,,SE,OMXS-FN,Unknown,true
+Movinn,MOVINN.ST,,SE,OMXS-FN,Unknown,false
+Netmore Group B,NETMORE-B.ST,,SE,OMXS-FN,Unknown,false
+Nordic Flanges Group,NFG.ST,,SE,OMXS-FN,Unknown,false
+Saniona,SANION.ST,,SE,OMXS-FN,Unknown,true
+Scandinavian Enviro Systems,SES.ST,,SE,OMXS-FN,Unknown,true
+Tangiamo Touch Technology,TANGI.ST,,SE,OMXS-FN,Unknown,false
+Vertiseit B,VERT-B.ST,,SE,OMXS-FN,Unknown,true
+ZignSec,ZIGN.ST,,SE,OMXS-FN,Unknown,false
+Arcario,ARCA.ST,,SE,SPOTLIGHT,Unknown,false
+Chordate Medical Holding,CMH.ST,,SE,SPOTLIGHT,Unknown,false
+Cyxone,CYXO.ST,,SE,SPOTLIGHT,Unknown,false
+Diadrom Holding,DIAH.ST,,SE,SPOTLIGHT,Unknown,true
+DLaboratory Sweden,DLAB.ST,,SE,SPOTLIGHT,Unknown,true
+Everysport Group,EVERY.ST,,SE,SPOTLIGHT,Unknown,false
+Fluicell,FLUI.ST,,SE,SPOTLIGHT,Unknown,true
+Iconovo,ICO.ST,,SE,SPOTLIGHT,Unknown,true
+Inhalation Sciences Sweden,ISAB.ST,,SE,SPOTLIGHT,Unknown,true
+LC-Tec Holding,LCT.ST,,SE,SPOTLIGHT,Unknown,true
+OrganoClick,ORGC.ST,,SE,SPOTLIGHT,Unknown,true
+PharmaLundensis,PHAL.ST,,SE,SPOTLIGHT,Unknown,true
+Phase Holographic Imaging,PHI.ST,,SE,SPOTLIGHT,Unknown,false
+Real Fastigheter,REALFI.ST,,SE,SPOTLIGHT,Unknown,true
+Redsense Medical,REDS.ST,,SE,SPOTLIGHT,Unknown,true
+Recyctec Holding,RECY-B.ST,,SE,SPOTLIGHT,Unknown,true
+SensoDetect,SDET.ST,,SE,SPOTLIGHT,Unknown,true
+Toleranzia,TOL.ST,,SE,SPOTLIGHT,Unknown,false
+Transfer Group,TRNSF.ST,,SE,SPOTLIGHT,Unknown,true
+Arlandastad Group,AGROUP.ST,,SE,OMXS,Unknown,true
+Awardit,AWRD.ST,,SE,OMXS-FN,Unknown,false
+B3 Consulting Group,B3.ST,,SE,OMXS,Unknown,true
+Bahnhof B,BAHN-B.ST,,SE,OMXS,Unknown,true
+Bergman & Beving B,BERG-B.ST,,SE,OMXS,Unknown,true
+Besqab,BESQ.ST,,SE,OMXS,Unknown,false
+Bio-Works Technologies,BIOWKS.ST,,SE,OMXS-FN,Unknown,true
+Byggmästare Anders J Ahlström,AJA-B.ST,,SE,OMXS,Unknown,true
+Catella A,CAT-A.ST,,SE,OMXS,Unknown,true
+Cereno Scientific B,CRNO-B.ST,,SE,OMXS-FN,Unknown,true
+CirChem,CIRCHE.ST,,SE,SPOTLIGHT,Unknown,true
+Clinical Laserthermia Systems B,CLS-B.ST,,SE,OMXS-FN,Unknown,true
+Compodium International,COMPDM.ST,,SE,OMXS-FN,Unknown,true
+CTT Systems,CTT.ST,,SE,OMXS,Unknown,true
+DevPort,DEVP-B.ST,,SE,OMXS-FN,Unknown,true
+Eastnine,EAST.ST,,SE,OMXS,Unknown,true
+Emilshus B,EMIL-B.ST,,SE,OMXS,Unknown,true
+Enrad,ENRAD.ST,,SE,SPOTLIGHT,Unknown,true
+Fastator,FASTAT.ST,,SE,OMXS,Unknown,true
+Fenix Outdoor B,FOI-B.ST,,SE,OMXS,Unknown,true
+Fortinova Fastigheter,FNOVA-B.ST,,SE,OMXS,Unknown,true
+Green Landscaping Group,GREEN.ST,,SE,OMXS,Unknown,true
+Haki Safety B,HAKI-B.ST,,SE,OMXS,Unknown,true
+Haypp Group,HAYPP.ST,,SE,OMXS,Unknown,true
+HEBA B,HEBA-B.ST,,SE,OMXS,Unknown,true
+Hedera Group,HEGR.ST,,SE,NGM,Unknown,true
+Initiator Pharma,INIT.ST,,SE,SPOTLIGHT,Unknown,true
+International Petroleum Corporation,IPCO.ST,,SE,OMXS,Unknown,true
+ITAB Shop Concept,ITAB.ST,,SE,OMXS,Unknown,true
+Josemaria Resources,JOSX.ST,,SE,OMXS,Unknown,false
+Karolinska Development B,KDEV.ST,,SE,OMXS,Unknown,false
+Logistea B,LOGI-B.ST,,SE,OMXS,Unknown,true
+Lundin Mining Corporation,LUMI.ST,,SE,OMXS,Unknown,true
+MedCap,MCAP.ST,,SE,OMXS,Unknown,true
+Myrspoven,MPCES.ST,,SE,OMXS-FN,Unknown,false
+Neobo Fastigheter,NEOBO.ST,,SE,OMXS,Unknown,true
+Newbury Pharmaceuticals,NEWBRY.ST,,SE,OMXS-FN,Unknown,true
+Norrhydro Group,NORRH.ST,,SE,OMXS-FN,Unknown,false
+Orrön Energy,ORRON.ST,,SE,OMXS,Unknown,true
+OXE Marine,OXE.ST,,SE,OMXS-FN,Unknown,true
+Profoto Holding,PRFO.ST,,SE,OMXS,Unknown,true
+Q-Linea,QLINEA.ST,,SE,OMXS,Unknown,true
+Re:NewCell,RENEW.ST,,SE,OMXS-FN,Unknown,false
+Resurs Holding,RESURS.ST,,SE,OMXS,Unknown,false
+Senzime,SEZI.ST,,SE,OMXS,Unknown,true
+Serneke Group B,SRNKE-B.ST,,SE,OMXS,Unknown,false
+Softronic B,SOF-B.ST,,SE,OMXS,Unknown,true
+Stille,STIL.ST,,SE,OMXS-FN,Unknown,true
+Swedencare,SECARE.ST,,SE,OMXS,Unknown,true
+XANO Industri B,XANO-B.ST,,SE,OMXS,Unknown,true
+Aega,AEGA.OL,,NO,OSLO,Unknown,false
+Andfjord Salmon,ANDF.OL,,NO,OSLO,Unknown,true
+Argeo,ARGEO.OL,,NO,OSLO,Unknown,false
+Bergen Carbon Solutions,BCS.OL,,NO,OSLO,Unknown,true
+Black Sea Property,BSP.OL,,NO,OSLO,Unknown,true
+Byggma,BMA.OL,,NO,OSLO,Unknown,true
+Circa Group,CIRCA.OL,,NO,OSLO,Unknown,false
+ContextVision,CONTX.OL,,NO,OSLO,Unknown,true
+Desert Control,DSRT.OL,,NO,OSLO,Unknown,true
+EAM Solar,EAM.OL,,NO,OSLO,Unknown,true
+Edda Wind,EWIND.OL,,NO,OSLO,Unknown,false
+Elliptic Laboratories,ELABS.OL,,NO,OSLO,Unknown,true
+Exact Therapeutics,EXTX.OL,,NO,OSLO,Unknown,true
+Fjord1,FJORD.OL,,NO,OSLO,Unknown,false
+Goodtech,GOD.OL,,NO,OSLO,Unknown,true
+House of Control Group,HOC.OL,,NO,OSLO,Unknown,false
+Huddlestock Fintech,HUDL.OL,,NO,OSLO,Unknown,true
+Hyon,HYON.OL,,NO,OSLO,Unknown,false
+Ice Fish Farm,IFISH.OL,,NO,OSLO,Unknown,true
+Itera,ITERA.OL,,NO,OSLO,Unknown,true
+Kahoot,KAHOT.OL,,NO,OSLO,Unknown,false
+Kyoto Group,KYOTO.OL,,NO,OSLO,Unknown,false
+M Vest Water,MVW.OL,,NO,OSLO,Unknown,true
+Nidaros Sparebank,NISB.OL,,NO,OSLO,Unknown,true
+NorAm Drilling,NORAM.OL,,NO,OSLO,Unknown,true
+Norcod,NCOD.OL,,NO,OSLO,Unknown,true
+Observe Medical,OBSRV.OL,,NO,OSLO,Unknown,true
+Ocean GeoLoop,OCEAN.OL,,NO,OSLO,Unknown,true
+PatientSky Group,PSKY.OL,,NO,OSLO,Unknown,false
+Pryme,PRYME.OL,,NO,OSLO,Unknown,true
+Q-Free,QFR.OL,,NO,OSLO,Unknown,false
+Quantafuel,QFUEL.OL,,NO,OSLO,Unknown,false
+Salmon Evolution,SALME.OL,,NO,OSLO,Unknown,true
+Sandnes Sparebank,SADG.OL,,NO,OSLO,Unknown,false
+Skue Sparebank,SKUE.OL,,NO,OSLO,Unknown,true
+Sparebanken Sør,SOR.OL,,NO,OSLO,Unknown,false
+Sparebanken Vest,SVEG.OL,,NO,OSLO,Unknown,false
+The Kingfish Company,KING.OL,,NO,OSLO,Unknown,true
+Ultimovacs,ULTI.OL,,NO,OSLO,Unknown,false
+Administer,ADMIN.HE,,FI,OMXH,Unknown,true
+Aiforia Technologies,AIFORIA.HE,,FI,OMXH,Unknown,true
+Alexandria Group,ALEX.HE,,FI,OMXH,Unknown,true
+Aspocomp Group,ACG1V.HE,,FI,OMXH,Unknown,true
+Biohit B,BIOBV.HE,,FI,OMXH,Unknown,true
+Componenta,CTH1V.HE,,FI,OMXH,Unknown,true
+Dovre Group,DOV1V.HE,,FI,OMXH,Unknown,true
+Elecster A,ELEAV.HE,,FI,OMXH,Unknown,true
+Enedo,ENEDO.HE,,FI,OMXH,Unknown,false
+Endomines Finland,PAMPALO.HE,,FI,OMXH,Unknown,true
+Etteplan,ETTE.HE,,FI,OMXH,Unknown,true
+Fondia,FONDIA.HE,,FI,OMXH,Unknown,true
+Gofore,GOFORE.HE,,FI,OMXH,Unknown,true
+Honkarakenne B,HONBS.HE,,FI,OMXH,Unknown,true
+Ilkka,ILKKA2.HE,,FI,OMXH,Unknown,true
+Investors House,INVEST.HE,,FI,OMXH,Unknown,true
+Lemonsoft,LEMON.HE,,FI,OMXH,Unknown,true
+Loihde,LOIHDE.HE,,FI,OMXH,Unknown,true
+Martela A,MARAS.HE,,FI,OMXH,Unknown,true
+Meriaura Group,MERIS.HE,,FI,OMXH,Unknown,false
+Nexstim,NXTMH.HE,,FI,OMXH,Unknown,true
+Ovaro Kiinteistösijoitus,OVARO.HE,,FI,OMXH,Unknown,true
+Piippo,PIIPPO.HE,,FI,OMXH,Unknown,true
+Raisio V,RAIKV.HE,,FI,OMXH,Unknown,true
+Rush Factory,RUSH.HE,,FI,OMXH,Unknown,false
+Saga Furs C,SAGCV.HE,,FI,OMXH,Unknown,true
+Sotkamo Silver,SOSI1.HE,,FI,OMXH,Unknown,true
+Stockmann B,STOCKA.HE,,FI,OMXH,Unknown,false
+Suominen,SUY1V.HE,,FI,OMXH,Unknown,true
+Teleste,TLT1V.HE,,FI,OMXH,Unknown,true
+Tulikivi A,TULAV.HE,,FI,OMXH,Unknown,true
+Vincit,VINCIT.HE,,FI,OMXH,Unknown,true
+Wulff Group,WUF1V.HE,,FI,OMXH,Unknown,true
+Aquaporin,AQP.CO,,DK,OMXC-FN,Unknown,false
+Cessatech,CESSA.CO,,DK,OMXC-FN,Unknown,false
+DecideAct,ACT.CO,,DK,OMXC-FN,Unknown,false
+Freetrailer Group,FREETR.CO,,DK,OMXC-FN,Unknown,false
+GreenMobility,GREENM.CO,,DK,OMXC-FN,Unknown,true
+Hypefactors,HYPE.CO,,DK,OMXC-FN,Unknown,false
+Impero,IMPERO.CO,,DK,OMXC-FN,Unknown,true
+LED iBond International,LEDIBOND.CO,,DK,OMXC-FN,Unknown,false
+Loyal Solutions,LOYAL.CO,,DK,OMXC-FN,Unknown,false
+Mdundo.com,MDUNDO.CO,,DK,OMXC-FN,Unknown,true
+Nexcom,NEXCOM.CO,,DK,OMXC-FN,Unknown,true
+OrderYOYO,YOYO.CO,,DK,OMXC-FN,Unknown,false
+Q-Interline,QINTER.CO,,DK,OMXC-FN,Unknown,true
+Risk Intelligence,RISK.CO,,DK,OMXC-FN,Unknown,false
+Scandinavian Medical Solutions,SMSMED.CO,,DK,OMXC-FN,Unknown,true
+Seluxit,SLXIT.CO,,DK,OMXC-FN,Unknown,false
+Stenocare,STENO.CO,,DK,OMXC-FN,Unknown,true
+Trophy Games Development,TGAMES.CO,,DK,OMXC-FN,Unknown,true
+Valuer Holding,VALUER.CO,,DK,OMXC-FN,Unknown,false
+Apple,AAPL,US0378331005,US,NASDAQ,Technology,True
+Microsoft,MSFT,US5949181045,US,NASDAQ,Technology,True
+NVIDIA,NVDA,US67066G1040,US,NASDAQ,Technology,True
+Alphabet A,GOOGL,US02079K3059,US,NASDAQ,Technology,True
+Meta Platforms,META,US30303M1027,US,NASDAQ,Technology,True
+Broadcom,AVGO,US11135F1012,US,NASDAQ,Technology,True
+AMD,AMD,US0079031078,US,NASDAQ,Technology,True
+Qualcomm,QCOM,US7475251036,US,NASDAQ,Technology,True
+Texas Instruments,TXN,US8825081040,US,NASDAQ,Technology,True
+Applied Materials,AMAT,US0382221051,US,NASDAQ,Technology,True
+Lam Research,LRCX,US5128071082,US,NASDAQ,Technology,True
+KLA Corporation,KLAC,US4824801009,US,NASDAQ,Technology,True
+Micron Technology,MU,US5951121038,US,NASDAQ,Technology,True
+Intel,INTC,US4581401001,US,NASDAQ,Technology,True
+ServiceNow,NOW,US81762P1021,US,NYSE,Technology,True
+Salesforce,CRM,US79466L3024,US,NYSE,Technology,True
+Oracle,ORCL,US68389X1054,US,NYSE,Technology,True
+Adobe,ADBE,US00724F1012,US,NASDAQ,Technology,True
+Intuit,INTU,US4612021034,US,NASDAQ,Technology,True
+Palo Alto Networks,PANW,US6974001089,US,NASDAQ,Technology,True
+CrowdStrike,CRWD,US22788C1053,US,NASDAQ,Technology,True
+Snowflake,SNOW,US8334451098,US,NYSE,Technology,True
+Workday,WDAY,US98138H1014,US,NASDAQ,Technology,True
+Datadog,DDOG,US23804L1035,US,NASDAQ,Technology,True
+Cloudflare,NET,US18915M1071,US,NYSE,Technology,True
+Arista Networks,ANET,US0404131064,US,NYSE,Technology,True
+Fortinet,FTNT,US34959E1091,US,NASDAQ,Technology,True
+Palantir,PLTR,US69608A1088,US,NYSE,Technology,True
+MongoDB,MDB,US60937P1066,US,NASDAQ,Technology,True
+Zscaler,ZS,US98980G1022,US,NASDAQ,Technology,True
+Okta,OKTA,US6792951054,US,NASDAQ,Technology,True
+HubSpot,HUBS,US4435731009,US,NYSE,Technology,True
+Taiwan Semiconductor ADR,TSM,US8740391003,US,NYSE,Technology,True
+ASML ADR,ASML,US0485482059,US,NASDAQ,Technology,True
+Amazon,AMZN,US0231351067,US,NASDAQ,Consumer Discretionary,True
+Tesla,TSLA,US88160R1014,US,NASDAQ,Consumer Discretionary,True
+Home Depot,HD,US4370761029,US,NYSE,Consumer Discretionary,True
+McDonald's,MCD,US5801351017,US,NYSE,Consumer Discretionary,True
+Nike,NKE,US6541061031,US,NYSE,Consumer Discretionary,True
+Walt Disney,DIS,US2546871060,US,NYSE,Consumer Discretionary,True
+Booking Holdings,BKNG,US09857L1089,US,NASDAQ,Consumer Discretionary,True
+Airbnb,ABNB,US0090661010,US,NASDAQ,Consumer Discretionary,True
+Starbucks,SBUX,US8552441094,US,NASDAQ,Consumer Discretionary,True
+Lowe's,LOW,US5486611073,US,NYSE,Consumer Discretionary,True
+Target,TGT,US8729211030,US,NYSE,Consumer Discretionary,True
+Uber,UBER,US90353T1007,US,NYSE,Consumer Discretionary,True
+Marriott,MAR,US5719032022,US,NASDAQ,Consumer Discretionary,True
+Hilton,HLT,US43300A2033,US,NYSE,Consumer Discretionary,True
+General Motors,GM,US37045V1008,US,NYSE,Consumer Discretionary,True
+Ford,F,US3453708600,US,NYSE,Consumer Discretionary,True
+Walmart,WMT,US9311421039,US,NYSE,Consumer Staples,True
+Procter & Gamble,PG,US7427181091,US,NYSE,Consumer Staples,True
+Coca-Cola,KO,US1912161007,US,NYSE,Consumer Staples,True
+PepsiCo,PEP,US7134481081,US,NASDAQ,Consumer Staples,True
+Costco,COST,US22160K1051,US,NASDAQ,Consumer Staples,True
+Philip Morris,PM,US7181721090,US,NYSE,Consumer Staples,True
+Altria,MO,US02209S1033,US,NYSE,Consumer Staples,True
+Mondelez,MDLZ,US6092071058,US,NASDAQ,Consumer Staples,True
+Colgate-Palmolive,CL,US1941621039,US,NYSE,Consumer Staples,True
+JPMorgan Chase,JPM,US46625H1005,US,NYSE,Financials,True
+Visa,V,US92826C8394,US,NYSE,Financials,True
+Mastercard,MA,US57636Q1040,US,NYSE,Financials,True
+Berkshire Hathaway B,BRK-B,US0846707026,US,NYSE,Financials,True
+Bank of America,BAC,US0605051046,US,NYSE,Financials,True
+Wells Fargo,WFC,US9497461015,US,NYSE,Financials,True
+Goldman Sachs,GS,US38141G1040,US,NYSE,Financials,True
+Morgan Stanley,MS,US6174464486,US,NYSE,Financials,True
+American Express,AXP,US0258161092,US,NYSE,Financials,True
+Citigroup,C,US1729674242,US,NYSE,Financials,True
+BlackRock,BLK,US09247X1019,US,NYSE,Financials,True
+S&P Global,SPGI,US78409V1044,US,NYSE,Financials,True
+Moody's,MCO,US6153691059,US,NYSE,Financials,True
+CME Group,CME,US12572Q1058,US,NASDAQ,Financials,True
+Charles Schwab,SCHW,US8085131055,US,NYSE,Financials,True
+Coinbase,COIN,US19260Q1076,US,NASDAQ,Financials,True
+UnitedHealth,UNH,US91324P1021,US,NYSE,Healthcare,True
+Johnson & Johnson,JNJ,US4781601046,US,NYSE,Healthcare,True
+Eli Lilly,LLY,US5324571036,US,NYSE,Healthcare,True
+AbbVie,ABBV,US00287Y1091,US,NYSE,Healthcare,True
+Merck,MRK,US58933Y1055,US,NYSE,Healthcare,True
+Pfizer,PFE,US7170811035,US,NYSE,Healthcare,True
+Abbott Labs,ABT,US0028241000,US,NYSE,Healthcare,True
+Thermo Fisher,TMO,US8835561023,US,NYSE,Healthcare,True
+Danaher,DHR,US2358511028,US,NYSE,Healthcare,True
+Intuitive Surgical,ISRG,US46120E6023,US,NASDAQ,Healthcare,True
+Amgen,AMGN,US0311621009,US,NASDAQ,Healthcare,True
+Gilead Sciences,GILD,US3755581036,US,NASDAQ,Healthcare,True
+Vertex Pharmaceuticals,VRTX,US92532F1003,US,NASDAQ,Healthcare,True
+Regeneron,REGN,US75886F1075,US,NASDAQ,Healthcare,True
+Moderna,MRNA,US60770K1079,US,NASDAQ,Healthcare,True
+Boston Scientific,BSX,US1011371077,US,NYSE,Healthcare,True
+Medtronic,MDT,IE00BTN1Y115,US,NYSE,Healthcare,True
+Exxon Mobil,XOM,US30231G1022,US,NYSE,Energy,True
+Chevron,CVX,US1667641005,US,NYSE,Energy,True
+ConocoPhillips,COP,US20825C1045,US,NYSE,Energy,True
+EOG Resources,EOG,US26875P1012,US,NYSE,Energy,True
+Schlumberger,SLB,AN8068571086,US,NYSE,Energy,True
+Devon Energy,DVN,US25179M1036,US,NYSE,Energy,True
+Marathon Petroleum,MPC,US56585A1025,US,NYSE,Energy,True
+Valero Energy,VLO,US91913Y1001,US,NYSE,Energy,True
+Caterpillar,CAT,US1491231015,US,NYSE,Industrials,True
+Boeing,BA,US0970231058,US,NYSE,Industrials,True
+Honeywell,HON,US4385161066,US,NASDAQ,Industrials,True
+Lockheed Martin,LMT,US5398301094,US,NYSE,Industrials,True
+General Electric,GE,US3696043013,US,NYSE,Industrials,True
+RTX,RTX,US75513E1010,US,NYSE,Industrials,True
+Union Pacific,UNP,US9078181081,US,NYSE,Industrials,True
+Deere,DE,US2441991054,US,NYSE,Industrials,True
+3M,MMM,US88579Y1010,US,NYSE,Industrials,True
+Illinois Tool Works,ITW,US4523081093,US,NYSE,Industrials,True
+Northrop Grumman,NOC,US6668071029,US,NYSE,Industrials,True
+Emerson Electric,EMR,US2910111044,US,NYSE,Industrials,True
+Linde,LIN,IE00BZ12WP82,US,NASDAQ,Materials,True
+Air Products,APD,US0091581068,US,NYSE,Materials,True
+Newmont,NEM,US6516391066,US,NYSE,Materials,True
+Freeport-McMoRan,FCX,US35671D8570,US,NYSE,Materials,True
+Nucor,NUE,US6703461052,US,NYSE,Materials,True
+Netflix,NFLX,US64110L1061,US,NASDAQ,Communication Services,True
+T-Mobile,TMUS,US8725901040,US,NASDAQ,Communication Services,True
+Verizon,VZ,US92343V1044,US,NYSE,Communication Services,True
+AT&T,T,US00206R1023,US,NYSE,Communication Services,True
+Comcast,CMCSA,US20030N1019,US,NASDAQ,Communication Services,True
+Spotify,SPOT,LU1778762911,US,NYSE,Communication Services,True
+American Tower,AMT,US03027X1000,US,NYSE,Real Estate,True
+Prologis,PLD,US74340W1036,US,NYSE,Real Estate,True
+Equinix,EQIX,US29444U7000,US,NASDAQ,Real Estate,True
+NextEra Energy,NEE,US65339F1012,US,NYSE,Utilities,True
+Duke Energy,DUK,US26441C2044,US,NYSE,Utilities,True
+Southern Company,SO,US8425871071,US,NYSE,Utilities,True
+AstraZeneca,AZN.L,GB0009895292,GB,LSE,Healthcare,True
+Shell,SHEL.L,GB00BP6MXD84,GB,LSE,Energy,True
+HSBC,HSBA.L,GB0005405286,GB,LSE,Financials,True
+Unilever,ULVR.L,GB00B10RZP78,GB,LSE,Consumer Staples,True
+BP,BP.L,GB0007980591,GB,LSE,Energy,True
+GSK,GSK.L,GB0009252882,GB,LSE,Healthcare,True
+Rio Tinto,RIO.L,GB0007188757,GB,LSE,Materials,True
+Diageo,DGE.L,GB0002374006,GB,LSE,Consumer Staples,True
+Rolls-Royce,RR.L,GB00B63H8491,GB,LSE,Industrials,True
+Barclays,BARC.L,GB0031348658,GB,LSE,Financials,True
+Lloyds Banking Group,LLOY.L,GB0008706128,GB,LSE,Financials,True
+National Grid,NG.L,GB00BDR05C01,GB,LSE,Utilities,True
+BAE Systems,BA.L,GB0002634946,GB,LSE,Industrials,True
+Experian,EXPN.L,IE00B19RTW58,GB,LSE,Industrials,True
+Sage Group,SGE.L,GB00B8C3BL03,GB,LSE,Technology,True
+LSEG,LSEG.L,GB00B0SWJX34,GB,LSE,Financials,True
+Glencore,GLEN.L,JE00B4T3BW64,GB,LSE,Materials,True
+Anglo American,AAL.L,GB00B1XZS820,GB,LSE,Materials,True
+Reckitt,RKT.L,GB00B24CGK77,GB,LSE,Consumer Staples,True
+Haleon,HLN.L,GB00BMX86B70,GB,LSE,Healthcare,True
+Compass Group,CPG.L,GB00BD6K4575,GB,LSE,Consumer Discretionary,True
+InterContinental Hotels,IHG.L,GB00BHJYC057,GB,LSE,Consumer Discretionary,True
+Vodafone,VOD.L,GB00BH4HKS39,GB,LSE,Communication Services,True
+Prudential,PRU.L,GB0007099541,GB,LSE,Financials,True
+Standard Chartered,STAN.L,GB0004082847,GB,LSE,Financials,True
+Aviva,AV.L,GB0002162385,GB,LSE,Financials,True
+Legal & General,LGEN.L,GB0005603997,GB,LSE,Financials,True
+3i Group,III.L,GB00B1YW4409,GB,LSE,Financials,True
+Melrose Industries,MRO.L,GB00BJLR0J16,GB,LSE,Industrials,True
+Rentokil Initial,RTO.L,GB00B082RF11,GB,LSE,Industrials,True
+SAP,SAP.DE,DE0007164600,DE,XETRA,Technology,True
+Siemens,SIE.DE,DE0007236101,DE,XETRA,Industrials,True
+Allianz,ALV.DE,DE0008404005,DE,XETRA,Financials,True
+BASF,BAS.DE,DE000BASF111,DE,XETRA,Materials,True
+Volkswagen,VOW3.DE,DE0007664039,DE,XETRA,Consumer Discretionary,True
+BMW,BMW.DE,DE0005190003,DE,XETRA,Consumer Discretionary,True
+Mercedes-Benz,MBG.DE,DE0007100000,DE,XETRA,Consumer Discretionary,True
+Deutsche Telekom,DTE.DE,DE0005557508,DE,XETRA,Communication Services,True
+Munich Re,MUV2.DE,DE0008430026,DE,XETRA,Financials,True
+Bayer,BAYN.DE,DE000BAY0017,DE,XETRA,Healthcare,True
+Deutsche Bank,DBK.DE,DE0005140008,DE,XETRA,Financials,True
+Airbus,AIR.DE,NL0000235190,DE,XETRA,Industrials,True
+adidas,ADS.DE,DE000A1EWWW0,DE,XETRA,Consumer Discretionary,True
+Infineon,IFX.DE,DE0006231004,DE,XETRA,Technology,True
+RWE,RWE.DE,DE0007037129,DE,XETRA,Utilities,True
+E.ON,EOAN.DE,DE000ENAG999,DE,XETRA,Utilities,True
+Fresenius,FRE.DE,DE0005785604,DE,XETRA,Healthcare,True
+Henkel,HEN3.DE,DE0006048432,DE,XETRA,Consumer Staples,True
+Daimler Truck,DTG.DE,DE000DTR0CK8,DE,XETRA,Industrials,True
+Siemens Energy,ENR.DE,DE000ENER6Y0,DE,XETRA,Energy,True
+Porsche AG,P911.DE,DE000PAG9113,DE,XETRA,Consumer Discretionary,True
+Zalando,ZAL.DE,DE000ZAL1111,DE,XETRA,Consumer Discretionary,True
+Deutsche Boerse,DB1.DE,DE0005810055,DE,XETRA,Financials,True
+LVMH,MC.PA,FR0000121014,FR,EURONEXT,Consumer Discretionary,True
+TotalEnergies,TTE.PA,FR0014000MR3,FR,EURONEXT,Energy,True
+L'Oréal,OR.PA,FR0000120321,FR,EURONEXT,Consumer Staples,True
+Sanofi,SAN.PA,FR0000120578,FR,EURONEXT,Healthcare,True
+BNP Paribas,BNP.PA,FR0000131104,FR,EURONEXT,Financials,True
+Air Liquide,AI.PA,FR0000120073,FR,EURONEXT,Materials,True
+Schneider Electric,SU.PA,FR0000121972,FR,EURONEXT,Industrials,True
+Hermès,RMS.PA,FR0000052292,FR,EURONEXT,Consumer Discretionary,True
+Kering,KER.PA,FR0000121485,FR,EURONEXT,Consumer Discretionary,True
+Safran,SAF.PA,FR0000073272,FR,EURONEXT,Industrials,True
+AXA,CS.PA,FR0000120628,FR,EURONEXT,Financials,True
+Pernod Ricard,RI.PA,FR0000120693,FR,EURONEXT,Consumer Staples,True
+Danone,BN.PA,FR0000120644,FR,EURONEXT,Consumer Staples,True
+Michelin,ML.PA,FR0000121261,FR,EURONEXT,Consumer Discretionary,True
+Vinci,DG.PA,FR0000125486,FR,EURONEXT,Industrials,True
+Saint-Gobain,SGO.PA,FR0000125007,FR,EURONEXT,Materials,True
+Engie,ENGI.PA,FR0010208488,FR,EURONEXT,Utilities,True
+Orange,ORA.PA,FR0000133308,FR,EURONEXT,Communication Services,True
+Capgemini,CAP.PA,FR0000125338,FR,EURONEXT,Technology,True
+Dassault Systèmes,DSY.PA,FR0014003TT8,FR,EURONEXT,Technology,True
+Publicis,PUB.PA,FR0000130577,FR,EURONEXT,Communication Services,True
+Stellantis,STLAP.PA,NL00150001Q9,FR,EURONEXT,Consumer Discretionary,True
+Renault,RNO.PA,FR0000131906,FR,EURONEXT,Consumer Discretionary,True
+Legrand,LR.PA,FR0010307819,FR,EURONEXT,Industrials,True
+Nestlé,NESN.SW,CH0038863350,CH,SIX,Consumer Staples,True
+Novartis,NOVN.SW,CH0012221716,CH,SIX,Healthcare,True
+Roche,ROG.SW,CH0012032048,CH,SIX,Healthcare,False
+UBS,UBSG.SW,CH0244767585,CH,SIX,Financials,True
+ABB,ABBN.SW,CH0012221499,CH,SIX,Industrials,True
+Zurich Insurance,ZURN.SW,CH0011075394,CH,SIX,Financials,True
+Lonza,LONN.SW,CH0013841017,CH,SIX,Healthcare,True
+Partners Group,PGHN.SW,CH0024608827,CH,SIX,Financials,True
+Richemont,CFR.SW,CH0210483332,CH,SIX,Consumer Discretionary,True
+Holcim,HOLN.SW,CH0012214059,CH,SIX,Materials,True
+Swiss Re,SREN.SW,CH0126881561,CH,SIX,Financials,True
+Geberit,GEBN.SW,CH0030170408,CH,SIX,Industrials,True
+ASML,ASML.AS,NL0010273215,NL,EURONEXT,Technology,True
+ING,INGA.AS,NL0011821202,NL,EURONEXT,Financials,True
+Heineken,HEIA.AS,NL0000009165,NL,EURONEXT,Consumer Staples,True
+Philips,PHIA.AS,NL0000009538,NL,EURONEXT,Healthcare,True
+Wolters Kluwer,WKL.AS,NL0000395903,NL,EURONEXT,Industrials,True
+Adyen,ADYEN.AS,NL0012969182,NL,EURONEXT,Technology,True
+Universal Music Group,UMG.AS,NL0015000IY2,NL,EURONEXT,Communication Services,True
+NXP Semiconductors,NXPI.AS,NL0009538784,NL,EURONEXT,Technology,False
+NN Group,NN.AS,NL0010773842,NL,EURONEXT,Financials,True
+IMCD,IMCD.AS,NL0010801007,NL,EURONEXT,Materials,True
+Toyota Motor ADR,TM,US8923313071,JP,NYSE,Consumer Discretionary,True
+Sony Group ADR,SONY,US8356993076,JP,NYSE,Consumer Discretionary,True
+Honda Motor ADR,HMC,US4381923033,JP,NYSE,Consumer Discretionary,True
+Mitsubishi UFJ ADR,MUFG,US6073691052,JP,NYSE,Financials,True
+Takeda Pharmaceutical ADR,TAK,US8740521052,JP,NYSE,Healthcare,True
+Royal Bank of Canada,RY.TO,CA7800871021,CA,TSX,Financials,True
+Toronto-Dominion Bank,TD.TO,CA8911605092,CA,TSX,Financials,True
+Shopify,SHOP.TO,CA82509L1076,CA,TSX,Technology,True
+Canadian Natural Res,CNQ.TO,CA1363851017,CA,TSX,Energy,True
+Suncor Energy,SU.TO,CA8672241079,CA,TSX,Energy,True
+Brookfield,BN.TO,CA11271J1075,CA,TSX,Financials,True
+Barrick Gold,ABX.TO,CA0679011084,CA,TSX,Materials,True
+Agnico Eagle Mines,AEM.TO,CA0084741085,CA,TSX,Materials,True
+Canadian Pacific Kansas,CP.TO,CA13645T1003,CA,TSX,Industrials,True
+Manulife Financial,MFC.TO,CA56501R1064,CA,TSX,Financials,True
+Cenovus Energy,CVE.TO,CA15135U1093,CA,TSX,Energy,True
+BCE,BCE.TO,CA05534B7604,CA,TSX,Communication Services,True
+BHP Group,BHP,AU000000BHP4,AU,NYSE,Materials,True
+Atlassian,TEAM,AU000000ATL3,AU,NASDAQ,Technology,True
+Alibaba Group ADR,BABA,US01609W1027,CN,NYSE,Consumer Discretionary,True
+JD.com ADR,JD,US47215P1066,CN,NASDAQ,Consumer Discretionary,True
+Baidu ADR,BIDU,US0567521085,CN,NASDAQ,Communication Services,True
+PDD Holdings ADR,PDD,US69767V1098,CN,NASDAQ,Consumer Discretionary,True
+NIO ADR,NIO,US62914V1061,CN,NYSE,Consumer Discretionary,True
+Li Auto ADR,LI,US50202M1027,CN,NASDAQ,Consumer Discretionary,True
+XPeng ADR,XPEV,US98422D1054,CN,NYSE,Consumer Discretionary,True
+NetEase ADR,NTES,US64110W1027,CN,NASDAQ,Communication Services,True
+Trip.com ADR,TCOM,US89677Q1076,CN,NASDAQ,Consumer Discretionary,True
+Motorola Solutions,MSI,US6200763075,US,NYSE,Technology,True
+Amphenol,APH,US0320951017,US,NYSE,Technology,True
+TE Connectivity,TEL,CH0102993182,US,NYSE,Technology,True
+Corning,GLW,US2193501051,US,NYSE,Technology,True
+Gartner,IT,US3666511072,US,NYSE,Technology,True
+Jack Henry,JKHY,US4262811015,US,NASDAQ,Technology,True
+Cognizant,CTSH,US1924461023,US,NASDAQ,Technology,True
+Fidelity National Info,FIS,US31620M1062,US,NYSE,Technology,True
+Fiserv,FI,US3377381088,US,NASDAQ,Technology,False
+Global Payments,GPN,US37940X1028,US,NYSE,Technology,True
+VeriSign,VRSN,US92343E1029,US,NASDAQ,Technology,True
+Akamai,AKAM,US00971T1016,US,NASDAQ,Technology,True
+EPAM Systems,EPAM,US29414B1044,US,NYSE,Technology,True
+PTC,PTC,US69370C1009,US,NASDAQ,Technology,True
+Trimble,TRMB,US8962391004,US,NASDAQ,Technology,True
+Zebra Technologies,ZBRA,US9892071054,US,NASDAQ,Technology,True
+Ceridian,CDAY,US15677J1088,US,NYSE,Technology,False
+SS&C Technologies,SSNC,US78467J1007,US,NASDAQ,Technology,True
+Manhattan Associates,MANH,US5627501092,US,NASDAQ,Technology,True
+Tyler Technologies,TYL,US9022521051,US,NYSE,Technology,True
+Verint Systems,VRNT,US9237521051,US,NASDAQ,Technology,True
+SolarWinds,SWI,US83417M1045,US,NYSE,Technology,False
+Bentley Systems,BSY,US08265T2087,US,NASDAQ,Technology,True
+Confluent,CFLT,US20717M1036,US,NASDAQ,Technology,False
+HashiCorp,HCP,US41805L1070,US,NASDAQ,Technology,False
+UiPath,PATH,US90364P1057,US,NYSE,Technology,True
+C3.ai,AI,US12468P1049,US,NYSE,Technology,True
+Twilio,TWLO,US90138F1021,US,NYSE,Technology,True
+Zendesk,ZEN,US98936J1016,US,NYSE,Technology,False
+Braze,BRZE,US10576B1008,US,NASDAQ,Technology,True
+Sprinklr,CXM,US85222Q1094,US,NYSE,Technology,True
+Asana,ASAN,US04342Y1038,US,NYSE,Technology,True
+monday.com,MNDY,IL0011710915,US,NASDAQ,Technology,True
+DigitalBridge,DBRG,US25400W2070,US,NYSE,Real Estate,True
+Vertiv Holdings,VRT,US92537N1081,US,NYSE,Technology,True
+Marvell Technology,MRVL,US5738741041,US,NASDAQ,Technology,True
+Lattice Semiconductor,LSCC,US5184151042,US,NASDAQ,Technology,True
+ON Semiconductor,ON,US6821891057,US,NASDAQ,Technology,True
+Microchip Technology,MCHP,US5950171042,US,NASDAQ,Technology,True
+Skyworks Solutions,SWKS,US83088M1027,US,NASDAQ,Technology,True
+Qorvo,QRVO,US74736L1017,US,NASDAQ,Technology,True
+Cirrus Logic,CRUS,US1727551004,US,NASDAQ,Technology,True
+Wolfspeed,WOLF,US9808F1049,US,NYSE,Technology,True
+Coherent,COHR,US19241C1027,US,NYSE,Technology,True
+Kulicke & Soffa,KLIC,US5012821058,US,NASDAQ,Technology,True
+Intercontinental Exchange,ICE,US45866F1049,US,NYSE,Financials,True
+Nasdaq Inc,NDAQ,US6311031081,US,NASDAQ,Financials,True
+T. Rowe Price,TROW,US74144T1088,US,NASDAQ,Financials,True
+Franklin Resources,BEN,US3546131018,US,NYSE,Financials,True
+Invesco,IVZ,US46132F1049,US,NYSE,Financials,True
+Principal Financial,PFG,US74251V1026,US,NASDAQ,Financials,True
+Unum Group,UNM,US91529Y1064,US,NYSE,Financials,True
+Lincoln National,LNC,US5341871094,US,NYSE,Financials,True
+Aflac,AFL,US0010551028,US,NYSE,Financials,True
+Hartford Financial,HIG,US4165151048,US,NYSE,Financials,True
+Allstate,ALL,US0200021014,US,NYSE,Financials,True
+Progressive,PGR,US7433151039,US,NYSE,Financials,True
+Travelers,TRV,US8961561063,US,NYSE,Financials,True
+W.R. Berkley,WRB,US0844231029,US,NYSE,Financials,True
+Arch Capital,ACGL,BMG0450A1053,US,NASDAQ,Financials,True
+Markel Group,MKL,US5705351048,US,NYSE,Financials,True
+Loews,L,US5404241086,US,NYSE,Financials,True
+Synchrony Financial,SYF,US87165B1035,US,NYSE,Financials,True
+Ally Financial,ALLY,US0203722064,US,NYSE,Financials,True
+Capital One,COF,US14040H1059,US,NYSE,Financials,True
+Discover Financial,DFS,US2547091080,US,NYSE,Financials,False
+Fifth Third Bancorp,FITB,US3167731005,US,NASDAQ,Financials,True
+KeyCorp,KEY,US4932671088,US,NYSE,Financials,True
+Regions Financial,RF,US7591EP1005,US,NYSE,Financials,True
+Huntington Bancshares,HBAN,US4461501045,US,NASDAQ,Financials,True
+M&T Bank,MTB,US55261F1049,US,NYSE,Financials,True
+Comerica,CMA,US2003401070,US,NASDAQ,Financials,False
+Zions Bancorporation,ZION,US9897011071,US,NASDAQ,Financials,True
+SVB Financial,SIVB,US78486Q1013,US,NASDAQ,Financials,False
+Signature Bank,SBNY,US82669G1040,US,NASDAQ,Financials,True
+Western Alliance,WAL,US9578521014,US,NYSE,Financials,True
+Becton Dickinson,BDX,US0757811091,US,NYSE,Healthcare,True
+Zimmer Biomet,ZBH,US98956P1021,US,NYSE,Healthcare,True
+Hologic,HOLX,US4364401012,US,NASDAQ,Healthcare,False
+Idexx Laboratories,IDXX,US45168D1046,US,NASDAQ,Healthcare,True
+Align Technology,ALGN,US0162551016,US,NASDAQ,Healthcare,True
+Edwards Lifesciences,EW,US28176E1082,US,NYSE,Healthcare,True
+Insulet,PODD,US45784P1012,US,NASDAQ,Healthcare,True
+Tandem Diabetes Care,TNDM,US8753211019,US,NASDAQ,Healthcare,True
+Penumbra,PEN,US70975L1070,US,NYSE,Healthcare,True
+Haemonetics,HAE,US4050261033,US,NYSE,Healthcare,True
+Masimo,MASI,US5747951003,US,NASDAQ,Healthcare,True
+ResMed,RMD,US7611521078,US,NYSE,Healthcare,True
+Envista Holdings,NVST,US29415F1049,US,NYSE,Healthcare,True
+Henry Schein,HSIC,US8064071025,US,NASDAQ,Healthcare,True
+McKesson,MCK,US58155Q1031,US,NYSE,Healthcare,True
+AmerisourceBergen,COR,US03073E1055,US,NYSE,Healthcare,True
+Cardinal Health,CAH,US14149Y1082,US,NYSE,Healthcare,True
+Humana,HUM,US4448591028,US,NYSE,Healthcare,True
+Cigna,CI,US1255231003,US,NYSE,Healthcare,True
+Centene,CNC,US15135B1017,US,NYSE,Healthcare,True
+Molina Healthcare,MOH,US60855R1005,US,NYSE,Healthcare,True
+DaVita,DVA,US23918K1088,US,NYSE,Healthcare,True
+Labcorp,LH,US50540R4092,US,NYSE,Healthcare,True
+Quest Diagnostics,DGX,US74834L1008,US,NYSE,Healthcare,True
+IQVIA,IQV,US46266C1053,US,NYSE,Healthcare,True
+Syneos Health,SYNH,US87184E1055,US,NASDAQ,Healthcare,False
+Exact Sciences,EXAS,US30063X1019,US,NASDAQ,Healthcare,False
+10x Genomics,TXG,US88025U1097,US,NASDAQ,Healthcare,True
+Illumina,ILMN,US4523271090,US,NASDAQ,Healthcare,True
+Pacific Biosciences,PACB,US69478F1030,US,NASDAQ,Healthcare,True
+Dollar General,DG,US2566771059,US,NYSE,Consumer Discretionary,True
+Dollar Tree,DLTR,US2567461080,US,NASDAQ,Consumer Discretionary,True
+Ross Stores,ROST,US7782961008,US,NASDAQ,Consumer Discretionary,True
+TJX Companies,TJX,US8725401090,US,NYSE,Consumer Discretionary,True
+Burlington Stores,BURL,US1220171060,US,NYSE,Consumer Discretionary,True
+Bath & Body Works,BBWI,US07060D1081,US,NYSE,Consumer Discretionary,True
+Tapestry,TPR,US8760301072,US,NYSE,Consumer Discretionary,True
+Capri Holdings,CPRI,VGG1890L1073,US,NYSE,Consumer Discretionary,True
+Ralph Lauren,RL,US7512121010,US,NYSE,Consumer Discretionary,True
+VF Corporation,VFC,US9182041080,US,NYSE,Consumer Discretionary,True
+Carter's,CRI,US1462151024,US,NYSE,Consumer Discretionary,True
+Hasbro,HAS,US4180561072,US,NASDAQ,Consumer Discretionary,True
+Mattel,MAT,US5770811025,US,NASDAQ,Consumer Discretionary,True
+Carnival,CCL,PA1436583006,US,NYSE,Consumer Discretionary,True
+Royal Caribbean,RCL,LR0008862868,US,NYSE,Consumer Discretionary,True
+Norwegian Cruise,NCLH,PA2014073045,US,NYSE,Consumer Discretionary,True
+Delta Air Lines,DAL,US2473617023,US,NYSE,Consumer Discretionary,True
+United Airlines,UAL,US9100471096,US,NASDAQ,Consumer Discretionary,True
+American Airlines,AAL,US02376R1023,US,NASDAQ,Consumer Discretionary,True
+Southwest Airlines,LUV,US8447411088,US,NYSE,Consumer Discretionary,True
+Roblox,RBLX,US7710491033,US,NYSE,Consumer Discretionary,True
+Take-Two Interactive,TTWO,US8740541094,US,NASDAQ,Consumer Discretionary,True
+Electronic Arts,EA,US2855121099,US,NASDAQ,Consumer Discretionary,True
+Warner Bros Discovery,WBD,US9344231041,US,NASDAQ,Consumer Discretionary,True
+Live Nation,LYV,US5380341090,US,NYSE,Consumer Discretionary,True
+DoorDash,DASH,US25809K1051,US,NYSE,Consumer Discretionary,True
+Instacart,CART,US46187W1099,US,NASDAQ,Consumer Discretionary,True
+Lyft,LYFT,US55087P1049,US,NASDAQ,Consumer Discretionary,True
+Parker Hannifin,PH,US7010941042,US,NYSE,Industrials,True
+Eaton,ETN,IE00B8KQN827,US,NYSE,Industrials,True
+Rockwell Automation,ROK,US7739031091,US,NYSE,Industrials,True
+AMETEK,AME,US0311001004,US,NYSE,Industrials,True
+Roper Technologies,ROP,US7766961061,US,NASDAQ,Industrials,True
+Masco,MAS,US5745991068,US,NYSE,Industrials,True
+Carrier Global,CARR,US14448C1045,US,NYSE,Industrials,True
+Otis Worldwide,OTIS,US6900643031,US,NYSE,Industrials,True
+Trane Technologies,TT,IE00BK9ZQ967,US,NYSE,Industrials,True
+Xylem,XYL,US98419M1009,US,NYSE,Industrials,True
+Watts Water Technologies,WTS,US9427491025,US,NYSE,Industrials,True
+Pentair,PNR,IE00BLS09M33,US,NYSE,Industrials,True
+Flowserve,FLS,US34354P1057,US,NYSE,Industrials,True
+Dover,DOV,US2600031080,US,NYSE,Industrials,True
+Hubbell,HUBB,US4435201096,US,NYSE,Industrials,True
+nVent Electric,NVT,CH0415820altm,US,NYSE,Industrials,True
+Curtiss-Wright,CW,US2315611010,US,NYSE,Industrials,True
+TransDigm,TDG,US8936411003,US,NYSE,Industrials,True
+Heico,HEI,US4228062096,US,NYSE,Industrials,True
+L3Harris Technologies,LHX,US5024311095,US,NYSE,Industrials,True
+FLIR Systems,FLIR,US3024341068,US,NASDAQ,Industrials,False
+Axon Enterprise,AXON,US05464C1018,US,NASDAQ,Industrials,True
+GXO Logistics,GXO,US36262G1013,US,NYSE,Industrials,True
+XPO,XPO,US9837931008,US,NYSE,Industrials,True
+Old Dominion Freight,ODFL,US6795801009,US,NASDAQ,Industrials,True
+JB Hunt Transport,JBHT,US4456581006,US,NASDAQ,Industrials,True
+Werner Enterprises,WERN,US9508431011,US,NASDAQ,Industrials,True
+Waste Management,WM,US94106L1098,US,NYSE,Industrials,True
+Republic Services,RSG,US7607591002,US,NYSE,Industrials,True
+Cintas,CTAS,US1729081059,US,NASDAQ,Industrials,True
+Rollins,ROL,US7757111049,US,NYSE,Industrials,True
+Quanta Services,PWR,US74762E1029,US,NYSE,Industrials,True
+MYR Group,MYRG,US5543261023,US,NASDAQ,Industrials,True
+Diamondback Energy,FANG,US25278X1090,US,NASDAQ,Energy,True
+APA Corporation,APA,US03769M1062,US,NASDAQ,Energy,True
+Halliburton,HAL,US4062161071,US,NYSE,Energy,True
+Baker Hughes,BKR,US05722G1004,US,NASDAQ,Energy,True
+Williams Companies,WMB,US9694571004,US,NYSE,Energy,True
+Kinder Morgan,KMI,US49456B1017,US,NYSE,Energy,True
+ONEOK,OKE,US6826801036,US,NYSE,Energy,True
+Targa Resources,TRGP,US87612G1013,US,NYSE,Energy,True
+EQT Corporation,EQT,US26884L1098,US,NYSE,Energy,True
+Range Resources,RRC,US75281A1097,US,NYSE,Energy,True
+Coterra Energy,CTRA,US1270971039,US,NYSE,Energy,True
+Albemarle,ALB,US0126531013,US,NYSE,Materials,True
+Celanese,CE,US15089Q1031,US,NYSE,Materials,True
+Eastman Chemical,EMN,US2774321002,US,NYSE,Materials,True
+International Flavors,IFF,US4595061015,US,NYSE,Materials,True
+PPG Industries,PPG,US6935061076,US,NYSE,Materials,True
+Sherwin-Williams,SHW,US8243481061,US,NYSE,Materials,True
+Vulcan Materials,VMC,US9291601097,US,NYSE,Materials,True
+Martin Marietta,MLM,US5732841060,US,NYSE,Materials,True
+Ball Corporation,BALL,US0584981064,US,NYSE,Materials,True
+Sealed Air,SEE,US8117591024,US,NYSE,Materials,False
+Packaging Corp,PKG,US7561091049,US,NYSE,Materials,True
+Sonoco Products,SON,US8354951027,US,NYSE,Materials,True
+Digital Realty,DLR,US2538681030,US,NYSE,Real Estate,True
+SBA Communications,SBAC,US78410G1049,US,NASDAQ,Real Estate,True
+Iron Mountain,IRM,US46284V1017,US,NYSE,Real Estate,True
+Realty Income,O,US7561091049,US,NYSE,Real Estate,True
+Simon Property Group,SPG,US8288061091,US,NYSE,Real Estate,True
+Ventas,VTR,US92276F1003,US,NYSE,Real Estate,True
+Welltower,WELL,US9502721065,US,NYSE,Real Estate,True
+AvalonBay Communities,AVB,US0534841012,US,NYSE,Real Estate,True
+Equity Residential,EQR,US29476L1070,US,NYSE,Real Estate,True
+Invitation Homes,INVH,US46187W1099,US,NYSE,Real Estate,True
+Public Storage,PSA,US74460D1090,US,NYSE,Real Estate,True
+Extra Space Storage,EXR,US3026801065,US,NYSE,Real Estate,True
+American Water Works,AWK,US0304201033,US,NYSE,Utilities,True
+Consolidated Edison,ED,US2091151041,US,NYSE,Utilities,True
+Dominion Energy,D,US25746U1097,US,NYSE,Utilities,True
+Exelon,EXC,US30161N1028,US,NASDAQ,Utilities,True
+Edison International,EIX,US2810201077,US,NYSE,Utilities,True
+Xcel Energy,XEL,US9837390031,US,NASDAQ,Utilities,True
+WEC Energy,WEC,US9293791034,US,NYSE,Utilities,True
+Entergy,ETR,US29364G1031,US,NYSE,Utilities,True
+CenterPoint Energy,CNP,US15189T1079,US,NYSE,Utilities,True
+NRG Energy,NRG,US6293775085,US,NYSE,Utilities,True
+Inditex,ITX.MC,ES0148396007,ES,EURONEXT,Consumer Discretionary,True
+Santander,SAN.MC,ES0113900J37,ES,EURONEXT,Financials,True
+BBVA,BBVA.MC,ES0113211835,ES,EURONEXT,Financials,True
+Iberdrola,IBE.MC,ES0144580Y14,ES,EURONEXT,Utilities,True
+Telefonica,TEF.MC,ES0178430E18,ES,EURONEXT,Communication Services,True
+Repsol,REP.MC,ES0173516115,ES,EURONEXT,Energy,True
+Ferrovial,FER.MC,ES0062200564,ES,EURONEXT,Industrials,True
+Amadeus IT Group,AMS.MC,ES0109067019,ES,EURONEXT,Technology,True
+CaixaBank,CABK.MC,ES0140609018,ES,EURONEXT,Financials,True
+ACS Group,ACS.MC,ES0167050915,ES,EURONEXT,Industrials,True
+Grifols,GRF.MC,ES0171996012,ES,EURONEXT,Healthcare,True
+Acciona,ANA.MC,ES0125220311,ES,EURONEXT,Industrials,True
+Enel,ENEL.MI,IT0003128367,IT,EURONEXT,Utilities,True
+ENI,ENI.MI,IT0003132476,IT,EURONEXT,Energy,True
+Intesa Sanpaolo,ISP.MI,IT0000072618,IT,EURONEXT,Financials,True
+UniCredit,UCG.MI,IT0004781412,IT,EURONEXT,Financials,True
+Ferrari,RACE.MI,NL0011585146,IT,EURONEXT,Consumer Discretionary,True
+Stellantis,STLAM.MI,NL00150001Q9,IT,EURONEXT,Consumer Discretionary,True
+Generali,G.MI,IT0000062072,IT,EURONEXT,Financials,True
+Prysmian,PRY.MI,IT0004176001,IT,EURONEXT,Industrials,True
+Leonardo,LDO.MI,IT0003856405,IT,EURONEXT,Industrials,True
+Moncler,MONC.MI,IT0004965148,IT,EURONEXT,Consumer Discretionary,True
+Luxottica,EL.MI,IT0003505065,IT,EURONEXT,Healthcare,False
+FinecoBank,FBK.MI,IT0000072170,IT,EURONEXT,Financials,True
+Infosys ADR,INFY,US4567881085,IN,NYSE,Technology,True
+Wipro ADR,WIT,US97651M1099,IN,NYSE,Technology,True
+HDFC Bank ADR,HDB,US40415F1012,IN,NYSE,Financials,True
+ICICI Bank ADR,IBN,US45104G1040,IN,NYSE,Financials,True
+Dr Reddy's ADR,RDY,US2561051016,IN,NYSE,Healthcare,True
+Tata Motors ADR,TTM,US8765685024,IN,NYSE,Consumer Discretionary,False
+WNS Holdings ADR,WNS,US92940M1099,IN,NYSE,Technology,False
+Sea Limited,SE,US81141R1005,SG,NYSE,Consumer Discretionary,True
+Grab Holdings,GRAB,KYG4124C1096,SG,NASDAQ,Consumer Discretionary,True
+Vale ADR,VALE,US91912E1055,BR,NYSE,Materials,True
+Petrobras ADR,PBR,US71654V4086,BR,NYSE,Energy,True
+Embraer ADR,ERJ,US29082A1016,BR,NYSE,Industrials,False
+XP Inc,XP,KYG982391099,BR,NASDAQ,Financials,True
+MercadoLibre,MELI,US58733R1023,BR,NASDAQ,Consumer Discretionary,True
+StoneCo,STNE,KYG851581069,BR,NASDAQ,Technology,True
+Anheuser-Busch InBev,ABI.BR,BE0974293251,BE,EURONEXT,Consumer Staples,True
+UCB,UCB.BR,BE0003739530,BE,EURONEXT,Healthcare,True
+Ageas,AGS.BR,BE0974264776,BE,EURONEXT,Financials,True
+Solvay,SOLB.BR,BE0003470755,BE,EURONEXT,Materials,True
+Proximus,PROX.BR,BE0003810273,BE,EURONEXT,Communication Services,True
+Umicore,UMI.BR,BE0974320526,BE,EURONEXT,Materials,True
+Burberry Group,BRBY.L,GB0031743007,GB,LSE,Consumer Discretionary,True
+Next,NXT.L,GB0032089863,GB,LSE,Consumer Discretionary,True
+JD Sports Fashion,JD.L,GB00BYX2WY21,GB,LSE,Consumer Discretionary,True
+Entain,ENT.L,IM00B5VQMV65,GB,LSE,Consumer Discretionary,True
+Flutter Entertainment,FLTRF,IE00BWT6H894,GB,OTC,Consumer Discretionary,False
+WPP,WPP.L,JE00B8KF9B49,GB,LSE,Communication Services,True
+Pearson,PSO.L,GB0006776081,GB,LSE,Communication Services,False
+RELX,REL.L,GB00B2B0DG97,GB,LSE,Industrials,True
+DS Smith,SMDS.L,GB0008220112,GB,LSE,Materials,False
+Smurfit Kappa,SKG.L,IE00B1RR8406,GB,LSE,Materials,True
+Ashtead Group,AHT.L,GB0000536739,GB,LSE,Industrials,False
+Ferguson Enterprises,FERG.L,JE00BJVNSS43,GB,LSE,Industrials,True
+Spirax-Sarco,SPX.L,GB00BWFGQN14,GB,LSE,Industrials,True
+Weir Group,WEIR.L,GB0009465807,GB,LSE,Industrials,True
+IMI,IMI.L,GB00B18S7B29,GB,LSE,Industrials,True
+Smiths Group,SMIN.L,GB00B1WY2338,GB,LSE,Industrials,True
+QinetiQ,QQ.L,GB00B0WHPQ22,GB,LSE,Industrials,True
+Serco Group,SRP.L,GB0007973794,GB,LSE,Industrials,True
+Intertek Group,ITRK.L,GB0031638363,GB,LSE,Industrials,True
+Inchcape,INCH.L,GB0004183720,GB,LSE,Consumer Discretionary,True
+Auto Trader Group,AUTO.L,GB00BVYVFW23,GB,LSE,Communication Services,True
+Rightmove,RMV.L,GB00BGDT3G23,GB,LSE,Communication Services,True
+Ocado Group,OCDO.L,GB00B3MBS747,GB,LSE,Consumer Staples,True
+Tesco,TSCO.L,GB0008847096,GB,LSE,Consumer Staples,True
+J Sainsbury,SBRY.L,GB00B019KW72,GB,LSE,Consumer Staples,True
+Associated British Foods,ABF.L,GB0006731235,GB,LSE,Consumer Staples,True
+Halma,HLMA.L,GB0004052071,GB,LSE,Technology,True
+Aveva Group,AVV.L,GB00BBG9VN75,GB,LSE,Technology,False
+Micro Focus,MCRO.L,GB00BJ1F4N75,GB,LSE,Technology,False
+Siemens Healthineers,SHL.DE,DE000SHL1006,DE,XETRA,Healthcare,True
+Continental AG,CON.DE,DE0005439004,DE,XETRA,Consumer Discretionary,True
+Symrise,SY1.DE,DE000SYM9999,DE,XETRA,Materials,True
+Sartorius,SRT3.DE,DE0007165631,DE,XETRA,Healthcare,True
+Merck KGaA,MRK.DE,DE0006599905,DE,XETRA,Healthcare,True
+Qiagen,QIA.DE,NL0012169213,DE,XETRA,Healthcare,True
+Nemetschek,NEM.DE,DE0006452907,DE,XETRA,Technology,True
+Software AG,SOW.DE,DE0003304002,DE,XETRA,Technology,False
+ProSiebenSat.1,PSM.DE,DE000PSM7770,DE,XETRA,Communication Services,True
+Fraport,FRA.DE,DE0005773303,DE,XETRA,Industrials,True
+MTU Aero Engines,MTX.DE,DE000A0D9PT0,DE,XETRA,Industrials,True
+Rheinmetall,RHM.DE,DE0007030009,DE,XETRA,Industrials,True
+KION Group,KGX.DE,DE000KGX8881,DE,XETRA,Industrials,True
+Knorr-Bremse,KBX.DE,DE000KBX1006,DE,XETRA,Industrials,True
+Fuchs Petrolub,FPE3.DE,DE0005790430,DE,XETRA,Materials,True
+Wacker Chemie,WCH.DE,DE000WCH8881,DE,XETRA,Materials,True
+Lanxess,LXS.DE,DE0005470405,DE,XETRA,Materials,True
+Evonik Industries,EVK.DE,DE000EVNK013,DE,XETRA,Materials,True
+CTS Eventim,EVD.DE,DE0005470306,DE,XETRA,Consumer Discretionary,True
+Delivery Hero,DHER.DE,DE000A2E4K43,DE,XETRA,Consumer Discretionary,True
+HelloFresh,HFG.DE,DE000A161408,DE,XETRA,Consumer Staples,True
+Rational AG,RAA.DE,DE0007010803,DE,XETRA,Industrials,True
+Wüstenrot & Württemberg,WUW.DE,DE0008051004,DE,XETRA,Financials,True
+Hannover Re,HNR1.DE,DE0008402215,DE,XETRA,Financials,True
+Nutrien,NTR.TO,CA67077M1086,CA,TSX,Materials,True
+Teck Resources,TECK-B.TO,CA8787422044,CA,TSX,Materials,True
+First Quantum Minerals,FM.TO,CA3359341052,CA,TSX,Materials,True
+Kinross Gold,K.TO,CA4969024047,CA,TSX,Materials,True
+Pan American Silver,PAAS.TO,CA6979001089,CA,TSX,Materials,True
+Wheaton Precious Metals,WPM.TO,CA9628791027,CA,TSX,Materials,True
+Arc Resources,ARX.TO,CA00208D4090,CA,TSX,Energy,True
+Tourmaline Oil,TOU.TO,CA8918261022,CA,TSX,Energy,True
+Pembina Pipeline,PPL.TO,CA7063271017,CA,TSX,Energy,True
+TC Energy,TRP.TO,CA87807B1076,CA,TSX,Energy,True
+Enbridge,ENB.TO,CA29250N1050,CA,TSX,Energy,True
+Intact Financial,IFC.TO,CA45821E1060,CA,TSX,Financials,True
+Great-West Lifeco,GWO.TO,CA3904581033,CA,TSX,Financials,True
+Fairfax Financial,FFH.TO,CA3039011026,CA,TSX,Financials,True
+Thomson Reuters,TRI.TO,CA8849061051,CA,TSX,Industrials,True
+Waste Connections,WCN.TO,CA94106B1013,CA,TSX,Industrials,True
+Toromont Industries,TIH.TO,CA8911661041,CA,TSX,Industrials,True
+Finning International,FTT.TO,CA3185111000,CA,TSX,Industrials,True
+Gildan Activewear,GIL.TO,CA3759161035,CA,TSX,Consumer Discretionary,True
+Dollarama,DOL.TO,CA25675T1075,CA,TSX,Consumer Discretionary,True
+Loblaw Companies,L.TO,CA5394811015,CA,TSX,Consumer Staples,True
+Metro Inc,MRU.TO,CA59162N1096,CA,TSX,Consumer Staples,True
+Empire Company,EMP-A.TO,CA2918001065,CA,TSX,Consumer Staples,True
+Telus,T.TO,CA87971M1032,CA,TSX,Communication Services,True
+Rogers Communications,RCI-B.TO,CA7751092007,CA,TSX,Communication Services,True
+Expedia,EXPE,US30212P3038,US,NASDAQ,Consumer Discretionary,True
+MGM Resorts,MGM,US5529531015,US,NYSE,Consumer Discretionary,True
+Wynn Resorts,WYNN,US9831341071,US,NASDAQ,Consumer Discretionary,True
+Las Vegas Sands,LVS,US5178341070,US,NYSE,Consumer Discretionary,True
+AutoZone,AZO,US0533321024,US,NYSE,Consumer Discretionary,True
+O'Reilly Automotive,ORLY,US67103H1077,US,NASDAQ,Consumer Discretionary,True
+Genuine Parts,GPC,US3724601055,US,NYSE,Consumer Discretionary,True
+CarMax,KMX,US1431301027,US,NYSE,Consumer Discretionary,True
+LKQ Corporation,LKQ,US5018892084,US,NASDAQ,Consumer Discretionary,True
+eBay,EBAY,US2786421030,US,NASDAQ,Consumer Discretionary,True
+Etsy,ETSY,US29786A1060,US,NASDAQ,Consumer Discretionary,True
+Wayfair,W,US94419L1017,US,NYSE,Consumer Discretionary,True
+Chewy,CHWY,US16930A1016,US,NYSE,Consumer Discretionary,True
+Peloton,PTON,US70614W1009,US,NASDAQ,Consumer Discretionary,True
+Crocs,CROX,US2270461096,US,NASDAQ,Consumer Discretionary,True
+Columbia Sportswear,COLM,US1985161066,US,NASDAQ,Consumer Discretionary,True
+PVH Corp,PVH,US6936561009,US,NYSE,Consumer Discretionary,True
+Newell Brands,NWL,US6512291062,US,NASDAQ,Consumer Discretionary,True
+Whirlpool,WHR,US9633201069,US,NYSE,Consumer Discretionary,True
+Garmin,GRMN,CH0114405324,US,NASDAQ,Consumer Discretionary,True
+Leggett & Platt,LEG,US5245371090,US,NYSE,Consumer Discretionary,True
+Mohawk Industries,MHK,US6081901042,US,NYSE,Consumer Discretionary,True
+PulteGroup,PHM,US7458671010,US,NYSE,Consumer Discretionary,True
+D.R. Horton,DHI,US23331A1097,US,NYSE,Consumer Discretionary,True
+Lennar,LEN,US5260571048,US,NYSE,Consumer Discretionary,True
+NVR,NVR,US62944T1051,US,NYSE,Consumer Discretionary,True
+Toll Brothers,TOL,US8894781012,US,NYSE,Consumer Discretionary,True
+Taylor Morrison,TMHC,US87724P1066,US,NYSE,Consumer Discretionary,True
+Kraft Heinz,KHC,US5007541064,US,NASDAQ,Consumer Staples,True
+General Mills,GIS,US3703341046,US,NYSE,Consumer Staples,True
+Kellogg's,K,US4878361082,US,NYSE,Consumer Staples,False
+Hershey,HSY,US4278661010,US,NYSE,Consumer Staples,True
+Campbell Soup,CPB,US1344291091,US,NYSE,Consumer Staples,True
+McCormick,MKC,US5797802064,US,NYSE,Consumer Staples,True
+Hormel Foods,HRL,US4404521001,US,NYSE,Consumer Staples,True
+J.M. Smucker,SJM,US8326964058,US,NYSE,Consumer Staples,True
+Lamb Weston,LW,US5132721045,US,NYSE,Consumer Staples,True
+Constellation Brands,STZ,US21036P1084,US,NYSE,Consumer Staples,True
+Molson Coors,TAP,US60871R2094,US,NYSE,Consumer Staples,True
+Estee Lauder,EL,US5184391044,US,NYSE,Consumer Staples,True
+Church & Dwight,CHD,US1713401024,US,NYSE,Consumer Staples,True
+Clorox,CLX,US1890541097,US,NYSE,Consumer Staples,True
+Kimberly-Clark,KMB,US4943681035,US,NYSE,Consumer Staples,True
+Sysco,SYY,US8718291078,US,NYSE,Consumer Staples,True
+US Foods,USFD,US91208F1021,US,NYSE,Consumer Staples,True
+Performance Food Group,PFGC,US7143141002,US,NYSE,Consumer Staples,True
+Sprouts Farmers Market,SFM,US8520471098,US,NASDAQ,Consumer Staples,True
+Treehouse Foods,THS,US8940411043,US,NYSE,Consumer Staples,False
+PayPal,PYPL,US70450Y1038,US,NASDAQ,Financials,True
+Affirm Holdings,AFRM,US00827B1061,US,NASDAQ,Financials,True
+SoFi Technologies,SOFI,US83406F1021,US,NASDAQ,Financials,True
+AIG,AIG,US0268747849,US,NYSE,Financials,True
+MetLife,MET,US59156R1086,US,NYSE,Financials,True
+Prudential Financial,PRU,US7443201022,US,NYSE,Financials,True
+Sun Life Financial,SLF,CA8667971083,CA,NYSE,Financials,True
+Manulife Financial ADR,MFC,CA56501R1064,CA,NYSE,Financials,True
+Chubb,CB,CH0044328745,US,NYSE,Financials,True
+Everest Group,EG,BMG3223R1088,US,NYSE,Financials,True
+Ryan Specialty,RYAN,US7833091005,US,NYSE,Financials,True
+Aon,AON,GB0000223188,US,NYSE,Financials,True
+Marsh McLennan,MMC,US5717481023,US,NYSE,Financials,False
+Willis Towers Watson,WTW,IE00BDB6Q211,US,NASDAQ,Financials,True
+Truist Financial,TFC,US8983441030,US,NYSE,Financials,True
+US Bancorp,USB,US9029733048,US,NYSE,Financials,True
+PNC Financial,PNC,US6934751057,US,NYSE,Financials,True
+Citizens Financial,CFG,US1746101054,US,NYSE,Financials,True
+Interactive Brokers,IBKR,US45841N1072,US,NASDAQ,Financials,True
+Northern Trust,NTRS,US6658591044,US,NASDAQ,Financials,True
+State Street,STT,US8574771031,US,NYSE,Financials,True
+Bank of New York Mellon,BK,US0640581007,US,NYSE,Financials,True
+Raymond James,RJF,US7547301090,US,NYSE,Financials,True
+Stifel Financial,SF,US8606301021,US,NYSE,Financials,True
+LPL Financial,LPLA,US5026721034,US,NASDAQ,Financials,True
+SEI Investments,SEIC,US7841171033,US,NASDAQ,Financials,True
+FactSet Research,FDS,US3030751073,US,NASDAQ,Financials,True
+Broadridge Financial,BR,US11133T1034,US,NYSE,Financials,True
+WEX,WEX,US96208T1043,US,NYSE,Financials,True
+FleetCor Technologies,FLT,US3390411052,US,NYSE,Financials,False
+Stryker,SYK,US8636671013,US,NYSE,Healthcare,True
+Elevance Health,ELV,US03073E1055,US,NYSE,Healthcare,True
+Baxter International,BAX,US0718131099,US,NYSE,Healthcare,True
+Integra LifeSciences,IART,US4577411090,US,NASDAQ,Healthcare,True
+Integer Holdings,ITGR,US45819N1072,US,NYSE,Healthcare,True
+Invacare,IVC,US4612591049,US,NYSE,Healthcare,False
+Bio-Techne,TECH,US09073M1045,US,NASDAQ,Healthcare,True
+Repligen,RGEN,US7599161095,US,NASDAQ,Healthcare,True
+Neogen,NEOG,US6404101036,US,NASDAQ,Healthcare,True
+Omnicell,OMCL,US6819051078,US,NASDAQ,Healthcare,True
+Inogen,INGN,US45733C1071,US,NASDAQ,Healthcare,True
+Merit Medical,MMSI,US5895841082,US,NASDAQ,Healthcare,True
+Natus Medical,BABY,US63908B1044,US,NASDAQ,Healthcare,False
+Agiliti,AGTI,US00840R1014,US,NYSE,Healthcare,False
+Acadia Healthcare,ACHC,US00404A1097,US,NASDAQ,Healthcare,True
+Tenet Healthcare,THC,US88033G4073,US,NYSE,Healthcare,True
+Community Health,CYH,US2036481025,US,NYSE,Healthcare,True
+Surgery Partners,SGRY,US8690831058,US,NASDAQ,Healthcare,True
+Encompass Health,EHC,US2924461096,US,NYSE,Healthcare,True
+Chemed,CHE,US16359R1032,US,NYSE,Healthcare,True
+Option Care Health,OPCH,US68403A1025,US,NASDAQ,Healthcare,True
+Primoris Services,PRIM,US7417721002,US,NASDAQ,Healthcare,True
+General Dynamics,GD,US3695501086,US,NYSE,Industrials,True
+Leidos Holdings,LDOS,US5253271028,US,NYSE,Industrials,True
+SAIC,SAIC,US78400D1028,US,NYSE,Industrials,True
+Booz Allen Hamilton,BAH,US0995021062,US,NYSE,Industrials,True
+AGCO Corporation,AGCO,US0010841023,US,NYSE,Industrials,True
+CNH Industrial,CNHI,NL0010545661,US,NYSE,Industrials,False
+Oshkosh,OSK,US6882392011,US,NYSE,Industrials,True
+IDEX Corporation,IEX,US45167R1041,US,NYSE,Industrials,True
+Nordson,NDSN,US6556631025,US,NASDAQ,Industrials,True
+Enpro Industries,NPO,US2936411052,US,NYSE,Industrials,True
+Chart Industries,GTLS,US16115Q3083,US,NYSE,Industrials,True
+CIRCOR International,CIR,US17275R1023,US,NYSE,Industrials,False
+EnerSys,ENS,US29269T1007,US,NYSE,Industrials,True
+Clean Harbors,CLH,US1844961078,US,NYSE,Industrials,True
+US Ecology,ECOL,US9032061098,US,NASDAQ,Industrials,False
+Stericycle,SRCL,US8589121081,US,NASDAQ,Industrials,False
+SPX Technologies,SPXC,US78473E1029,US,NYSE,Industrials,True
+DXC Technology,DXC,US23355L1061,US,NYSE,Technology,True
+CACI International,CACI,US1271709006,US,NYSE,Technology,True
+ManTech International,MANT,US5634772008,US,NASDAQ,Technology,False
+Cisco,CSCO,US17275R1023,US,NASDAQ,Technology,True
+IBM,IBM,US4592001014,US,NYSE,Technology,True
+HP Inc,HPQ,US40434L1052,US,NYSE,Technology,True
+HP Enterprise,HPE,US42259Y1038,US,NYSE,Technology,True
+Dell Technologies,DELL,US24703L2025,US,NYSE,Technology,True
+Accenture,ACN,IE00B4BNMY34,US,NYSE,Technology,True
+Cadence Design,CDNS,US1273931050,US,NASDAQ,Technology,True
+Synopsys,SNPS,US8716071076,US,NASDAQ,Technology,True
+Ansys,ANSS,US03662Q1058,US,NASDAQ,Technology,False
+Autodesk,ADSK,US0527691069,US,NASDAQ,Technology,True
+Keysight Technologies,KEYS,US49338L1035,US,NYSE,Technology,True
+Juniper Networks,JNPR,US48203R1041,US,NYSE,Technology,False
+NetApp,NTAP,US64110D1046,US,NASDAQ,Technology,True
+Western Digital,WDC,US9581021055,US,NASDAQ,Technology,True
+Seagate Technology,STX,IE00BKVD2N49,US,NASDAQ,Technology,True
+Pure Storage,PSTG,US74624M1027,US,NYSE,Technology,True
+Nutanix,NTNX,US67059N1081,US,NASDAQ,Technology,True
+Paycom Software,PAYC,US70432V1026,US,NYSE,Technology,True
+Paylocity,PCTY,US70431M1009,US,NASDAQ,Technology,True
+Alarm.com,ALRM,US0115811018,US,NASDAQ,Technology,True
+Qualys,QLYS,US74758T3032,US,NASDAQ,Technology,True
+Tenable Holdings,TENB,US88023U1016,US,NASDAQ,Technology,True
+Guidewire Software,GWRE,US40171V1008,US,NYSE,Technology,True
+AppFolio,APPF,US03783C1009,US,NASDAQ,Technology,True
+Procore Technologies,PCOR,US74275J1025,US,NYSE,Technology,True
+nCino,NCNO,US63947X1046,US,NASDAQ,Technology,True
+Sprout Social,SPT,US85209W1018,US,NASDAQ,Technology,True
+Amplitude,AMPL,US03209R1041,US,NASDAQ,Technology,True
+Dynatrace,DT,US2681501092,US,NYSE,Technology,True
+New Relic,NEWR,US6435081055,US,NYSE,Technology,False
+Elastic NV,ESTC,NL0013056914,US,NYSE,Technology,True
+Bazaarvoice,BV,US07313B1017,US,NASDAQ,Technology,True
+LivePerson,LPSN,US5381291080,US,NASDAQ,Technology,True
+Veeva Systems,VEEV,US9224751084,US,NYSE,Technology,True
+Medidata Solutions,MDSO,US58502B1017,US,NASDAQ,Technology,False
+Commvault Systems,CVLT,US2041661024,US,NASDAQ,Technology,True
+Open Text,OTEX,CA6837151068,CA,NASDAQ,Technology,True
+Descartes Systems,DSGX,CA2499751072,CA,NASDAQ,Technology,True
+Kinaxis,KXS.TO,CA49485C1005,CA,TSX,Technology,True
+Lightspeed Commerce,LSPD,CA53229C1077,CA,NYSE,Technology,True
+Nuvei,NVEI,CA67084A1003,CA,NASDAQ,Technology,False
+Coveo Solutions,CVO.TO,CA22298W1023,CA,TSX,Technology,True
+Absolute Software,ABST,CA0032711014,CA,NASDAQ,Technology,False
+Pioneer Natural,PXD,US7237871071,US,NYSE,Energy,False
+Marathon Oil,MRO,US5652311063,US,NYSE,Energy,False
+Phillips 66,PSX,US7185461040,US,NYSE,Energy,True
+Hess,HES,US4278661010,US,NYSE,Energy,False
+Ovintiv,OVV,CA69047Q1028,CA,NYSE,Energy,True
+Callon Petroleum,CPE,US1311911000,US,NYSE,Energy,False
+SM Energy,SM,US78454L1008,US,NYSE,Energy,True
+Magnolia Oil & Gas,MGY,US55955K1025,US,NYSE,Energy,True
+TechnipFMC,FTI,GB00BDSFG982,US,NYSE,Energy,True
+Weatherford,WFRD,CH0569854453,US,NASDAQ,Energy,True
+Barrick Gold,GOLD,CA0679011084,US,NYSE,Materials,True
+Agnico Eagle,AEM,CA0084741085,US,NYSE,Materials,True
+Franco-Nevada,FNV,CA3518581051,CA,NYSE,Materials,True
+Royal Gold,RGLD,US7802871084,US,NASDAQ,Materials,True
+Coeur Mining,CDE,US1921241007,US,NYSE,Materials,True
+Hecla Mining,HL,US4227041062,US,NYSE,Materials,True
+MP Materials,MP,US5530201080,US,NYSE,Materials,True
+Steel Dynamics,STLD,US8581191009,US,NASDAQ,Materials,True
+Commercial Metals,CMC,US2018231072,US,NYSE,Materials,True
+Carpenter Technology,CRS,US1442851036,US,NYSE,Materials,True
+Minerals Technologies,MTX,US6031581068,US,NYSE,Materials,True
+Quaker Houghton,KWR,US7476671058,US,NYSE,Materials,True
+H.B. Fuller,FUL,US3596941068,US,NYSE,Materials,True
+RPM International,RPM,US7496851038,US,NYSE,Materials,True
+Axalta Coating,AXTA,US05464C1018,US,NYSE,Materials,True
+Element Solutions,ESI,US28618T1025,US,NYSE,Materials,True
+Ashland Global,ASH,US0441861046,US,NYSE,Materials,True
+Cabot Corporation,CBT,US1270711037,US,NYSE,Materials,True
+Innospec,IOSP,US45774W1080,US,NASDAQ,Materials,True
+Charter Communications,CHTR,US16119P1084,US,NASDAQ,Communication Services,True
+Fox Corporation,FOX,US35137L1052,US,NASDAQ,Communication Services,True
+News Corp,NWSA,US65249B1098,US,NASDAQ,Communication Services,True
+Paramount Global,PARA,US92556H2067,US,NASDAQ,Communication Services,False
+Snap,SNAP,US83304A1060,US,NYSE,Communication Services,True
+Pinterest,PINS,US72352L1061,US,NYSE,Communication Services,True
+Reddit,RDDT,US75734A1097,US,NYSE,Communication Services,True
+Match Group,MTCH,US57667L1070,US,NASDAQ,Communication Services,True
+IAC,IAC,US44891N2080,US,NASDAQ,Communication Services,True
+Interpublic Group,IPG,US4606901001,US,NYSE,Communication Services,False
+Omnicom Group,OMC,US6819191064,US,NYSE,Communication Services,True
+Trade Desk,TTD,US88339J1051,US,NASDAQ,Communication Services,True
+DoubleVerify,DV,US2575592030,US,NYSE,Communication Services,True
+Integral Ad Science,IAS,US45817B1008,US,NASDAQ,Communication Services,True
+Magnite,MGNI,US55953Q2021,US,NASDAQ,Communication Services,True
+Sempra,SRE,US8168511090,US,NYSE,Utilities,True
+FirstEnergy,FE,US3370021028,US,NYSE,Utilities,True
+PPL Corporation,PPL,US6894461070,US,NYSE,Utilities,True
+Ameren,AEE,US0236081024,US,NYSE,Utilities,True
+Evergy,EVRG,US30034W1062,US,NASDAQ,Utilities,True
+OGE Energy,OGE,US6708801013,US,NYSE,Utilities,True
+Otter Tail,OTTR,US6896481032,US,NASDAQ,Utilities,True
+Vistra,VST,US9290891004,US,NYSE,Utilities,True
+Constellation Energy,CEG,US21037T1097,US,NASDAQ,Utilities,True
+Talen Energy,TLN,US8740721099,US,NASDAQ,Utilities,True
+BT Group,BT-A.L,GB0030913577,GB,LSE,Communication Services,True
+Sky,SKY.L,GB00B6T5S470,GB,LSE,Communication Services,False
+ITV,ITV.L,GB0033986497,GB,LSE,Communication Services,True
+Centrica,CNA.L,GB00B033F229,GB,LSE,Utilities,True
+SSE,SSE.L,GB0007908733,GB,LSE,Utilities,True
+United Utilities,UU.L,GB00B39J2M42,GB,LSE,Utilities,True
+Severn Trent,SVT.L,GB00B1FH8J72,GB,LSE,Utilities,True
+Pennon Group,PNN.L,GB0006825383,GB,LSE,Utilities,True
+Natwest Group,NWG.L,GB00BMS98SM7,GB,LSE,Financials,True
+St. James's Place,STJ.L,GB0007669376,GB,LSE,Financials,True
+M&G,MNG.L,GB00BKFB1C65,GB,LSE,Financials,True
+Schroders,SDR.L,GB0002405495,GB,LSE,Financials,True
+Man Group,EMG.L,GB00BJ0LF098,GB,LSE,Financials,True
+Smith+Nephew,SN.L,GB0009223206,GB,LSE,Healthcare,True
+Hikma Pharmaceuticals,HIK.L,GB00B0LCW083,GB,LSE,Healthcare,True
+Dechra Pharma,DPH.L,GB0033416609,GB,LSE,Healthcare,False
+ConvaTec,CTEC.L,GB00BD3VFW73,GB,LSE,Healthcare,True
+British American Tobacco,BATS.L,GB0002875804,GB,LSE,Consumer Staples,True
+Imperial Brands,IMB.L,GB0004544929,GB,LSE,Consumer Staples,True
+Marks & Spencer,MKS.L,GB0031274896,GB,LSE,Consumer Discretionary,True
+Kingfisher,KGF.L,GB0033195214,GB,LSE,Consumer Discretionary,True
+Dunelm Group,DNLM.L,GB00B1CKQ739,GB,LSE,Consumer Discretionary,True
+Games Workshop,GAW.L,GB0006276081,GB,LSE,Consumer Discretionary,True
+DFS Furniture,DFS.L,GB00BDT9SN43,GB,LSE,Consumer Discretionary,True
+Ted Baker,TED.L,GB00B1K3WH34,GB,LSE,Consumer Discretionary,False
+Meggitt,MGGT.L,GB0005738251,GB,LSE,Industrials,False
+GKN,GKN.L,GB0030646508,GB,LSE,Industrials,False
+Antofagasta,ANTO.L,GB0000456144,GB,LSE,Materials,True
+Polymetal,POLY.L,JE00B6T5S470,GB,LSE,Materials,False
+Centamin,CEY.L,JE00B5TT1872,GB,LSE,Materials,False
+Petrofac,PFC.L,JE00B0H2K534,GB,LSE,Energy,False
+Hunting,HTG.L,GB0004478204,GB,LSE,Energy,True
+Energean,ENOG.L,GB00BF5SDL04,GB,LSE,Energy,True
+Harbour Energy,HBR.L,GB00BMBVGX93,GB,LSE,Energy,True
+Land Securities,LAND.L,GB00BYW0PQ60,GB,LSE,Real Estate,True
+British Land,BLND.L,GB0001367019,GB,LSE,Real Estate,True
+Segro,SGRO.L,GB00B5ZN1N88,GB,LSE,Real Estate,True
+Hammerson,HMSO.L,GB00BK7YQK64,GB,LSE,Real Estate,True
+Unite Group,UTG.L,GB0006928617,GB,LSE,Real Estate,True
+Workspace Group,WKP.L,GB0009532153,GB,LSE,Real Estate,True
+Derwent London,DLN.L,GB0002652025,GB,LSE,Real Estate,True
+Watches of Switzerland,WOSG.L,GB00BGLV5Z19,GB,LSE,Consumer Discretionary,True
+Diploma,DPLM.L,GB0002634947,GB,LSE,Industrials,True
+Spirent Communications,SPT.L,GB00B3V5F399,GB,LSE,Technology,False
+Kainos Group,KNOS.L,GB00BZ09BC16,GB,LSE,Technology,True
+Softcat,SCT.L,GB00BY7QYJ50,GB,LSE,Technology,True
+Bytes Technology,BYIT.L,GB00BMSKPJ95,GB,LSE,Technology,True
+Oxford Instruments,OXIG.L,GB0006650450,GB,LSE,Technology,True
+Spectris,SXS.L,GB0009989001,GB,LSE,Technology,False
+Vitec Group,VTC.L,GB0009301580,GB,LSE,Technology,False
+Telecom Plus,TEP.L,GB0009183868,GB,LSE,Utilities,True
+Crest Nicholson,CRST.L,GB00B8VZXT93,GB,LSE,Consumer Discretionary,True
+Redrow,RDW.L,GB0007347535,GB,LSE,Consumer Discretionary,False
+Barratt Developments,BDEV.L,GB0000811801,GB,LSE,Consumer Discretionary,False
+Taylor Wimpey,TW.L,GB00B44CGS96,GB,LSE,Consumer Discretionary,True
+Persimmon,PSN.L,GB0006825383,GB,LSE,Consumer Discretionary,True
+Berkeley Group,BKG.L,GB00B02L3W35,GB,LSE,Consumer Discretionary,True
+Vistry Group,VTY.L,GB00BD6SW143,GB,LSE,Consumer Discretionary,True
+IP Group,IPO.L,GB0014119707,GB,LSE,Financials,True
+Brewin Dolphin,BRW.L,GB0001175370,GB,LSE,Financials,False
+Close Brothers,CBG.L,GB0007668071,GB,LSE,Financials,True
+OSB Group,OSB.L,GB00BLDRH360,GB,LSE,Financials,True
+Paragon Banking,PAG.L,GB00B2NGPM57,GB,LSE,Financials,True
+Howden Joinery,HWDN.L,GB00B1GR0580,GB,LSE,Consumer Discretionary,True
+Grafton Group,GFTU.L,IE0010294966,GB,LSE,Industrials,True
+Travis Perkins,TPK.L,GB00BK9RKT01,GB,LSE,Industrials,True
+SIG,SHI.L,GB0008106752,GB,LSE,Industrials,True
+Pagegroup,PAGE.L,GB0030177628,GB,LSE,Industrials,True
+Hays,HAS.L,GB0027992214,GB,LSE,Industrials,True
+Robert Half,RHI,US7703231032,US,NYSE,Industrials,True
+Kforce,KFRC,US4933501028,US,NASDAQ,Industrials,True
+Crédit Agricole,ACA.PA,FR0000045072,FR,EURONEXT,Financials,True
+Societe Generale,GLE.PA,FR0000130809,FR,EURONEXT,Financials,True
+Natixis,KN.PA,FR0000120685,FR,EURONEXT,Financials,False
+Amundi,AMUN.PA,FR0004125920,FR,EURONEXT,Financials,True
+Alstom,ALO.PA,FR0010220475,FR,EURONEXT,Industrials,True
+Thales,HO.PA,FR0000121329,FR,EURONEXT,Industrials,True
+Naval Group,DGA.PA,FR0010340141,FR,EURONEXT,Industrials,False
+Eiffage,FGR.PA,FR0000130452,FR,EURONEXT,Industrials,True
+Bouygues,EN.PA,FR0000120503,FR,EURONEXT,Industrials,True
+Teleperformance,TEP.PA,FR0000051807,FR,EURONEXT,Industrials,True
+Sodexo,SW.PA,FR0000121220,FR,EURONEXT,Consumer Staples,True
+Carrefour,CA.PA,FR0000120172,FR,EURONEXT,Consumer Staples,True
+Valeo,FR.PA,FR0013176526,FR,EURONEXT,Consumer Discretionary,True
+Bureau Veritas,BVI.PA,FR0006174348,FR,EURONEXT,Industrials,True
+Ipsen,IPN.PA,FR0010259150,FR,EURONEXT,Healthcare,True
+Remy Cointreau,RCO.PA,FR0000130395,FR,EURONEXT,Consumer Staples,True
+Maisons du Monde,MDM.PA,FR0013153541,FR,EURONEXT,Consumer Discretionary,True
+Coface,COFA.PA,FR0010667147,FR,EURONEXT,Financials,True
+Nexans,NEX.PA,FR0000044448,FR,EURONEXT,Industrials,True
+Vallourec,VK.PA,FR0000120354,FR,EURONEXT,Materials,True
+Vicat,VCT.PA,FR0000030395,FR,EURONEXT,Materials,True
+Imerys,NK.PA,FR0000120859,FR,EURONEXT,Materials,True
+CGG,CGG.PA,FR0013181864,FR,EURONEXT,Energy,False
+Deutsche Post,DHL.DE,DE0005552004,DE,XETRA,Industrials,True
+Porsche SE,PAH3.DE,DE000PAH0038,DE,XETRA,Consumer Discretionary,True
+About You,YOU.DE,DE000A3CNK42,DE,XETRA,Consumer Discretionary,False
+Commerzbank,CBK.DE,DE000CBK1001,DE,XETRA,Financials,True
+DWS Group,DWS.DE,DE000DWS1007,DE,XETRA,Financials,True
+comdirect,COM.DE,DE0005428589,DE,XETRA,Financials,False
+GEA Group,G1A.DE,DE0006602006,DE,XETRA,Industrials,True
+Brenntag,BNR.DE,DE000A1DAHH0,DE,XETRA,Materials,True
+K+S,SDC.DE,DE000KSAG888,DE,XETRA,Materials,False
+HeidelbergMaterials,HEIG.DE,DE0006047004,DE,XETRA,Materials,False
+Covestro,1COV.DE,DE0006062144,DE,XETRA,Materials,True
+Scout24,G24.DE,DE000A12DM80,DE,XETRA,Communication Services,True
+Hypoport,HYQ.DE,DE0005493365,DE,XETRA,Technology,True
+Sixt,SIX2.DE,DE0007231326,DE,XETRA,Consumer Discretionary,True
+Fielmann,FIE.DE,DE0005772206,DE,XETRA,Healthcare,True
+Fresenius Medical Care,FME.DE,DE0005785802,DE,XETRA,Healthcare,True
+Beiersdorf,BEI.DE,DE0005200000,DE,XETRA,Consumer Staples,True
+Puma,PUM.DE,DE0006969603,DE,XETRA,Consumer Discretionary,True
+Dürr,DUE.DE,DE0005565204,DE,XETRA,Industrials,True
+Wacker Neuson,WAF.DE,DE000WACK012,DE,XETRA,Industrials,True
+Stabilus,STM.DE,LU1066226637,DE,XETRA,Industrials,True
+Nordex,NDX1.DE,DE000A0D6554,DE,XETRA,Energy,True
+SMA Solar,S92.DE,DE000A0DJ6J9,DE,XETRA,Energy,True
+Encavis,ECV.DE,DE0006229107,DE,XETRA,Utilities,False
+Mapfre,MAP.MC,ES0124244E34,ES,EURONEXT,Financials,True
+Bankinter,BKT.MC,ES0113679I34,ES,EURONEXT,Financials,True
+Fluidra,FDR.MC,ES0120836015,ES,EURONEXT,Consumer Discretionary,True
+Cellnex Telecom,CLNX.MC,ES0109838T16,ES,EURONEXT,Communication Services,True
+Solaria Energia,SLR.MC,ES0165386014,ES,EURONEXT,Utilities,True
+Almirall,ALM.MC,ES0157097017,ES,EURONEXT,Healthcare,True
+Laboratorios Farmaceut,RLB.MC,ES0173095019,ES,EURONEXT,Healthcare,False
+Sacyr,SCYR.MC,ES0182870314,ES,EURONEXT,Industrials,True
+Meliá Hotels,MEL.MC,ES0176882417,ES,EURONEXT,Consumer Discretionary,True
+NH Hotel Group,NHH.MC,ES0161560018,ES,EURONEXT,Consumer Discretionary,False
+Global Dominion,DOM.MC,ES0119130A95,ES,EURONEXT,Technology,True
+Mediobanca,MB.MI,IT0000062957,IT,EURONEXT,Financials,True
+Banca Mediolanum,BMED.MI,IT0001279501,IT,EURONEXT,Financials,True
+Banco BPM,BAMI.MI,IT0005218380,IT,EURONEXT,Financials,True
+CNH Industrial,CNHI.MI,NL0010545661,IT,EURONEXT,Industrials,False
+Pirelli & C,PIRC.MI,IT0005278236,IT,EURONEXT,Consumer Discretionary,True
+INWIT,INWT.MI,IT0005090300,IT,EURONEXT,Communication Services,False
+Nexi,NEXI.MI,IT0014979768,IT,EURONEXT,Technology,True
+Amplifon,AMP.MI,IT0004056880,IT,EURONEXT,Healthcare,True
+DiaSorin,DIA.MI,IT0003492391,IT,EURONEXT,Healthcare,True
+Recordati,REC.MI,IT0003828271,IT,EURONEXT,Healthcare,True
+Interpump Group,IP.MI,IT0001012485,IT,EURONEXT,Industrials,True
+Cementir Holding,CEM.MI,IT0004977677,IT,EURONEXT,Materials,True
+Saipem,SPM.MI,IT0005252140,IT,EURONEXT,Energy,True
+Maire Tecnimont,MT.MI,IT0004072492,IT,EURONEXT,Industrials,False
+Terna,TRN.MI,IT0003242622,IT,EURONEXT,Utilities,True
+Hera,HER.MI,IT0001250932,IT,EURONEXT,Utilities,True
+A2A,A2A.MI,IT0001233417,IT,EURONEXT,Utilities,True
+SNAM,SRG.MI,IT0003153415,IT,EURONEXT,Utilities,True
+Randstad,RAND.AS,NL0000379121,NL,EURONEXT,Industrials,True
+SBM Offshore,SBMO.AS,NL0000360618,NL,EURONEXT,Energy,True
+OCI,OCI.AS,NL0010558797,NL,EURONEXT,Materials,True
+Corbion,CRBN.AS,NL0010583399,NL,EURONEXT,Materials,True
+Signify,LIGHT.AS,NL0011821606,NL,EURONEXT,Consumer Discretionary,True
+TomTom,TOM2.AS,NL0013332471,NL,EURONEXT,Technology,True
+Basic-Fit,BFIT.AS,NL0011872650,NL,EURONEXT,Consumer Discretionary,True
+Aalberts Industries,AALB.AS,NL0000852564,NL,EURONEXT,Industrials,True
+Arcadis,ARCAD.AS,NL0006237562,NL,EURONEXT,Industrials,True
+Fugro,FUR.AS,NL0000354927,NL,EURONEXT,Energy,True
+Vopak,VPK.AS,NL0009432491,NL,EURONEXT,Industrials,True
+Just Eat Takeaway,TKWY.AS,NL0012015705,NL,EURONEXT,Consumer Discretionary,False
+Prosus,PRX.AS,NL0013654783,NL,EURONEXT,Consumer Discretionary,True
+Sika AG,SIKA.SW,CH0418792922,CH,SIX,Materials,True
+TE Connectivity,TEL.SW,CH0102993182,CH,SIX,Technology,False
+Givaudan,GIVN.SW,CH0010645932,CH,SIX,Materials,True
+Julius Baer,BAER.SW,CH0102484968,CH,SIX,Financials,True
+EMS-Chemie,EMSN.SW,CH0016440353,CH,SIX,Materials,True
+Straumann,STMN.SW,CH1175448666,CH,SIX,Healthcare,True
+Bachem,BCHEM.SW,CH0012530777,CH,SIX,Healthcare,False
+Tecan Group,TECN.SW,CH0012100191,CH,SIX,Healthcare,True
+Sonova,SOON.SW,CH0114405324,CH,SIX,Healthcare,True
+Kuehne + Nagel,KNIN.SW,CH0025238863,CH,SIX,Industrials,True
+Schindler,SCHN.SW,CH0024638196,CH,SIX,Industrials,True
+SGS,SGSN.SW,CH0002497458,CH,SIX,Industrials,True
+Dufry,DUFN.SW,CH0023405456,CH,SIX,Consumer Discretionary,False
+Flughafen Zürich,FHZN.SW,CH0319416936,CH,SIX,Industrials,True
+Cembra Money Bank,CMBN.SW,CH0225173167,CH,SIX,Financials,True
+Helvetia,HELN.SW,CH0466642630,CH,SIX,Financials,False
+Baloise,BALN.SW,CH0012221716,CH,SIX,Financials,False
+Temenos,TEMN.SW,CH0012453913,CH,SIX,Technology,True
+KBC Group,KBC.BR,BE0003565737,BE,EURONEXT,Financials,True
+Bekaert,BEKB.BR,BE0974258874,BE,EURONEXT,Materials,True
+Colruyt,COLR.BR,BE0974256852,BE,EURONEXT,Consumer Staples,True
+D'Ieteren,DIE.BR,BE0974259880,BE,EURONEXT,Consumer Discretionary,True
+Sofina,SOF.BR,BE0003717312,BE,EURONEXT,Financials,True
+Melexis,MELE.BR,BE0165385973,BE,EURONEXT,Technology,True
+Warehouses De Pauw,WDP.BR,BE0974349814,BE,EURONEXT,Real Estate,True
+Cofinimmo,COFB.BR,BE0003593044,BE,EURONEXT,Real Estate,True
+GBL,GBLB.BR,BE0003797140,BE,EURONEXT,Financials,True
+Elia Group,ELI.BR,BE0003822393,BE,EURONEXT,Utilities,True
+Alimentation Couche-Tard,ATD.TO,CA01626P4033,CA,TSX,Consumer Staples,True
+Magna International,MG.TO,CA5592224011,CA,TSX,Consumer Discretionary,True
+Linamar,LNR.TO,CA5324851088,CA,TSX,Consumer Discretionary,True
+Restaurant Brands,QSR,CA76131D1033,CA,NYSE,Consumer Discretionary,True
+MTY Food Group,MTY.TO,CA55379T1003,CA,TSX,Consumer Discretionary,True
+Badger Infrastructure,BDGI.TO,CA0561771054,CA,TSX,Industrials,True
+CAE,CAE.TO,CA1247651088,CA,TSX,Industrials,True
+Stantec,STN.TO,CA85472N1096,CA,TSX,Industrials,True
+WSP Global,WSP.TO,CA92938W2022,CA,TSX,Industrials,True
+SNC-Lavalin,SNC.TO,CA78460H1011,CA,TSX,Industrials,False
+Ritchie Bros,RBA.TO,CA7677021036,CA,TSX,Industrials,True
+NFI Group,NFI.TO,CA6282281043,CA,TSX,Industrials,True
+Chorus Aviation,CHR.TO,CA17029U1012,CA,TSX,Industrials,True
+Air Canada,AC.TO,CA0089118776,CA,TSX,Consumer Discretionary,True
+Cargojet,CJT.TO,CA1417451009,CA,TSX,Industrials,True
+TFI International,TFII,CA87242R1055,CA,NYSE,Industrials,True
+Canadian Tire,CTC-A.TO,CA1368161002,CA,TSX,Consumer Discretionary,True
+Aritzia,ATZ.TO,CA0402361092,CA,TSX,Consumer Discretionary,True
+Lululemon,LULU,US5500211090,CA,NASDAQ,Consumer Discretionary,True
+Sleep Country,ZZZ.TO,CA8308311090,CA,TSX,Consumer Discretionary,False
+Spin Master,TOY.TO,CA8481451009,CA,TSX,Consumer Discretionary,True
+Dentalcorp,DNTL.TO,CA24861W1041,CA,TSX,Healthcare,False
+Neighbourly Pharmacy,NBLY.TO,CA64011P1027,CA,TSX,Healthcare,False
+mdf commerce,MDF.TO,CA55266Q1091,CA,TSX,Technology,False
+Dye & Durham,DND.TO,CA26707T1003,CA,TSX,Technology,True
+Topicus,TOI.V,CA89101Q1000,CA,TSX,Technology,True
+Constellation Software,CSU.TO,CA21037X1000,CA,TSX,Technology,True
+Enghouse Systems,ENGH.TO,CA2929321035,CA,TSX,Technology,True
+Lumine Group,LMN.TO,CA55027L1004,CA,TSX,Technology,False
+ECN Capital,ECN.TO,CA26829A1012,CA,TSX,Financials,True
+goeasy,GSY.TO,CA3802922030,CA,TSX,Financials,True
+EQB,EQB.TO,CA26829A1012,CA,TSX,Financials,True
+Foran Mining,FOM.V,CA3449011016,CA,TSX,Materials,False
+Lundin Mining,LUN.TO,CA5503721063,CA,TSX,Materials,True
+Hudbay Minerals,HBM.TO,CA4436281022,CA,TSX,Materials,True
+Lithium Americas,LAC,CA53680Q2075,CA,NYSE,Materials,True
+Sigma Lithium,SGML,CA8265301024,CA,NASDAQ,Materials,True
+Ivanhoe Mines,IVN.TO,CA46579R1064,CA,TSX,Materials,True
+First Majestic Silver,FR.TO,CA32076V1031,CA,TSX,Materials,False
+SSR Mining,SSRM,CA78454L1058,CA,NASDAQ,Materials,True
+Capstone Copper,CS.TO,CA14068Q1063,CA,TSX,Materials,True
+NexGen Energy,NXE,CA65340P1062,CA,NYSE,Energy,True
+Cameco,CCO.TO,CA13321L1085,CA,TSX,Energy,True
+Vermilion Energy,VET.TO,CA9236311092,CA,TSX,Energy,True
+Parex Resources,PXT.TO,CA6997321040,CA,TSX,Energy,True
+Topaz Energy,TPZ.TO,CA89102K1075,CA,TSX,Energy,True
+Tata Consultancy ADR,TTKOF,IN9158A01020,IN,OTC,Technology,False
+HCL Technologies ADR,HCLTF,IN9343A01010,IN,OTC,Technology,False
+Tech Mahindra ADR,TCMYF,IN9155A01020,IN,OTC,Technology,False
+Sun Pharma ADR,SUNPHARMA.NS,IN0705A01015,IN,OTC,Healthcare,True
+Reliance Industries ADR,RELI,IN9082A01024,IN,OTC,Energy,False
+Bajaj Finance ADR,BAJFINANCE.NS,IN9046A01011,IN,OTC,Financials,True
+Itaú Unibanco ADR,ITUB,US4655621062,BR,NYSE,Financials,True
+Bradesco ADR,BBD,US10552T1079,BR,NYSE,Financials,True
+Ambev ADR,ABEV,US02319V1035,BR,NYSE,Consumer Staples,True
+Localiza ADR,LZAGY,BRLZQGACNPR4,BR,OTC,Consumer Discretionary,True
+Weg SA ADR,WEGZY,BRWEGEACNPB7,BR,OTC,Industrials,True
+Suzano ADR,SUZ,US86959K1051,BR,NYSE,Materials,True
+Banco do Brasil ADR,BDORY,BRBBASCNPN82,BR,OTC,Financials,True
+KE Holdings ADR,BEKE,US4822831097,CN,NYSE,Real Estate,True
+Meituan ADR,MPNGY,HK0003690,CN,OTC,Consumer Discretionary,True
+Tencent Holdings ADR,TCEHY,KYG875721634,CN,OTC,Communication Services,True
+Full Truck Alliance,YMM,US35969L1089,CN,NYSE,Industrials,True
+Kanzhun ADR,BZ,US4858682094,CN,NASDAQ,Technology,True
+Vnet Group ADR,VNET,US92858D2009,CN,NASDAQ,Technology,True
+Kingsoft Cloud ADR,KC,US4960691005,CN,NASDAQ,Technology,True
+Noah Holdings ADR,NOAH,US6549221043,CN,NYSE,Financials,True
+Bandwidth,BAND,US05975T1034,US,NASDAQ,Technology,True
+Clearfield,CLFD,US1852321009,US,NASDAQ,Technology,True
+Calix,CALX,US13462P1093,US,NYSE,Technology,True
+CommScope,COMM,US20338Q1058,US,NASDAQ,Technology,False
+Viavi Solutions,VIAV,US9256521081,US,NASDAQ,Technology,True
+NETGEAR,NTGR,US64111Q1040,US,NASDAQ,Technology,True
+Ciena,CIEN,US1717641040,US,NYSE,Technology,True
+InterDigital,IDCC,US458145100,US,NASDAQ,Technology,True
+Limelight Networks,LLNW,US5328902028,US,NASDAQ,Technology,False
+Shutterstock,SSTK,US8256261052,US,NYSE,Technology,True
+Eventbrite,EB,US29980A1025,US,NYSE,Technology,False
+Yelp,YELP,US9858891011,US,NYSE,Technology,True
+TripAdvisor,TRIP,US8969452015,US,NASDAQ,Communication Services,True
+Cars.com,CARS,US14637U1060,US,NYSE,Communication Services,True
+EverCommerce,EVCM,US30038E1082,US,NASDAQ,Technology,True
+Duck Creek Technologies,DCT,US26426V1044,US,NASDAQ,Technology,False
+Paya Holdings,PAYA,US7042701024,US,NASDAQ,Technology,False
+Billtrust,BTRS,US09344L2079,US,NASDAQ,Technology,False
+Flywire,FLYW,US34389X1055,US,NASDAQ,Technology,True
+Clearent Xplor,XPR.L,GB00BK6CKP65,US,LSE,Technology,False
+WalkMe,WKME,IL0011809802,US,NASDAQ,Technology,False
+Limeade,LME,AU0000009272,US,NASDAQ,Technology,False
+Enovis,ENOV,US29415J1088,US,NYSE,Healthcare,True
+Inari Medical,NARI,US45331A1097,US,NASDAQ,Healthcare,False
+Shockwave Medical,SWAV,US82481Q1031,US,NASDAQ,Healthcare,False
+Silk Road Medical,SILK,US8270521043,US,NASDAQ,Healthcare,False
+TransMedics Group,TMDX,US8936151031,US,NASDAQ,Healthcare,True
+Axonics,AXNX,US0546851089,US,NASDAQ,Healthcare,False
+Cardiovascular Systems,CSII,US14166R1005,US,NASDAQ,Healthcare,False
+Certara,CERT,US15687V1098,US,NASDAQ,Healthcare,True
+Definitive Healthcare,DH,US24477W1018,US,NASDAQ,Healthcare,True
+Health Catalyst,HCAT,US4224591095,US,NASDAQ,Healthcare,True
+Evolent Health,EVH,US30041C1018,US,NYSE,Healthcare,True
+Alignment Healthcare,ALHC,US01581Q1076,US,NASDAQ,Healthcare,True
+Privia Health,PRVA,US74260K1060,US,NASDAQ,Healthcare,True
+Agilon Health,AGL,US00851L1098,US,NYSE,Healthcare,True
+Oak Street Health,OSH,US6709461086,US,NYSE,Healthcare,False
+Addus HomeCare,ADUS,US0065911003,US,NASDAQ,Healthcare,True
+National HealthCare,NHC,US6370881013,US,NYSE,Healthcare,True
+Ensign Group,ENSG,US2937921010,US,NASDAQ,Healthcare,True
+Amedisys,AMED,US0234592084,US,NASDAQ,Healthcare,False
+BrightSpring Health,BTSG,US10948B1026,US,NASDAQ,Healthcare,True
+Guardant Health,GH,US4011571049,US,NASDAQ,Healthcare,True
+Natera,NTRA,US6285851030,US,NASDAQ,Healthcare,True
+Veracyte,VCYT,US92338W1018,US,NASDAQ,Healthcare,True
+Twist Bioscience,TWST,US9020061027,US,NASDAQ,Healthcare,True
+Seer,SEER,US8153821043,US,NASDAQ,Healthcare,True
+Absci,ABSI,US0034521016,US,NASDAQ,Healthcare,True
+Recursion Pharma,RXRX,US75629W1062,US,NASDAQ,Healthcare,True
+Schrödinger,SDGR,US8085611072,US,NASDAQ,Healthcare,True
+Relay Therapeutics,RLAY,US7597061025,US,NASDAQ,Healthcare,True
+Turning Point Therapeutics,TPTX,US9003092055,US,NASDAQ,Healthcare,False
+Mirati Therapeutics,MRTX,US6051662018,US,NASDAQ,Healthcare,False
+Karuna Therapeutics,KRTX,US48499H1023,US,NASDAQ,Healthcare,False
+Sage Therapeutics,SAGE,US78649M1009,US,NASDAQ,Healthcare,False
+Haynes International,HAYN,US4211311078,US,NASDAQ,Materials,False
+Watts Electric,WTTE,US9427491025,US,NYSE,Industrials,False
+Thermon Group,THR,US8836451052,US,NYSE,Industrials,True
+Sun Holdings,SHG,US8671671085,US,NYSE,Industrials,True
+Comfort Systems USA,FIX,US1985161066,US,NYSE,Industrials,True
+EMCOR Group,EME,US2686271013,US,NYSE,Industrials,True
+Installed Building,IBP,US4574541059,US,NYSE,Industrials,True
+Trex Company,TREX,US8954951014,US,NYSE,Consumer Discretionary,True
+Patrick Industries,PATK,US7033611028,US,NASDAQ,Consumer Discretionary,True
+AZEK Company,AZEK,US05534H1005,US,NYSE,Materials,False
+Masonite International,DOOR,CA57507P1027,CA,NYSE,Consumer Discretionary,False
+Caesarstone,CSTE,IL0010827 2056,US,NASDAQ,Materials,True
+Griffon Corporation,GFF,US3985451032,US,NYSE,Industrials,True
+Applied Industrial,AIT,US0382192009,US,NYSE,Industrials,True
+Barrett Business Svcs,BBSI,US0690991010,US,NASDAQ,Industrials,True
+Heidrick & Struggles,HSII,US4228062096,US,NASDAQ,Industrials,False
+Kelly Services,KELYA,US4895381004,US,NASDAQ,Industrials,True
+Korn Ferry,KFY,US5007551043,US,NYSE,Industrials,True
+FTI Consulting,FCN,US3023011063,US,NYSE,Industrials,True
+Huron Consulting,HURN,US4481062011,US,NASDAQ,Industrials,True
+CRA International,CRAI,US1255111039,US,NASDAQ,Industrials,True
+ExlService Holdings,EXLS,US3020811044,US,NASDAQ,Technology,True
+ICF International,ICFI,US4496221010,US,NASDAQ,Industrials,True
+Conduent,CNDT,US20682N1072,US,NASDAQ,Technology,True
+Unisys,UIS,US9099271Xca,US,NYSE,Technology,True
+Insight Enterprises,NSIT,US4580431075,US,NASDAQ,Technology,True
+PC Connection,CNXN,US4544691062,US,NASDAQ,Technology,True
+ScanSource,SCSC,US8062521031,US,NASDAQ,Technology,True
+Benchmark Electronics,BHE,US0819781048,US,NYSE,Technology,True
+Jabil,JBL,US4663131083,US,NYSE,Technology,True
+Celestica,CLS,CA1509831049,CA,NYSE,Technology,True
+Sanmina,SANM,US8010441013,US,NASDAQ,Technology,True
+Flex,FLEX,SG9999000020,US,NASDAQ,Technology,True
+Customers Bancorp,CUBI,US23204F1066,US,NYSE,Financials,True
+Glacier Bancorp,GBCI,US3775551016,US,NASDAQ,Financials,True
+Heartland Financial,HTLF,US4225961078,US,NASDAQ,Financials,False
+Brookline Bancorp,BRKL,US1149231013,US,NASDAQ,Financials,False
+Lakeland Bancorp,LBAI,US5119341017,US,NASDAQ,Financials,False
+Banner Financial,BANR,US0662731039,US,NASDAQ,Financials,True
+Columbia Banking,COLB,US1979081002,US,NASDAQ,Financials,True
+Independent Bank Group,IBTX,US4537221047,US,NASDAQ,Financials,False
+Veritex Holdings,VBTX,US9235861010,US,NASDAQ,Financials,False
+Texas Capital Bancshares,TCBI,US8823501095,US,NASDAQ,Financials,True
+SouthState,SSB,US8440451096,US,NASDAQ,Financials,True
+Seacoast Banking,SBCF,US8123511043,US,NASDAQ,Financials,True
+Renasant,RNST,US7599991023,US,NASDAQ,Financials,True
+Triumph Financial,TBK,US8965181003,US,NASDAQ,Financials,False
+Hilltop Holdings,HTH,US43177Q1085,US,NYSE,Financials,True
+WaFd,WAFD,US9296541083,US,NASDAQ,Financials,True
+Nicolet Bankshares,NIC,US6539141083,US,NASDAQ,Financials,True
+Pathfinder Bancorp,PBHC,US70302Q1013,US,NASDAQ,Financials,True
+Byline Bancorp,BY,US1244251032,US,NYSE,Financials,True
+Greenhill & Co,GHL,US3950241031,US,NYSE,Financials,False
+PJT Partners,PJT,US6933441012,US,NYSE,Financials,True
+Lazard,LAZ,BMG541501086,US,NYSE,Financials,True
+Houlihan Lokey,HLI,US4415321022,US,NYSE,Financials,True
+Moelis & Company,MC,US60786M1053,US,NYSE,Financials,True
+Perella Weinberg,PWP,US71428J1079,US,NASDAQ,Financials,True
+Cohen & Company,COHN,US19240P1012,US,NYSE,Financials,True
+Manning & Napier,MN,US5638041012,US,NYSE,Financials,False
+Diamond Hill,DHIL,US2527542035,US,NASDAQ,Financials,True
+Silvercrest Asset,SAMG,US8282771061,US,NASDAQ,Financials,True
+US Global Investors,GROW,US9030042008,US,NASDAQ,Financials,True
+Virtus Investment,VRTS,US9283781061,US,NASDAQ,Financials,True
+Cohen & Steers,CNS,US1924791038,US,NYSE,Financials,True
+Safety Insurance,SAFT,US7862441023,US,NASDAQ,Financials,True
+Donegal Group,DGICA,US2578442017,US,NASDAQ,Financials,True
+Erie Indemnity,ERIE,US2981551030,US,NASDAQ,Financials,True
+Employers Holdings,EIG,US29156T1043,US,NYSE,Financials,True
+Kingsway Financial,KFS,CA4956601034,CA,NYSE,Financials,True
+Global Indemnity,GBLI,IE00B3R0M485,US,NASDAQ,Financials,True
+Selective Insurance,SIGI,US8163681057,US,NASDAQ,Financials,True
+Horace Mann,HMN,US4406521081,US,NYSE,Financials,True
+National Western Life,NWLI,US6371271070,US,NASDAQ,Financials,False
+FGL Holdings,FG,BMG3529E1181,US,NYSE,Financials,True
+American Equity,AEL,US0259321042,US,NYSE,Financials,False
+Dutch Bros,BROS,US26701L1008,US,NYSE,Consumer Discretionary,True
+Portillo's,PTLO,US7361601095,US,NASDAQ,Consumer Discretionary,True
+Potbelly,PBPB,US7374571092,US,NASDAQ,Consumer Discretionary,False
+Wingstop,WING,US9741181019,US,NASDAQ,Consumer Discretionary,True
+Shake Shack,SHAK,US8190641017,US,NYSE,Consumer Discretionary,True
+Cava Group,CAVA,US1490931008,US,NYSE,Consumer Discretionary,True
+Sweetgreen,SG,US8707971031,US,NYSE,Consumer Discretionary,True
+Kura Sushi,KRUS,US50110M1027,US,NASDAQ,Consumer Discretionary,True
+Fiesta Restaurant,FRGI,US31785A1060,US,NASDAQ,Consumer Discretionary,False
+El Pollo Loco,LOCO,US28413U1007,US,NASDAQ,Consumer Discretionary,True
+Denny's,DENN,US2485G1031,US,NASDAQ,Consumer Discretionary,False
+Cracker Barrel,CBRL,US2258181060,US,NASDAQ,Consumer Discretionary,True
+Texas Roadhouse,TXRH,US8826811098,US,NASDAQ,Consumer Discretionary,True
+Chuy's Holdings,CHUY,US17088E1038,US,NASDAQ,Consumer Discretionary,False
+Noodles & Company,NDLS,US65441L1070,US,NASDAQ,Consumer Discretionary,True
+Xponential Fitness,XPOF,US9837151043,US,NYSE,Consumer Discretionary,True
+Planet Fitness,PLNT,US72703H1014,US,NYSE,Consumer Discretionary,True
+Life Time Group,LTH,US53227J1016,US,NYSE,Consumer Discretionary,True
+Gold's Gym,GGYM,US3801451033,US,OTC,Consumer Discretionary,False
+Yeti Holdings,YETI,US9867301043,US,NYSE,Consumer Discretionary,True
+Solo Brands,DTC,US8348501033,US,NYSE,Consumer Discretionary,False
+CATO Corporation,CATO,US1490921063,US,NYSE,Consumer Discretionary,True
+Hibbett,HIBB,US4286052049,US,NASDAQ,Consumer Discretionary,False
+Caleres,CAL,US1297302011,US,NYSE,Consumer Discretionary,True
+Vera Bradley,VRA,US92338J1079,US,NASDAQ,Consumer Discretionary,True
+G-III Apparel,GIII,US3615901097,US,NASDAQ,Consumer Discretionary,True
+Oxford Industries,OXM,US6914201077,US,NYSE,Consumer Discretionary,True
+Emerald Holding,EEX,US29089X1063,US,NYSE,Industrials,True
+Chord Energy,CHRD,US12653C1036,US,NASDAQ,Energy,True
+Permian Resources,PR,US71424F1021,US,NYSE,Energy,True
+Viper Energy Partners,VNOM,US9278221086,US,NASDAQ,Energy,True
+Sitio Royalties,STR,US82982R1059,US,NYSE,Energy,False
+Black Stone Minerals,BSM,US09252C1036,US,NYSE,Energy,True
+Natural Gas Partners,NGP,US6388891044,US,OTC,Energy,False
+Ring Energy,REI,US76680R1023,US,NYSE,Energy,True
+Evolution Petroleum,EPM,US3006761028,US,NYSE,Energy,True
+ProPetro Holding,PUMP,US74348T1025,US,NYSE,Energy,True
+Select Water Solutions,WTTR,US8163171033,US,NYSE,Energy,True
+CACTUS,WHD,US1270971039,US,NYSE,Energy,True
+RPC,RES,US7496411056,US,NYSE,Energy,True
+Core Laboratories,CLB,NL0000200384,US,NYSE,Energy,True
+Dril-Quip,DRQ,US2625431026,US,NYSE,Energy,False
+Newpark Resources,NR,US6516461093,US,NYSE,Energy,False
+Archrock,AROC,US03957W1062,US,NYSE,Energy,True
+Natural Gas Services,NGS,US63880F1021,US,NYSE,Energy,True
+Mammoth Energy,TUSK,US56681R1005,US,NASDAQ,Energy,True
+Healthpeak Properties,DOC,US42250P1030,US,NYSE,Real Estate,True
+CareTrust REIT,CTRE,US14174T1025,US,NASDAQ,Real Estate,True
+Sabra Health Care REIT,SBRA,US7852841061,US,NASDAQ,Real Estate,True
+LTC Properties,LTC,US5024691013,US,NYSE,Real Estate,True
+National Health Investors,NHI,US6361801011,US,NYSE,Real Estate,True
+Uniti Group,UNIT,US91325V1089,US,NASDAQ,Real Estate,True
+Lamar Advertising,LAMR,US5128161099,US,NASDAQ,Real Estate,True
+Outfront Media,OUT,US69007J1060,US,NYSE,Real Estate,True
+Innovative Industrial,IIPR,US45781V1017,US,NYSE,Real Estate,True
+Plymouth Industrial REIT,PLYM,US72940R1041,US,NYSE,Real Estate,False
+NexPoint Residential,NXRT,US65342H1095,US,NYSE,Real Estate,True
+Centerspace,CSR,US1537881068,US,NYSE,Real Estate,True
+Preferred Apartment,APTS,US7404882045,US,NYSE,Real Estate,False
+Independence Realty,IRT,US45378A1060,US,NYSE,Real Estate,True
+NexPoint Real Estate,NREF,US65342B1052,US,NYSE,Real Estate,True
+Whitestone REIT,WSR,US9664271031,US,NYSE,Real Estate,True
+Chatham Lodging,CLDT,US16208T1025,US,NYSE,Real Estate,True
+Sunstone Hotel,SHO,US8678371090,US,NYSE,Real Estate,True
+Pebblebrook Hotel,PEB,US70509V1008,US,NYSE,Real Estate,True
+Summit Hotel Properties,INN,US8658981060,US,NYSE,Real Estate,True
+Hersha Hospitality,HT,US4278161021,US,NYSE,Real Estate,False
+RLJ Lodging Trust,RLJ,US74930T1079,US,NYSE,Real Estate,True
+Chesapeake Lodging,CHSP,US1651361092,US,NYSE,Real Estate,False
+4imprint Group,FOUR.L,GB0007409436,GB,LSE,Consumer Discretionary,True
+Auction Technology,ATG.L,GB00BMH05B05,GB,LSE,Technology,True
+Baltic Classifieds,BCG.L,LV0000101764,GB,LSE,Technology,True
+Big Technologies,BIG.L,GB00BMFTQC96,GB,LSE,Technology,True
+Boku,BOKU.L,VGG1243P1018,GB,LSE,Technology,True
+Dotdigital,DOTD.L,GB0031059161,GB,LSE,Technology,True
+FD Technologies,FDP.L,GB0031461870,GB,LSE,Technology,False
+GB Group,GBG.L,GB0009237819,GB,LSE,Technology,True
+Gresham Technologies,GHT.L,GB0003856197,GB,LSE,Technology,False
+Iomart Group,IOM.L,GB0034222643,GB,LSE,Technology,True
+Judges Scientific,JDG.L,GB0031477534,GB,LSE,Technology,True
+Kape Technologies,KAPE.L,IL0011337000,GB,LSE,Technology,False
+Keywords Studios,KWS.L,IE00BBY6JH19,GB,LSE,Technology,False
+Learning Technologies,LTG.L,GB00B4X64640,GB,LSE,Technology,False
+Netcall,NET.L,GB0006358986,GB,LSE,Technology,True
+YouGov,YOU.L,GB00B1YZSC35,GB,LSE,Technology,True
+Gamma Communications,GAMA.L,GB00BQS10J50,GB,LSE,Communication Services,True
+Cranswick,CWK.L,GB0002318888,GB,LSE,Consumer Staples,True
+Greggs,GRG.L,GB0003108908,GB,LSE,Consumer Discretionary,True
+Hotel Chocolat,HOTC.L,GB00B5P8TQ41,GB,LSE,Consumer Discretionary,False
+Hollywood Bowl,BOWL.L,GB00BD9GFH47,GB,LSE,Consumer Discretionary,True
+Gym Group,GYM.L,GB00BZBX0P70,GB,LSE,Consumer Discretionary,True
+Camping World,CWH,US13781W1090,US,NYSE,Consumer Discretionary,True
+Pets at Home,PETS.L,GB00BJ62K685,GB,LSE,Consumer Staples,True
+Loungers,LGRS.L,GB00BKZGVH56,GB,LSE,Consumer Discretionary,False
+Domino's Pizza UK,DOM.L,GB0059585315,GB,LSE,Consumer Discretionary,True
+Restaurant Group,RTN.L,GB00BH31LB72,GB,LSE,Consumer Discretionary,False
+Reach,RCH.L,GB00B03TBD59,GB,LSE,Communication Services,True
+Future,FUTR.L,GB0003369759,GB,LSE,Communication Services,True
+Hyve Group,HYVE.L,GB0004532474,GB,LSE,Industrials,False
+Marshalls,MSLH.L,GB00B02J6398,GB,LSE,Materials,True
+Ibstock,IBST.L,GB00BYW1HR71,GB,LSE,Materials,True
+SigmaRoc,SRC.L,GB00B5B4BG68,GB,LSE,Materials,True
+RPC Group,RPC.L,GB0007503802,GB,LSE,Materials,False
+Essentra,ESNT.L,GB00B0744359,GB,LSE,Industrials,True
+Luxfer Holdings,LXFR,GB0003091005,GB,NYSE,Materials,True
+TI Fluid Systems,TIFS.L,GB00BF3ZN963,GB,LSE,Consumer Discretionary,False
+GrafTech International,EAF,US3840301038,US,NYSE,Materials,True
+Vesuvius,VSVS.L,GB00B3B74195,GB,LSE,Materials,True
+RHI Magnesita,RHIM.L,AT0000A21KS2,GB,LSE,Materials,True
+Hill & Smith,HILS.L,GB0004148124,GB,LSE,Industrials,True
+Kier Group,KIE.L,GB0004927410,GB,LSE,Industrials,True
+Morgan Sindall,MGNS.L,GB0006231168,GB,LSE,Industrials,True
+Galliford Try,GFRD.L,GB00BKY40Q38,GB,LSE,Industrials,True
+Costain Group,COST.L,GB0022933150,GB,LSE,Industrials,True
+Renew Holdings,RNWH.L,GB0007423726,GB,LSE,Industrials,True
+Speedy Hire,SDY.L,GB00B0TCQX62,GB,LSE,Industrials,True
+VP,VP.L,GB0009372063,GB,LSE,Industrials,True
+Ennstone,ENS.L,GB0003092540,GB,LSE,Materials,False
+Ultra Electronics,ULE.L,GB0009197874,GB,LSE,Industrials,False
+Chemring Group,CHG.L,GB0001743002,GB,LSE,Industrials,True
+Senior,SNR.L,GB0007970527,GB,LSE,Industrials,True
+Bodycote,BOY.L,GB0001023442,GB,LSE,Industrials,True
+Trifast,TRI.L,GB0007409435,GB,LSE,Industrials,True
+Vitesse Media,VIS.L,GB0009301572,GB,LSE,Industrials,False
+Morgan Advanced Materials,MGAM.L,GB0003267689,GB,LSE,Materials,True
+Victrex,VCT.L,GB0009292865,GB,LSE,Materials,True
+Elementis,ELM.L,GB00BFMBM285,GB,LSE,Materials,True
+Synthomer,SYNT.L,GB00B3FLWG20,GB,LSE,Materials,True
+Croda International,CRDA.L,GB0002371834,GB,LSE,Materials,True
+Johnson Matthey,JMAT.L,GB00BZ4BQC70,GB,LSE,Materials,True
+John Wood Group,WG.L,GB00B5N0P849,GB,LSE,Energy,False
+Kenmare Resources,KMR.L,IE00B0MR8584,GB,LSE,Materials,True
+Hochschild Mining,HOC.L,GB00B1FW5029,GB,LSE,Materials,True
+Pan African Resources,PAF.L,GB0004300496,GB,LSE,Materials,True
+Target Healthcare REIT,THRL.L,GB00B6SK7P50,GB,LSE,Real Estate,True
+Assura,AGR.L,GB00BVGBWW93,GB,LSE,Real Estate,False
+Primary Health Properties,PHP.L,GB0006653024,GB,LSE,Real Estate,True
+Grainger,GRI.L,GB0003535203,GB,LSE,Real Estate,True
+Tritax Big Box REIT,BBOX.L,GB00BG49KP99,GB,LSE,Real Estate,True
+Warehouse REIT,WHR.L,GB00BD2NCM38,GB,LSE,Real Estate,True
+LondonMetric Property,LMP.L,GB00B4WFW713,GB,LSE,Real Estate,True
+Safestore Holdings,SAFE.L,GB00B1HZF059,GB,LSE,Real Estate,True
+Big Yellow Group,BYG.L,GB0002659561,GB,LSE,Real Estate,True
+Shaftesbury,SHB.L,GB0008005795,GB,LSE,Real Estate,False
+Great Portland Estates,GPE.L,GB00BJ0LF423,GB,LSE,Real Estate,True
+CureVac,CVAC,NL0015436031,DE,NASDAQ,Healthcare,False
+Eckert & Ziegler,EUZ.DE,DE0005659700,DE,XETRA,Healthcare,True
+CompuGroup Medical,COP.DE,DE0005437305,DE,XETRA,Healthcare,False
+Gerresheimer,GXI.DE,DE000A0LD6E6,DE,XETRA,Healthcare,True
+PSI Software,PSAN.DE,DE000A0Z1JH9,DE,XETRA,Technology,True
+Datagroup,D6H.DE,DE000A0H1GY2,DE,XETRA,Technology,True
+Cancom SE,COK.DE,DE0005419105,DE,XETRA,Technology,True
+Bechtle,BC8.DE,DE0005158703,DE,XETRA,Technology,True
+Nagarro,NA9.DE,DE000A3H2201,DE,XETRA,Technology,True
+Stratec,SBS.DE,DE000STRA555,DE,XETRA,Healthcare,True
+Morphosys,MOR.DE,DE0006632003,DE,XETRA,Healthcare,False
+Evotec,EVT.DE,DE0005664809,DE,XETRA,Healthcare,True
+BioNTech,BNTX,US09075V1026,DE,NASDAQ,Healthcare,True
+Formycon,FYB.DE,DE000A1EWVY8,DE,XETRA,Healthcare,True
+Dermapharm,DMP.DE,DE000A2GS5D8,DE,XETRA,Healthcare,True
+Medios AG,ILM1.DE,DE000A1MMCC8,DE,XETRA,Healthcare,True
+Westwing,WWG.DE,DE000A2N4H07,DE,XETRA,Consumer Discretionary,False
+windeln.de,WNDL.DE,DE000WNDL202,DE,XETRA,Consumer Discretionary,False
+Home24,H24.DE,DE000A14KEB5,DE,XETRA,Consumer Discretionary,False
+Fashionette,FSNT.DE,DE000A2QEFA1,DE,XETRA,Consumer Discretionary,False
+RTL Group,RRTL.DE,LU0061462528,DE,XETRA,Communication Services,True
+Stroer,SAX.DE,DE0007493991,DE,XETRA,Communication Services,True
+New Work,NWRK.DE,DE000A161408,DE,XETRA,Technology,False
+Xing,O1BC.DE,DE000XNG8888,DE,XETRA,Technology,False
+Ionos Group,IOS.DE,DE000A3H2201,DE,XETRA,Technology,True
+Kontoor Brands,KTB,US5002531073,US,NYSE,Consumer Discretionary,True
+Oxford Metrics,OMG.L,GB0006702461,GB,LSE,Technology,True
+Soitec,SOI.PA,FR0013227113,FR,EURONEXT,Technology,True
+Eurofins Scientific,ERF.PA,LU0811272098,FR,EURONEXT,Healthcare,True
+Sartorius Stedim Biotech,DIM.PA,FR0013154002,FR,EURONEXT,Healthcare,True
+Guerbet,GBT.PA,FR0000032526,FR,EURONEXT,Healthcare,True
+Virbac,VIRP.PA,FR0000031577,FR,EURONEXT,Healthcare,True
+Elior Group,ELOR.PA,FR0011950732,FR,EURONEXT,Consumer Staples,False
+Trigano,TRI.PA,FR0005691656,FR,EURONEXT,Consumer Discretionary,True
+Interparfums,IPAR,US4588091035,FR,NASDAQ,Consumer Staples,True
+Jacquet Metal Service,JCQ.PA,FR0000060402,FR,EURONEXT,Materials,True
+Spie,SPIE.PA,FR0012757854,FR,EURONEXT,Industrials,True
+Rexel,RXL.PA,FR0010451203,FR,EURONEXT,Industrials,True
+Getlink,GET.PA,FR0010533075,FR,EURONEXT,Industrials,True
+Groupe ADP,ADP.PA,FR0010340141,FR,EURONEXT,Industrials,True
+GTT,GTT.PA,FR0011726835,FR,EURONEXT,Industrials,True
+Voluntis,VTE.PA,FR0012596468,FR,EURONEXT,Technology,False
+Believe,BLV.PA,FR0014003FE9,FR,EURONEXT,Communication Services,False
+Verimatrix,VMX.PA,FR0010291245,FR,EURONEXT,Technology,True
+OVH Groupe,OVH.PA,FR0014005HJ9,FR,EURONEXT,Technology,True
+Wordline,WLN.PA,FR0011981968,FR,EURONEXT,Technology,True
+Solocal Group,LOCAL.PA,FR0012938884,FR,EURONEXT,Technology,True
+DBV Technologies,DBVT,US23306J1097,FR,NASDAQ,Healthcare,True
+Genfit,GNFT,US37251B1008,FR,NASDAQ,Healthcare,False
+Median Technologies,ALMDT.PA,FR0011049824,FR,EURONEXT,Healthcare,True
+Lucibel,ALUCI.PA,FR0011884378,FR,EURONEXT,Consumer Discretionary,True
+Voltalia,VLTSA.PA,FR0011981968,FR,EURONEXT,Utilities,True
+Neoen,NEOEN.PA,FR0014005IU4,FR,EURONEXT,Utilities,False
+Electricite de France,EDF.PA,FR0010242511,FR,EURONEXT,Utilities,False
+Aena,AENA.MC,ES0105046009,ES,EURONEXT,Industrials,True
+Red Electrica,REE.MC,ES0173093024,ES,EURONEXT,Utilities,False
+Enagás,ENG.MC,ES0130960018,ES,EURONEXT,Utilities,True
+Naturgy Energy,NTGY.MC,ES0116870314,ES,EURONEXT,Utilities,True
+Siemens Gamesa,SGRE.MC,ES0143416115,ES,EURONEXT,Energy,False
+Viscofan,VIS.MC,ES0184262212,ES,EURONEXT,Consumer Staples,True
+Prosegur,PSG.MC,ES0175438003,ES,EURONEXT,Industrials,True
+Applus Services,APPS.MC,ES0105022000,ES,EURONEXT,Industrials,False
+Telecom Italia,TIT.MI,IT0003497168,IT,EURONEXT,Communication Services,True
+Italgas,IG.MI,IT0005211237,IT,EURONEXT,Utilities,True
+Iren,IRE.MI,IT0003027817,IT,EURONEXT,Utilities,True
+Acea,ACE.MI,IT0001233417,IT,EURONEXT,Utilities,True
+Inwit,INW.MI,IT0005090300,IT,EURONEXT,Communication Services,True
+Banca Popolare Sondrio,BPSO.MI,IT0000784196,IT,EURONEXT,Financials,True
+Credito Emiliano,CE.MI,IT0003121677,IT,EURONEXT,Financials,True
+BPER Banca,BPE.MI,IT0000066123,IT,EURONEXT,Financials,True
+Dovalue,DVA.MI,IT0005227675,IT,EURONEXT,Financials,False
+Brunello Cucinelli,BC.MI,IT0004764699,IT,EURONEXT,Consumer Discretionary,True
+Technogym,TGYM.MI,IT0004827508,IT,EURONEXT,Consumer Discretionary,True
+De' Longhi,DLG.MI,IT0003115950,IT,EURONEXT,Consumer Discretionary,True
+Fila,FIL.MI,IT0001478599,IT,EURONEXT,Consumer Discretionary,False
+Brembo,BRE.MI,IT0003796171,IT,EURONEXT,Consumer Discretionary,True
+Danieli & C,DAN.MI,IT0001466488,IT,EURONEXT,Industrials,True
+Biesse Group,BSS.MI,IT0001419062,IT,EURONEXT,Industrials,True
+Reply,REY.MI,IT0003268751,IT,EURONEXT,Technology,True
+Engineering Ingegneria,ENG.MI,IT0003232417,IT,EURONEXT,Technology,False
+Datalogic,DAL.MI,IT0003535267,IT,EURONEXT,Technology,True
+El.En,ELN.MI,IT0001281416,IT,EURONEXT,Healthcare,True
+Sogefi,SGF.MI,IT0000076091,IT,EURONEXT,Consumer Discretionary,True
+Coherus BioSciences,CHRS,US19243A1051,US,NASDAQ,Healthcare,True
+Arrowhead Pharma,ARWR,US04280A1097,US,NASDAQ,Healthcare,True
+Protagonist Therapeutics,PTGX,US7437291095,US,NASDAQ,Healthcare,True
+Bicycle Therapeutics,BCYC,GB00BKTGZW75,US,NASDAQ,Healthcare,True
+Global Blood Therapeutics,GBT,US37958Q1031,US,NASDAQ,Healthcare,False
+Travere Therapeutics,TVTX,US8946521081,US,NASDAQ,Healthcare,True
+Kiniksa Pharma,KNSA,BMG527431017,US,NASDAQ,Healthcare,True
+Aldeyra Therapeutics,ALDX,US01418Q1094,US,NASDAQ,Healthcare,True
+ChemoCentryx,CCXI,US16380B4029,US,NASDAQ,Healthcare,True
+Aurinia Pharmaceuticals,AUPH,CA0516521055,CA,NASDAQ,Healthcare,True
+Praxis Precision Medicine,PRAX,US7401721094,US,NASDAQ,Healthcare,True
+Imvax,IMVX,US45252B1026,US,NASDAQ,Healthcare,False
+Longboard Pharma,LBPH,US54303M1027,US,NASDAQ,Healthcare,False
+Zafgen,ZFGN,US9887691021,US,NASDAQ,Healthcare,False
+Karyopharm Therapeutics,KPTI,US48383M1062,US,NASDAQ,Healthcare,True
+Exelixis,EXEL,US30161Q1040,US,NASDAQ,Healthcare,True
+Halozyme Therapeutics,HALO,US40637H1095,US,NASDAQ,Healthcare,True
+Iovance Biotherapeutics,IOVA,US4627551013,US,NASDAQ,Healthcare,True
+Avita Medical,RCEL,AU0000065749,US,NASDAQ,Healthcare,True
+BioAtla,BCAB,US09060U1051,US,NASDAQ,Healthcare,True
+Vincera Pharma,VINC,US9272041007,US,NASDAQ,Healthcare,True
+iTeos Therapeutics,ITOS,BE0974338509,US,NASDAQ,Healthcare,False
+Alector,ALEC,US01415T1043,US,NASDAQ,Healthcare,True
+Prothena,PRTA,IE00B8H7GZ47,US,NASDAQ,Healthcare,True
+Rigel Pharma,RIGL,US7664891015,US,NASDAQ,Healthcare,True
+Corcept Therapeutics,CORT,US21833H1095,US,NASDAQ,Healthcare,True
+Indevus Pharmaceuticals,INDV,US45329Y1038,US,NASDAQ,Healthcare,True
+Spectrum Pharma,SPPI,US8481561071,US,NASDAQ,Healthcare,False
+MannKind,MNKD,US56400D2080,US,NASDAQ,Healthcare,True
+Esperion Therapeutics,ESPR,US2967311073,US,NASDAQ,Healthcare,True
+FibroGen,FGEN,US31573T1034,US,NASDAQ,Healthcare,False
+ACADIA Pharmaceuticals,ACAD,US0001441983,US,NASDAQ,Healthcare,True
+Alkermes,ALKS,IE0001879082,US,NASDAQ,Healthcare,True
+Intra-Cellular Therapies,ITCI,US4615361075,US,NASDAQ,Healthcare,False
+Assertio Holdings,ASRT,US04570Y2073,US,NASDAQ,Healthcare,True
+Prestige Consumer Hlth,PBH,US7408761010,US,NYSE,Healthcare,True
+Phibro Animal Health,PAHC,US71742Q1067,US,NASDAQ,Healthcare,True
+Globus Medical,GMED,US3795772082,US,NYSE,Healthcare,True
+Ortho Clinical Dx,OCDX,LU2368119723,US,NASDAQ,Healthcare,False
+NuVasive,NUVA,US6703461052,US,NASDAQ,Healthcare,False
+Alphatec Holdings,ATEC,US02083P2011,US,NASDAQ,Healthcare,True
+Rambus,RMBS,US7506521048,US,NASDAQ,Technology,True
+Silicon Motion,SIMO,KYG8120N1068,US,NASDAQ,Technology,True
+PCTEL,PCTI,US6935001028,US,NASDAQ,Technology,False
+IRIDEX,IRIX,US4462981026,US,NASDAQ,Technology,True
+Iteris,ITI,US4659491011,US,NASDAQ,Technology,False
+Luna Innovations,LUNA,US5503931035,US,NASDAQ,Technology,True
+OSI Systems,OSIS,US6706651058,US,NASDAQ,Technology,True
+PCGE,PCGE,US2546871060,US,NASDAQ,Technology,False
+Liqtech International,LIQT,US5360541082,US,NYSE,Industrials,True
+Iterion Therapeutics,ITRN,US46586X1019,US,NASDAQ,Healthcare,True
+LiveRamp Holdings,RAMP,US53814L1089,US,NYSE,Technology,True
+Intellicheck,IDN,US4582711055,US,NASDAQ,Technology,True
+Evolv Technology,EVLV,US30031D1046,US,NASDAQ,Technology,True
+Samsara,IOT,US79621W1036,US,NYSE,Technology,True
+Couchbase,BASE,US2225311058,US,NASDAQ,Technology,False
+Agora,API,US00851L1007,US,NASDAQ,Technology,True
+Weave Communications,WEAV,US94724J1051,US,NYSE,Technology,True
+Jamf Holding,JAMF,US47077X1028,US,NASDAQ,Technology,False
+Ping Identity,PING,US7237861012,US,NYSE,Technology,False
+ForgeRock,FORG,US34608J2051,US,NYSE,Technology,False
+Clearance Technologies,CLR,US18538T1060,US,NYSE,Technology,False
+Hydrafacial,SKIN,US01588R1023,US,NASDAQ,Consumer Discretionary,True
+Tattooed Chef,TTCF,US87670X1019,US,NASDAQ,Consumer Staples,False
+AppHarvest,APPH,US03815P1021,US,NASDAQ,Consumer Staples,False
+AeroFarms,ARFM,US00840A1097,US,NASDAQ,Consumer Staples,False
+Albany International,AIN,US0116921069,US,NYSE,Industrials,True
+Lydall,LDL,US5503901027,US,NYSE,Industrials,False
+Insteel Industries,IIIN,US4577061090,US,NYSE,Industrials,True
+Encore Wire,WIRE,US2927491028,US,NASDAQ,Materials,False
+Olympic Steel,ZEUS,US6813571069,US,NASDAQ,Materials,False
+Worthington Industries,WOR,US9823281001,US,NYSE,Materials,True
+Mueller Industries,MLI,US6237851049,US,NYSE,Materials,True
+Advanced Drainage,WMS,US00790R1041,US,NYSE,Materials,True
+Northwest Steel Fab,NWSF,US6671851038,US,OTC,Materials,False
+Core Molding,CMT,US2185221044,US,NYSE,Materials,True
+UFP Technologies,UFPT,US9027421018,US,NASDAQ,Materials,True
+Ultralife,ULBI,US9035461093,US,NASDAQ,Technology,True
+CUI Global,CUIG,US1265351056,US,NASDAQ,Technology,False
+Power Solutions Int'l,PSIX,US7393211009,US,NASDAQ,Industrials,True
+Mesa Air Group,MESA,US5908651097,US,NASDAQ,Industrials,False
+Air Lease,AL,US00912X3026,US,NYSE,Industrials,False
+Willis Lease Finance,WLFC,US9703981005,US,NASDAQ,Industrials,True
+Atlas Air Worldwide,AAWW,US04958L1044,US,NASDAQ,Industrials,False
+Moog,MOG-A,US6153641040,US,NYSE,Industrials,True
+CPI Aerostructures,CVU,US1260531083,US,NYSE,Industrials,True
+Ducommun,DCO,US2640031040,US,NYSE,Industrials,True
+Kaman Corporation,KAMN,US4836801011,US,NASDAQ,Industrials,False
+AAR Corp,AIR,US0003981062,US,NYSE,Industrials,True
+Triumph Group,TGI,US8965171027,US,NYSE,Industrials,False
+Spirit AeroSystems,SPR,US8485741099,US,NYSE,Industrials,False
+Hexcel,HXL,US4282911084,US,NYSE,Materials,True
+NN,NNBR,US6293225036,US,NASDAQ,Industrials,True
+AeroGrow International,AERO,US0077861000,US,OTC,Consumer Staples,True
+Americold Realty,COLD,US03064D1081,US,NYSE,Real Estate,True
+EastGroup Properties,EGP,US2773141017,US,NYSE,Real Estate,True
+STAG Industrial,STAG,US85254J1025,US,NYSE,Real Estate,True
+Rexford Industrial,REXR,US7620911000,US,NYSE,Real Estate,True
+Terreno Realty,TRNO,US8806440503,US,NYSE,Real Estate,True
+Modiv Industrial,MDV,US60840M1036,US,NYSE,Real Estate,True
+Global Net Lease,GNL,US37953T1016,US,NYSE,Real Estate,True
+W. P. Carey,WPC,US92936U1097,US,NYSE,Real Estate,True
+Spirit Realty Capital,SRC,US84861T1060,US,NYSE,Real Estate,False
+STORE Capital,STOR,US86183P1021,US,NYSE,Real Estate,False
+National Retail Props,NNN,US6374171063,US,NYSE,Real Estate,True
+Agree Realty,ADC,US0084921008,US,NYSE,Real Estate,True
+Essential Properties,EPRT,US29670W1062,US,NYSE,Real Estate,True
+Broadstone Net Lease,BNL,US11135E1010,US,NYSE,Real Estate,True
+Four Corners Property,FCPT,US3510601097,US,NYSE,Real Estate,True
+Lumen Technologies,LUMN,US5502411037,US,NYSE,Communication Services,True
+Iridium Communications,IRDM,US46269C1027,US,NASDAQ,Communication Services,True
+EchoStar,SATS,US2787681061,US,NASDAQ,Communication Services,True
+Liberty Broadband,LBRDA,US5303073082,US,NASDAQ,Communication Services,True
+Liberty TripAdvisor,LTRPA,US5302872024,US,NASDAQ,Communication Services,False
+Vonage Holdings,VG,US9289681082,US,NASDAQ,Communication Services,True
+LiveXchange,LIVX,US5388591003,US,NASDAQ,Communication Services,False
+EW Scripps,SSP,US8117522027,US,NASDAQ,Communication Services,True
+Gray Television,GTN,US3899181009,US,NYSE,Communication Services,True
+Nexstar Media,NXST,US65346E1029,US,NASDAQ,Communication Services,True
+Sinclair Broadcast,SBGI,US8293101038,US,NASDAQ,Communication Services,True
+Entravision Comms,EVC,US29382T1025,US,NYSE,Communication Services,True
+iHeartMedia,IHRT,US44931V1080,US,NASDAQ,Communication Services,True
+Audacy,AUD,US05059P1011,US,NYSE,Communication Services,False
+Cumulus Media,CMLS,US2311631090,US,NASDAQ,Communication Services,False
+Atoss Software,AOF.DE,DE0005104400,DE,XETRA,Technology,True
+init innovation,INIT.DE,DE0005759007,DE,XETRA,Technology,False
+Nexus AG,NXU.DE,DE0005220909,DE,XETRA,Healthcare,False
+Pfeiffer Vacuum,PFV.DE,DE0006916604,DE,XETRA,Industrials,True
+Verbio,VBK.DE,DE000A0JE8E5,DE,XETRA,Energy,True
+SFC Energy,F3C.DE,DE0007568578,DE,XETRA,Energy,True
+Energiekontor,EKT.DE,DE0005313506,DE,XETRA,Energy,True
+PNE AG,PNE3.DE,DE000A0JBPG2,DE,XETRA,Energy,True
+Steico,ST5.DE,DE000A0LR936,DE,XETRA,Materials,True
+Zeal Network,TIMA.DE,DE000ZEAL241,DE,XETRA,Consumer Discretionary,True
+PATRIZIA,PAT.DE,DE0007461006,DE,XETRA,Real Estate,True
+DIC Asset,DIC.DE,DE000A1X3XX4,DE,XETRA,Real Estate,False
+Aroundtown,AT1.DE,LU1673108939,DE,XETRA,Real Estate,True
+Grand City Properties,GYC.DE,LU0775917882,DE,XETRA,Real Estate,True
+LEG Immobilien,LEG.DE,DE000LEG1110,DE,XETRA,Real Estate,True
+Vonovia,VNA.DE,DE000A1ML7J1,DE,XETRA,Real Estate,True
+Deutsche Wohnen,DWNI.DE,DE000A0HN5C6,DE,XETRA,Real Estate,True
+TAG Immobilien,TEG.DE,DE0008303504,DE,XETRA,Real Estate,True
+Alstria Office,AOX.DE,DE000A0LD2U1,DE,XETRA,Real Estate,False
+Hamborner REIT,HABA.DE,DE0006013006,DE,XETRA,Real Estate,True
+Instone Real Estate,INS.DE,DE000A2NBX80,DE,XETRA,Real Estate,True
+Adler Group,ADJ.DE,LU1250154413,DE,XETRA,Real Estate,True
+Ceconomy,CEC.DE,DE0007257503,DE,XETRA,Consumer Discretionary,True
+Metro AG,B4B3.DE,DE0007257503,DE,XETRA,Consumer Staples,False
+Douglas,DOU.DE,DE000A1YHHQ1,DE,XETRA,Consumer Discretionary,True
+Bike24,BIKE.DE,DE000A2YN371,DE,XETRA,Consumer Discretionary,True
+Global Fashion Group,GFG.DE,LU2010095458,DE,XETRA,Consumer Discretionary,True
+Hella,HLE.DE,DE000A13SX22,DE,XETRA,Consumer Discretionary,True
+Leoni,LEO.DE,DE0005408884,DE,XETRA,Consumer Discretionary,False
+Schaeffler,SHA.DE,DE000SHA0159,DE,XETRA,Consumer Discretionary,False
+Aareal Bank,ARL.DE,DE0005408116,DE,XETRA,Financials,False
+Oldenburgische Landes,OLB.DE,DE000A2ND2U0,DE,XETRA,Financials,False
+Bayerische Landesbank,BLB.DE,DE0008404200,DE,XETRA,Financials,False
+ASM International,ASM.AS,NL0000334118,NL,EURONEXT,Technology,True
+BE Semiconductor,BESI.AS,NL0000339760,NL,EURONEXT,Technology,True
+Beter Bed,BBED.AS,NL0009169515,NL,EURONEXT,Consumer Discretionary,False
+Kendrion,KENDR.AS,NL0000395016,NL,EURONEXT,Industrials,True
+Sligro Food Group,SLIGR.AS,NL0000817179,NL,EURONEXT,Consumer Staples,True
+Van Lanschot Kempen,VLK.AS,NL0000302636,NL,EURONEXT,Financials,True
+Accsys Technologies,AXS.AS,GB0002438079,NL,EURONEXT,Materials,True
+Ctac NV,CTAC.AS,NL0000345385,NL,EURONEXT,Technology,True
+PostNL,PNL.AS,NL0009739416,NL,EURONEXT,Industrials,True
+Aperam,APAM.AS,LU0569974404,NL,EURONEXT,Materials,True
+Alfen,ALFEN.AS,NL0011872650,NL,EURONEXT,Technology,True
+CM.com,CMCOM.AS,NL0013296455,NL,EURONEXT,Technology,True
+Fagron,FAGR.BR,BE0003874915,NL,EURONEXT,Healthcare,True
+Burckhardt Compression,BCHN.SW,CH0025536027,CH,SIX,Industrials,True
+Bossard Holding,BOSN.SW,CH0023549198,CH,SIX,Industrials,True
+Bucher Industries,BUCN.SW,CH0002432437,CH,SIX,Industrials,True
+Georg Fischer,FI-N.SW,CH0016268360,CH,SIX,Industrials,False
+Interroll,INRN.SW,CH0006372152,CH,SIX,Industrials,True
+OC Oerlikon,OERL.SW,CH0010570759,CH,SIX,Industrials,True
+Sulzer,SUN.SW,CH0038388911,CH,SIX,Industrials,True
+Meyer Burger,MBTN.SW,CH0108503795,CH,SIX,Energy,False
+Molecular Partners,MOLN.SW,CH0152313118,CH,SIX,Healthcare,True
+ObsEva,OBSV,CH0341672732,CH,NASDAQ,Healthcare,False
+Relief Therapeutics,RLF,CH0100191136,CH,OTC,Healthcare,False
+Crispr Therapeutics,CRSP,CH0334081137,CH,NASDAQ,Healthcare,True
+Speedel Pharma,SPED.SW,CH0025999302,CH,SIX,Healthcare,False
+Perion Network,PERI,IL0011237877,IL,NASDAQ,Technology,True
+CyberArk Software,CYBR,IL0011259005,IL,NASDAQ,Technology,False
+Check Point Software,CHKP,IL0010824113,IL,NASDAQ,Technology,True
+Amdocs,DOX,GG00B5LMGG05,IL,NASDAQ,Technology,True
+NICE Systems,NICE,IL0002902656,IL,NASDAQ,Technology,True
+Radware,RDWR,IL0010823188,IL,NASDAQ,Technology,True
+ECI Telecom,ECILF,IL0010813155,IL,OTC,Technology,False
+Sapiens International,SPNS,IL0007070071,IL,NASDAQ,Technology,False
+MIND C.T.I.,MNDO,IL0010822446,IL,NASDAQ,Technology,True
+AudioCodes,AUDC,IL0010824111,IL,NASDAQ,Technology,True
+Silicom,SILC,IL0010823161,IL,NASDAQ,Technology,True
+Allot,ALLT,IL0010823145,IL,NASDAQ,Technology,True
+Ceragon Networks,CRNT,IL0010818541,IL,NASDAQ,Technology,True
+Tower Semiconductor,TSEM,IL0010823206,IL,NASDAQ,Technology,True
+Nova Measuring,NVMI,IL0010849108,IL,NASDAQ,Technology,True
+Cellebrite DI,CLBT,IL0011857132,IL,NASDAQ,Technology,True
+Marpai,MRAI,US57156X1081,US,NASDAQ,Healthcare,True
+Fiverr International,FVRR,IL0011582033,IL,NYSE,Technology,True
+Lemonade,LMND,IL0011612110,IL,NYSE,Technology,True
+SolarEdge Technologies,SEDG,IL0011313 149,IL,NASDAQ,Technology,True
+Sievert Logistics,SLG.DE,DE000A1C5H00,DE,XETRA,Industrials,False
+Pivotal Investment,PIIC.U,CA7261611087,CA,TSX,Financials,False
+Total Energy Services,TOT.TO,CA8910911019,CA,TSX,Energy,True
+Gear Energy,GXE.TO,CA3687651019,CA,TSX,Energy,False
+Surge Energy,SGY.TO,CA8689941013,CA,TSX,Energy,True
+Perpetual Energy,PMT.TO,CA71424F1021,CA,TSX,Energy,False
+Crew Energy,CR.TO,CA2264171097,CA,TSX,Energy,False
+Advantage Energy,AAV.TO,CA00762Q1010,CA,TSX,Energy,True
+Peyto Exploration,PEY.TO,CA7170011035,CA,TSX,Energy,True
+Cardinal Energy,CJ.TO,CA14148K1012,CA,TSX,Energy,True
+Gran Tierra Energy,GTE,CA3843891030,CA,NYSE,Energy,True
+Birchcliff Energy,BIR.TO,CA09001A1012,CA,TSX,Energy,True
+Tamarack Valley Energy,TVE.TO,CA87561A1049,CA,TSX,Energy,True
+Spartan Delta,SDE.TO,CA84652W1023,CA,TSX,Energy,True
+Painted Pony Energy,PONY.TO,CA69479Q1018,CA,TSX,Energy,False
+Enerplus,ERF.TO,CA2926571028,CA,TSX,Energy,False
+Vermilion Energy,VET,CA9236311092,CA,NYSE,Energy,True
+Storm Exploration,SEO.TO,CA8618411023,CA,TSX,Energy,False
+Whitecap Resources,WCP.TO,CA9632641023,CA,TSX,Energy,True
+InPlay Oil Corp,IPO.TO,CA4574571014,CA,TSX,Energy,True
+Razor Energy,RZE.V,CA7557801020,CA,TSX,Energy,False
+Pine Cliff Energy,PNE.TO,CA7230341091,CA,TSX,Energy,True
+Baytex Energy,BTE,CA07317Q1090,CA,NYSE,Energy,True
+Crescent Point Energy,CPG,CA2261731010,CA,NYSE,Energy,False
+Canacol Energy,CNE.TO,CA1344531077,CA,TSX,Energy,False
+Alvopetro Energy,ALV.V,CA0311972021,CA,TSX,Energy,True
+Hemisphere Media,HMTV,US4237721016,US,NASDAQ,Communication Services,False
+Photronics,PLAB,US7193191044,US,NASDAQ,Technology,True
+Cohu,COHU,US1924561023,US,NASDAQ,Technology,True
+PDF Solutions,PDFS,US69318B1061,US,NASDAQ,Technology,True
+FormFactor,FORM,US3462451081,US,NASDAQ,Technology,True
+Onto Innovation,ONTO,US6833181081,US,NYSE,Technology,True
+Axcelis Technologies,ACLS,US0547242080,US,NASDAQ,Technology,True
+MKS Instruments,MKSI,US5530151012,US,NASDAQ,Technology,True
+Ultra Clean Holdings,UCTT,US9038841020,US,NASDAQ,Technology,True
+Ichor Holdings,ICHR,SG9999001741,US,NASDAQ,Technology,True
+Entegris,ENTG,US29362U1043,US,NASDAQ,Technology,True
+CMC Materials,CCMP,US12548X1019,US,NASDAQ,Technology,False
+Impinj,PI,US4530521016,US,NASDAQ,Technology,True
+CML Microsystems,CML.L,GB0002044065,GB,LSE,Technology,True
+IQE,IQE.L,GB0009131636,GB,LSE,Technology,True
+Xaar,XAR.L,GB0009846425,GB,LSE,Technology,True
+discoverIE Group,DSCV.L,GB0002721278,GB,LSE,Technology,True
+Volex,VLX.L,GB00B129ZY88,GB,LSE,Technology,True
+TT Electronics,TTG.L,GB0009619922,GB,LSE,Technology,True
+XP Power,XPP.L,GB00B9X0GR96,GB,LSE,Technology,True
+RWS Holdings,RWS.L,GB00BVFCZV34,GB,LSE,Industrials,True
+Alpha FX Group,AFX.L,GB00BYMK4250,GB,LSE,Financials,False
+Clipper Logistics,CLG.L,GB00B9N5B073,GB,LSE,Industrials,False
+AJ Bell,AJB.L,GB00BF8Q6K64,GB,LSE,Financials,True
+Hargreaves Lansdown,HL.L,GB00B1VZ0M25,GB,LSE,Financials,False
+IG Group,IGG.L,GB00B06QFB75,GB,LSE,Financials,True
+CMC Markets,CMCX.L,GB00B0116S34,GB,LSE,Financials,True
+Plus500,PLUS.L,IL0011284465,GB,LSE,Financials,True
+Quilter,QLT.L,JE00BD3QJR55,GB,LSE,Financials,True
+Rathbones,RAT.L,GB00B16S6B43,GB,LSE,Financials,True
+Brooks Macdonald,BRK.L,GB0001554854,GB,LSE,Financials,True
+FinnCap Group,FCAP.L,GB00BMQX3F73,GB,LSE,Financials,False
+IntegraFin,IHP.L,GB00BF8G7662,GB,LSE,Financials,True
+Liontrust Asset Mgmt,LIO.L,GB00BMP3P615,GB,LSE,Financials,True
+Jupiter Fund Mgmt,JUP.L,GB00B53MNE35,GB,LSE,Financials,True
+Ninety One,N91.L,GB00BHK5B926,GB,LSE,Financials,True
+Impax Asset Mgmt,IPX.L,GB0003574493,GB,LSE,Financials,True
+Polar Capital,POLR.L,GB00B1GCLT25,GB,LSE,Financials,True
+Record,REC.L,GB00B28ZRS00,GB,LSE,Financials,True
+Mortgage Advice Bureau,MAB1.L,GB00BFNB1X66,GB,LSE,Financials,True
+Metro Bank,MTRO.L,GB00BZ9BR470,GB,LSE,Financials,True
+Virgin Money UK,VMUK.L,GB00BD6GN030,GB,LSE,Financials,False
+Aldermore Group,ALD.L,GB00BTF26M03,GB,LSE,Financials,False
+Secure Trust Bank,STB.L,GB00B6TKHP23,GB,LSE,Financials,True
+Shawbrook Bank,SHAW.L,GB00BN06FX78,GB,LSE,Financials,True
+TBC Bank Group,TBCG.L,GB00BYT18307,GB,LSE,Financials,True
+Bank of Georgia,BGEO.L,GB00BF4HYT85,GB,LSE,Financials,True
+Renishaw,RSW.L,GB00B68HQB97,GB,LSE,Technology,True
+Rotork,ROR.L,GB00BYGWNN53,GB,LSE,Industrials,True
+Capita,CPI.L,GB00B23K0M20,GB,LSE,Industrials,True
+Mitie Group,MTO.L,GB0004588442,GB,LSE,Industrials,True
+DCC,DCC.L,IE0002424939,GB,LSE,Industrials,True
+Wickes,WIX.L,GB00BMRTCH58,GB,LSE,Consumer Discretionary,True
+Forterra,FORT.L,GB00BD2PXY88,GB,LSE,Materials,True
+Breedon Group,BREE.L,JE00BF0HVK68,GB,LSE,Materials,True
+Ipsos,IPS.PA,FR0000073298,FR,EURONEXT,Industrials,True
+Alten,ATE.PA,FR0000071946,FR,EURONEXT,Technology,True
+Wavestone,WAVE.PA,FR0000073793,FR,EURONEXT,Technology,True
+Neurones,NRO.PA,FR0004044600,FR,EURONEXT,Technology,True
+Sopra Steria,SOP.PA,FR0010112524,FR,EURONEXT,Technology,True
+Thermador Groupe,THEP.PA,FR0013318052,FR,EURONEXT,Industrials,True
+Manitou BF,MTU.PA,FR0000038606,FR,EURONEXT,Industrials,True
+Plastic Omnium,POM.PA,FR0000124570,FR,EURONEXT,Consumer Discretionary,False
+Mersen,MRN.PA,FR0000078679,FR,EURONEXT,Industrials,True
+Chargeurs,CRI.PA,FR0000130692,FR,EURONEXT,Consumer Discretionary,True
+LISI Group,FII.PA,FR0000075442,FR,EURONEXT,Industrials,True
+DBV Technologies,DBV.PA,FR0010417345,FR,EURONEXT,Healthcare,True
+Genfit,GNFT.PA,FR0004163111,FR,EURONEXT,Healthcare,True
+Innate Pharma,IPH.PA,FR0010331421,FR,EURONEXT,Healthcare,True
+Vidrala,VID.MC,ES0183746314,ES,BME,Materials,True
+Laboratorios Rovi,ROVI.MC,ES0173908015,ES,BME,Healthcare,True
+Faes Farma,FAE.MC,ES0134950F36,ES,BME,Healthcare,True
+Talgo,TLGO.MC,ES0105149004,ES,BME,Industrials,True
+Sesa,SES.MI,IT0005042843,IT,EURONEXT,Technology,True
+ERG,ERG.MI,IT0001415246,IT,EURONEXT,Energy,True
+Fincantieri,FCT.MI,IT0000070129,IT,EURONEXT,Industrials,True
+Ontex Group,ONTEX.BR,BE0974276082,BE,EURONEXT,Consumer Staples,True
+Kinepolis,KIN.BR,BE0974408167,BE,EURONEXT,Consumer Discretionary,True
+Lotus Bakeries,LOTB.BR,BE0974303861,BE,EURONEXT,Consumer Staples,True
+Ackermans Van Haaren,ACKB.BR,BE0003764785,BE,EURONEXT,Financials,True
+Erste Group Bank,EBS.VI,AT0000652011,AT,XETRA,Financials,True
+Raiffeisen Bank Int'l,RBI.VI,AT0000606306,AT,XETRA,Financials,True
+OMV AG,OMV.VI,AT0000743059,AT,XETRA,Energy,True
+Verbund AG,VER.VI,AT0000746409,AT,XETRA,Utilities,True
+voestalpine,VOE.VI,AT0000937503,AT,XETRA,Materials,True
+Andritz,ANDR.VI,AT0000730007,AT,XETRA,Industrials,True
+Frequentis,FQT.VI,AT0000A0XEF4,AT,XETRA,Technology,True
+Wienerberger,WIE.VI,AT0000831706,AT,XETRA,Materials,True
+Wix.com,WIX,IL0011301780,IL,NASDAQ,Technology,True
+Global-e Online,GLBE,IL0011762108,IL,NASDAQ,Technology,True
+Taboola.com,TBLA,IL0011747040,IL,NASDAQ,Technology,True
+Outbrain,OB,IL0011716341,IL,NASDAQ,Technology,False
+Riskified,RSKD,IL0011741849,IL,NYSE,Technology,True
+Pagaya Technologies,PGY,IL0011618986,IL,NASDAQ,Technology,True
+DiamondRock Hospitality,DRH,US25271C1027,US,NYSE,Real Estate,True
+Apple Hospitality REIT,APLE,US03784Y2000,US,NYSE,Real Estate,True
+Xenia Hotels,XHR,US98400W1045,US,NYSE,Real Estate,True
+Omega Healthcare,OHI,US6819361006,US,NYSE,Real Estate,True
+Medical Properties,MPW,US58463J3041,US,NYSE,Real Estate,False
+Global Medical REIT,GMRE,US3796880006,US,NYSE,Real Estate,False
+Farmland Partners,FPI,US31148B1008,US,NYSE,Real Estate,True
+Gladstone Land,LAND,US3765361080,US,NASDAQ,Real Estate,True
+WesBanco,WSBC,US9507241054,US,NASDAQ,Financials,True
+Cullen/Frost Bankers,CFR,US2300838094,US,NYSE,Financials,True
+Commerce Bancshares,CBSH,US2006605051,US,NASDAQ,Financials,True
+Wintrust Financial,WTFC,US9760971052,US,NASDAQ,Financials,True
+Pinnacle Financial,PNFP,US7234841010,US,NASDAQ,Financials,True
+Hyatt Hotels,H,US4485791028,US,NYSE,Consumer Discretionary,True
+Wyndham Hotels,WH,US9832451056,US,NYSE,Consumer Discretionary,True
+Choice Hotels,CHH,US1699051066,US,NYSE,Consumer Discretionary,True
+Mensch und Maschine,MUM.DE,DE0006580806,DE,XETRA,Technology,True
+Secunet Security,YSN.DE,DE0007221905,DE,XETRA,Technology,True
+Mynaric,M0YN.DE,DE000A0JCY11,DE,XETRA,Technology,False
+Wolftank-Adisa,WTAN.DE,AT0000A25NJ6,AT,XETRA,Energy,False
+Shop Apotheke Europe,SAE.DE,NL0012044747,DE,XETRA,Consumer Staples,False
+Fashionchick,FCCK.DE,DE000A2LQ9Z3,DE,XETRA,Consumer Discretionary,False
+Duluth Trading,DLTH,US2655361031,US,NASDAQ,Consumer Discretionary,True
+Movado Group,MOV,US6247661080,US,NYSE,Consumer Discretionary,True
+Fossil Group,FOSL,US3498371082,US,NASDAQ,Consumer Discretionary,True
+Genesco,GCO,US3719651070,US,NYSE,Consumer Discretionary,True
+Shoe Carnival,SCVL,US8252371023,US,NASDAQ,Consumer Discretionary,True
+Signet Jewelers,SIG,BMG807551028,US,NYSE,Consumer Discretionary,True
+Zale Corporation,ZLC,US9888431027,US,NYSE,Consumer Discretionary,False
+Tile Shop Holdings,TTS,US88677P1084,US,NASDAQ,Consumer Discretionary,False
+Lifetime Brands,LCUT,US5314581013,US,NASDAQ,Consumer Discretionary,True
+American Outdoor Brands,AOUT,US02687Q1040,US,NASDAQ,Consumer Discretionary,True
+Vista Outdoor,VSTO,US92843V2079,US,NYSE,Consumer Discretionary,False
+Ferro Corporation,FOE,US3149821032,US,NYSE,Materials,False
+Balchem,BCPC,US0576461052,US,NASDAQ,Materials,True
+Sensient Technologies,SXT,US81725T1007,US,NYSE,Materials,True
+Kronos Worldwide,KRO,US5010761019,US,NYSE,Materials,True
+Tronox Holdings,TROX,US89686D1054,US,NYSE,Materials,True
+Ingevity,NGVT,US45662A1034,US,NYSE,Materials,True
+Flotek Industries,FTK,US3432491023,US,NYSE,Energy,True
+NexTier Oilfield,NEX,US65340T1034,US,NYSE,Energy,False
+Atlas Technical,ATCX,US04952G1094,US,NASDAQ,Industrials,True
+Bowman Consulting,BWMN,US10264J1079,US,NASDAQ,Industrials,True
+NV5 Global,NVEE,US62945K1088,US,NASDAQ,Industrials,False
+Willdan Group,WLDN,US9698671007,US,NASDAQ,Industrials,True
+Ameresco,AMRC,US02361E1082,US,NYSE,Industrials,True
+US LBM Holdings,ULBM,US90404S1015,US,OTC,Industrials,False
+Continental Building,CBPX,US2113361050,US,NYSE,Materials,False
+CSW Industrials,CSWI,US1264081007,US,NASDAQ,Industrials,False
+Haynes Wire,HWN,US4211311078,US,NASDAQ,Materials,False
+Piedmont Lithium,PLL,AU0000065979,US,NASDAQ,Materials,False
+Standard Lithium,SLI,CA8536061010,CA,NYSE,Materials,True
+Patriot Battery Metals,PMET.V,CA70338F1018,CA,TSX,Materials,False
+Gryphon Gold,GGN.TO,CA4001811099,CA,TSX,Materials,False
+New Gold,NGD,CA6445351068,CA,NYSE,Materials,False
+Torex Gold,TXG.TO,CA8911601024,CA,TSX,Materials,True
+Calibre Mining,CXB.TO,CA13000C2058,CA,TSX,Materials,False
+Artemis Gold,ARTG.V,CA04314E1034,CA,TSX,Materials,True
+Osisko Development,ODV.V,CA68827B2003,CA,TSX,Materials,True
+Osisko Mining,OSK.TO,CA68827A2020,CA,TSX,Materials,False
+Marathon Gold,MOZ.TO,CA5656491017,CA,TSX,Materials,False
+Probe Gold,PRB.TO,CA74275T1094,CA,TSX,Materials,False
+O3 Mining,OIII.V,CA67082G1063,CA,TSX,Materials,False
+Integra Resources,ITRG,CA45820G1037,CA,NASDAQ,Materials,True
+Victoria Gold,VGCX.TO,CA9259341020,CA,TSX,Materials,False
+Lumina Gold,LUM.V,CA5503141064,CA,TSX,Materials,False
+Roxgold,ROXG.TO,CA78028H1047,CA,TSX,Materials,False
+Sailfish Royalty,FISH.V,CA78517N1042,CA,TSX,Materials,True
+Seabridge Gold,SEA,CA8117781003,CA,NYSE,Materials,True
+Comstock Metals,CSL.V,CA20588B1040,CA,TSX,Materials,False
+Kore Mining,KORE.V,CA50073P1018,CA,TSX,Materials,True
+Brighthouse Financial,BHF,US1091901005,US,NASDAQ,Financials,True
+Greenlight Capital Re,GLRE,KYG407691096,US,NASDAQ,Financials,True
+AMERITAS Life Partners,AMRS,US03073H1041,US,NASDAQ,Financials,False
+Security National Fin,SNFCA,US8141331007,US,NASDAQ,Financials,True
+Assurant,AIZ,US04621X1081,US,NYSE,Financials,True
+Atlantic Capital,ACBI,US04805U1060,US,NASDAQ,Financials,False
+Blue Foundry Bancorp,BLFY,US0963551079,US,NASDAQ,Financials,False
+Blue Ridge Financial,BRFG,US0959391018,US,NASDAQ,Financials,False
+Colony Credit Real Est,CLNC,US19626U1097,US,NYSE,Financials,False
+Arbor Realty Trust,ABR,US038522DP52,US,NYSE,Real Estate,True
+Ready Capital,RC,US75574T1079,US,NYSE,Real Estate,True
+Broadmark Realty,BRMK,US11136P1021,US,NYSE,Real Estate,False
+Lument Finance Trust,LFT,US55029H1095,US,NYSE,Real Estate,True
+Sculptor Capital RE,SCCF,US45842M1062,US,NYSE,Real Estate,True
+Great Elm Capital,GEC,US39143P1030,US,NASDAQ,Financials,False
+Sabre Insurance,SBRE.L,GB00BD0BQD32,GB,LSE,Financials,True
+Direct Line Insurance,DLG.L,GB00BY9D0Y18,GB,LSE,Financials,False
+Esure Group,ESUR.L,GB00BF0FQN92,GB,LSE,Financials,False
+Hastings Group,HSTG.L,GG00BVFLGJ59,GB,LSE,Financials,False
+Naked Wines,WINE.L,GB00B51RM030,GB,LSE,Consumer Staples,True
+Science in Sport,SIS.L,GB00BMN5FV34,GB,LSE,Consumer Staples,False
+Treatt,TET.L,GB0009030865,GB,LSE,Materials,True
+James Cropper,CRPR.L,GB0004764261,GB,LSE,Materials,True
+Bango,BGO.L,GB00B0J7L583,GB,LSE,Technology,True
+Appreciate Group,APP.L,GB00B1RVGL01,GB,LSE,Financials,False
+FRP Advisory,FRP.L,GB00BL0MBT31,GB,LSE,Financials,True
+K3 Capital Group,K3C.L,GB00BJ03FH47,GB,LSE,Financials,False
+Begbies Traynor,BEG.L,GB0001010309,GB,LSE,Financials,False
+Facilities by ADF,ADF.L,GB00BLNNML21,GB,LSE,Industrials,True
+Ten Entertainment,TEG.L,GB00BDSFCD60,GB,LSE,Consumer Discretionary,False
+Young's Brewery,YNGA.L,GB0009993695,GB,LSE,Consumer Staples,True
+Fuller Smith Turner,FSTA.L,GB0003411506,GB,LSE,Consumer Staples,True
+Marston's,MARS.L,GB0005699620,GB,LSE,Consumer Discretionary,True
+Revolution Bars,RBG.L,GB00BYQ5JC31,GB,LSE,Consumer Discretionary,False
+Fevertree Drinks,FEVR.L,GB00BG39W674,GB,LSE,Consumer Staples,True
+Nichols,NICL.L,GB00B1RFFT39,GB,LSE,Consumer Staples,True
+AG Barr,BAG.L,GB0000653132,GB,LSE,Consumer Staples,True
+Devro,DVO.L,GB00B7L94G63,GB,LSE,Consumer Staples,False
+Hilton Food Group,HFG.L,GB00B1W3PX49,GB,LSE,Consumer Staples,True
+Greencore Group,GNC.L,IE0033400773,GB,LSE,Consumer Staples,True
+Premier Foods,PFD.L,GB0006685502,GB,LSE,Consumer Staples,True
+Boparan Holdings,BOPA.L,GB00B7W4TK38,GB,LSE,Consumer Staples,False
+SpareBank 1 SR-Bank,SRBANK.OL,NO0010904281,NO,OSLO,Financials,False
+Topdanmark,TOP.CO,DK0060477503,DK,NASDAQ COPEN.,Financials,False
+Harboes Brewery,HARBA.CO,DK0010248189,DK,NASDAQ COPEN.,Consumer Staples,False
+SACT,SACT.CO,DK0010284878,DK,NASDAQ COPEN.,Technology,False
+Asiakastieto Group,ATG1V.HE,FI4000210210,FI,HELSINKI,Technology,False
+Admicom,ADMCM.HE,FI4000336028,FI,HELSINKI,Technology,True
+Esker,ALESK.PA,FR0000035818,FR,EURONEXT,Technology,False
+Signaux Girod,GIROD.PA,FR0000062796,FR,EURONEXT,Industrials,False
+Delta Plus Group,DLTA.PA,FR0000066672,FR,EURONEXT,Industrials,False
+Boiron,BOI.PA,FR0000061129,FR,EURONEXT,Healthcare,True
+Vet'Affaires,VET.PA,FR0004045239,FR,EURONEXT,Consumer Discretionary,False
+GL Events,GLO.PA,FR0000054652,FR,EURONEXT,Industrials,True
+Sword Group,SWP.PA,LU0175519903,FR,EURONEXT,Technology,True
+Korian,KORI.PA,FR0010386334,FR,EURONEXT,Healthcare,False
+Orpea,ORP.PA,FR0000184798,FR,EURONEXT,Healthcare,False
+Clariane,CLARI.PA,FR0000184798,FR,EURONEXT,Healthcare,True
+Bim Birlesik Magazalar,BIMAS.IS,TRBIMAS91B55,TR,NYSE,Consumer Staples,True
+Tupras,TUPRS.IS,TRKTUPRS91G9,TR,NYSE,Energy,True
+Coca-Cola Icecek,CCOLA.IS,TRCCOIC91G18,TR,NYSE,Consumer Staples,True
+Aker BP,AKERBP.OL,NO0010345853,NO,OSLO,Energy,False
+PGS,PGS.OL,NO0010199151,NO,OSLO,Energy,False
+Bonheur,BON.OL,NO0010088388,NO,OSLO,Industrials,False
+Viaplay Group,VPLAY-B.ST,SE0018538068,SE,STOCKHOLM,Communication Services,True
+Calliditas Therapeutics,CALTX,SE0012485028,SE,NASDAQ,Healthcare,True
+Biotage,BIOT.ST,SE0001299209,SE,STOCKHOLM,Healthcare,False
+Catena,CAT.ST,SE0001664707,SE,STOCKHOLM,Real Estate,False
+Sagax,SAGA-D.ST,SE0005158949,SE,STOCKHOLM,Real Estate,True
+K-Fastigheter,KFAST-B.ST,SE0013256985,SE,STOCKHOLM,Real Estate,True
+Stendörren Fastigheter,STEF-B.ST,SE0005765028,SE,STOCKHOLM,Real Estate,True
+Kungsleden,KLED.ST,SE0000549760,SE,STOCKHOLM,Real Estate,False
+Eastnine,EAONE.ST,SE0010765870,SE,STOCKHOLM,Real Estate,False
+Atrium Ljungberg,ATLJ-B.ST,SE0000556463,SE,STOCKHOLM,Real Estate,False
+Duroc,DURC-B.ST,SE0000728522,SE,STOCKHOLM,Industrials,True
+Acrinova,ACRI-B.ST,SE0007158852,SE,STOCKHOLM,Real Estate,True
+Aros Quality Group,AQG.ST,SE0007116080,SE,STOCKHOLM,Industrials,False
+Probi,PROB.ST,SE0000634406,SE,STOCKHOLM,Healthcare,False
+Orion Pharma,ORNBV.HE,FI0009014377,FI,HELSINKI,Healthcare,True
+Sparebanken Ost,SPOG.OL,NO0010261150,NO,OSLO,Financials,True
+Infront,INFRNT.OL,NO0010890810,NO,OSLO,Technology,False
+Fjord1,FJORD1.OL,NO0010884897,NO,OSLO,Industrials,False
+Agilyx,AGLX.OL,NO0010947307,NO,OSLO,Materials,True
+Crayon Group,CRAYON.OL,NO0010820212,NO,OSLO,Technology,False
+Freyr Battery,FREY,LU2360697374,NO,NYSE,Energy,False
+Everfuel,EVER.OL,DK0061414711,NO,OSLO,Energy,False
+Aker Offshore Wind,AOW.OL,NO0010904891,NO,OSLO,Energy,False
+Havila Kystruten,HAVI.OL,NO0010938092,NO,OSLO,Industrials,True
+Ayfie Group,AYF.OL,NO0010807070,NO,OSLO,Technology,False
+Vistin Pharma,VISTIN.OL,NO0010785074,NO,OSLO,Healthcare,False
+Huddly,HUDDLY.OL,NO0010879277,NO,OSLO,Technology,False
+Melhus Sparebank,MELG.OL,NO0010176040,NO,OSLO,Financials,True
+Inpex Corporation ADR,IPXHY,JP3294460005,JP,OTC,Energy,True
+Toyota Industries ADR,TYIDF,JP3637200005,JP,OTC,Consumer Discretionary,True
+Itochu ADR,ITOCY,JP3143600009,JP,OTC,Industrials,True
+Marubeni ADR,MARUY,JP3877600007,JP,OTC,Industrials,True
+Sumitomo ADR,SSUM,JP3404200007,JP,OTC,Industrials,False
+Mitsui & Co ADR,MITSY,JP3425400005,JP,OTC,Industrials,True
+Mazda Motor ADR,MZDAY,JP3868400007,JP,OTC,Consumer Discretionary,True
+Suzuki Motor ADR,SZKMY,JP3397200001,JP,OTC,Consumer Discretionary,True
