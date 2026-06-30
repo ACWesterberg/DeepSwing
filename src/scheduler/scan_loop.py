@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Callable, Literal, Optional
 
 from config.settings import settings
-from src.agent.decision import get_decision
+from src.agent.decision import get_decision, get_exit_decision
 from src.agent.erl import run_erl
 from src.agent.memory import get_store
 from src.agent.news_analyzer import analyze_news
@@ -279,6 +279,80 @@ def run_scan(market: MarketType) -> dict:
                 }
                 decisions_log.append(trade_event)
                 _emit({"event": "trade_opened", "data": trade_event})
+
+    # --- AI exit review for open positions in this market ---
+    for track in settings.tracks:
+        portfolio = get_portfolio(track)
+        store = get_store(track)
+        for position in list(portfolio.open_positions):
+            if position.market != market:
+                continue
+            if position.ticker not in analysis_map:
+                continue
+            signals, regime = analysis_map[position.ticker]
+            days_held = (datetime.utcnow() - position.entry_time).days
+            pnl_pct = position.unrealised_pnl_pct * 100
+            pos_ctx = (
+                f"Entry: {position.entry_price:.4f}, Current: {position.current_price:.4f}, "
+                f"P&L: {pnl_pct:+.2f}%, Stop: {position.stop_loss:.4f}, "
+                f"Target: {position.target:.4f}, Days held: {days_held}"
+            )
+            heuristics_list = store.retrieve(
+                ticker=position.ticker,
+                regime=regime.regime,
+                market=market,
+            )
+            pos_articles = fetch_news_for_ticker(position.ticker, market)
+            pos_news = analyze_news(
+                ticker=position.ticker,
+                market=market,
+                current_price=signals.current_price,
+                technicals_brief=f"Price {signals.current_price:.4f}, RSI {signals.rsi_14:.1f}",
+                articles=pos_articles,
+            )
+            exit_dec = get_exit_decision(
+                ticker=position.ticker,
+                market=market,
+                track=track,
+                signals_str=signals.to_prompt_str(),
+                regime_str=regime.to_prompt_str(),
+                position_context=pos_ctx,
+                news_summary=pos_news or "No recent news available.",
+                macro_context=macro_context,
+                heuristics_text=store.to_prompt_text(heuristics_list),
+            )
+            if exit_dec and exit_dec["action"] == "SELL":
+                exit_price = _to_sek_price(signals.current_price, market)
+                closed = portfolio.close_trade(
+                    trade_id=position.trade_id,
+                    exit_price=exit_price,
+                    exit_reason="ai_exit",
+                    regime=regime.regime,
+                    reasoning=exit_dec["reasoning"],
+                    confidence=exit_dec["confidence"],
+                )
+                if closed:
+                    logger.info(
+                        "[%s] AI exit: %s at %.4f (P&L %.2f%%) — %s",
+                        track, position.ticker, exit_price, pnl_pct, exit_dec["reasoning"][:80],
+                    )
+                    decisions_log.append({
+                        "track": track,
+                        "ticker": position.ticker,
+                        "action": "SELL",
+                        "confidence": round(exit_dec["confidence"], 2),
+                        "reasoning": exit_dec["reasoning"],
+                        "regime": regime.regime,
+                    })
+                    _emit({"event": "trade_closed", "data": {
+                        "track": track,
+                        "ticker": closed.ticker,
+                        "exit_reason": "ai_exit",
+                        "pnl_pct": round(closed.pnl_pct * 100, 2),
+                        "pnl": round(closed.pnl, 2),
+                        "exit_price": closed.exit_price,
+                    }})
+                    _trigger_erl(track, closed)
 
     # --- Update open positions and trigger ERL for closed trades ---
     for track in settings.tracks:

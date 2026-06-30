@@ -12,7 +12,7 @@ from src.analysis.screener import ScreenerCandidate
 logger = logging.getLogger(__name__)
 
 TrackType = Literal["claude", "gpt"]
-ActionType = Literal["BUY", "PASS"]
+ActionType = Literal["BUY", "PASS", "SELL", "HOLD"]
 
 
 class TradeDecision(dspy.Signature):
@@ -48,6 +48,40 @@ class TradeDecision(dspy.Signature):
     )
     reasoning: str = dspy.OutputField(
         desc="Concise explanation of why this action was chosen, referencing specific signals"
+    )
+
+
+class ExitDecision(dspy.Signature):
+    """
+    You are reviewing an open LONG swing trade position to decide whether to exit early.
+    The position has its own stop-loss and target that will trigger automatically.
+
+    Return SELL only if the original bullish thesis has clearly broken down:
+    - New bearish signals that contradict the entry setup
+    - Significant negative news that changes the outlook
+    - Regime has flipped against the position
+    - Price action signals a high-probability reversal
+
+    Return HOLD to let the position run to its stop or target as planned.
+    When in doubt, HOLD — premature exits destroy swing trade returns.
+    """
+    technicals: str = dspy.InputField(desc="Current technical indicator summary")
+    regime: str = dspy.InputField(desc="Current market regime classification")
+    news_summary: str = dspy.InputField(desc="Recent news and sentiment for this ticker")
+    macro_context: str = dspy.InputField(desc="Macro economic context")
+    position_context: str = dspy.InputField(
+        desc="Open position details: entry price, current price, P&L%, stop loss, target, days held"
+    )
+    heuristics: str = dspy.InputField(desc="Relevant learned rules from past trades")
+
+    action: Literal["HOLD", "SELL"] = dspy.OutputField(
+        desc="HOLD to keep the position, SELL to exit early"
+    )
+    confidence: float = dspy.OutputField(
+        desc="Confidence in the decision from 0.0 to 1.0"
+    )
+    reasoning: str = dspy.OutputField(
+        desc="Concise explanation referencing specific signals that changed since entry"
     )
 
 
@@ -150,6 +184,45 @@ class DecisionEngine:
             logger.error("DSPy decision error for %s/%s: %s", self.track, candidate.ticker, exc, exc_info=True)
             return None
 
+    def exit_decide(
+        self,
+        ticker: str,
+        market: str,
+        signals_str: str,
+        regime_str: str,
+        position_context: str,
+        news_summary: str,
+        macro_context: str,
+        heuristics_text: str,
+    ) -> Optional[dict]:
+        """Run ExitDecision for an open position. Returns action (HOLD/SELL) + reasoning."""
+        if self._lm is None:
+            return None
+        try:
+            exit_program = dspy.Predict(ExitDecision)
+            with dspy.context(lm=self._lm):
+                result = exit_program(
+                    technicals=signals_str,
+                    regime=regime_str,
+                    news_summary=news_summary or "No recent news available.",
+                    macro_context=macro_context or "No macro data available.",
+                    position_context=position_context,
+                    heuristics=heuristics_text or "No relevant heuristics yet.",
+                )
+            action = str(result.action).upper()
+            if action not in ("HOLD", "SELL"):
+                action = "HOLD"
+            return {
+                "action": action,
+                "confidence": _clamp(float(result.confidence), 0.0, 1.0),
+                "reasoning": str(result.reasoning),
+                "track": self.track,
+                "ticker": ticker,
+            }
+        except Exception as exc:
+            logger.error("DSPy exit decision error for %s/%s: %s", self.track, ticker, exc, exc_info=True)
+            return None
+
     def reload(self) -> None:
         """Reload compiled program from disk (called after MIPRO optimization)."""
         self._load_program()
@@ -166,6 +239,31 @@ def get_decision(
     """Convenience function — gets or creates track engine and runs decision."""
     engine = DecisionEngine.for_track(track)
     return engine.decide(candidate, news_summary, macro_context, heuristics_text)
+
+
+def get_exit_decision(
+    ticker: str,
+    market: str,
+    track: TrackType,
+    signals_str: str,
+    regime_str: str,
+    position_context: str,
+    news_summary: str,
+    macro_context: str,
+    heuristics_text: str,
+) -> Optional[dict]:
+    """Run an AI exit review for an open position. Returns HOLD or SELL."""
+    engine = DecisionEngine.for_track(track)
+    return engine.exit_decide(
+        ticker=ticker,
+        market=market,
+        signals_str=signals_str,
+        regime_str=regime_str,
+        position_context=position_context,
+        news_summary=news_summary,
+        macro_context=macro_context,
+        heuristics_text=heuristics_text,
+    )
 
 
 def _clamp(value: float, lo: float, hi: float) -> float:

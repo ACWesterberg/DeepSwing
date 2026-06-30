@@ -105,7 +105,7 @@ async function refreshComparison() {
   }
 }
 
-const ACTION_CLASS = { BUY: "act-buy", HOLD: "act-hold", SELL: "act-sell", BLOCKED: "act-blocked", ERROR: "act-blocked" };
+const ACTION_CLASS = { BUY: "act-buy", PASS: "act-pass", HOLD: "act-hold", SELL: "act-sell", BLOCKED: "act-blocked", ERROR: "act-blocked" };
 
 function decisionCard(d, showTime) {
   const cls = ACTION_CLASS[d.action] || "act-hold";

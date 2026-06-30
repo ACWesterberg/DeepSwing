@@ -235,6 +235,7 @@ header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.05em; }
 
 .action-pill { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 10px; letter-spacing: 0.04em; }
 .act-buy { background: #1a3a20; color: var(--green); }
+.act-pass { background: var(--border); color: var(--text-muted); }
 .act-hold { background: var(--border); color: var(--text-muted); }
 .act-sell { background: #2d1a1a; color: var(--red); }
 .act-blocked { background: rgba(210, 153, 34, 0.15); color: var(--yellow); }
