@@ -8,16 +8,20 @@ document.querySelectorAll(".tab").forEach(btn => {
   });
 });
 
-// WebSocket
-const ws = new WebSocket(`ws://${location.host}/ws`);
+// WebSocket — use wss:// on HTTPS (required behind Cloudflare)
+const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
+const ws = new WebSocket(`${wsProto}//${location.host}/ws`);
 ws.onmessage = (e) => {
   const msg = JSON.parse(e.data);
-  if (msg.event === "scan_complete") refreshAll();
+  if (msg.event === "scan_complete" || msg.event === "simulation_reset") refreshAll();
 };
 
-// Comparison Chart
-const compCtx = document.getElementById("comparison-chart").getContext("2d");
-const compChart = new Chart(compCtx, {
+// Comparison Chart — guard against CDN failure so data tables still load
+let compChart = null;
+try {
+  const compCtx = document.getElementById("comparison-chart")?.getContext("2d");
+  if (compCtx && typeof Chart !== "undefined") {
+    compChart = new Chart(compCtx, {
   type: "line",
   data: {
     datasets: [
@@ -33,7 +37,11 @@ const compChart = new Chart(compCtx, {
       y: { ticks: { color: "#8b949e" }, grid: { color: "#21262d" } },
     },
   },
-});
+    });
+  }
+} catch (err) {
+  console.warn("Chart init failed — metrics will still load:", err);
+}
 
 const METRIC_LABELS = {
   total_trades: "Total Trades",
@@ -79,9 +87,11 @@ async function refreshComparison() {
   // Equity curves
   const claudeData = (data.claude?.equity_curve || []).map((p, i) => ({ x: p.date || i, y: p.equity }));
   const gptData    = (data.gpt?.equity_curve || []).map((p, i) => ({ x: p.date || i, y: p.equity }));
-  compChart.data.datasets[0].data = claudeData;
-  compChart.data.datasets[1].data = gptData;
-  compChart.update();
+  if (compChart) {
+    compChart.data.datasets[0].data = claudeData;
+    compChart.data.datasets[1].data = gptData;
+    compChart.update();
+  }
 
   // Metrics table
   const tbody = document.getElementById("comparison-tbody");
