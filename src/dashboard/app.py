@@ -216,7 +216,7 @@ async def reset_simulation(body: _ResetRequest):
     if invalid:
         return {"error": f"Unknown tracks: {invalid}"}
 
-    from src.db import Decision, Session
+    from src.db import Decision, get_session
 
     cleared: dict = {}
     for track in target_tracks:
@@ -231,9 +231,12 @@ async def reset_simulation(body: _ResetRequest):
         _memory._stores.pop(track, None)
 
         # Delete persisted decisions for this track
-        with Session() as db:
+        db = get_session()
+        try:
             decision_count = db.query(Decision).filter(Decision.track == track).delete()
             db.commit()
+        finally:
+            db.close()
 
         cleared[track] = {"heuristics_deleted": heuristic_count, "decisions_deleted": decision_count}
 
