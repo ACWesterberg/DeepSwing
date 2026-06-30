@@ -244,6 +244,94 @@ class TestRunScanStopHitAndERL:
             assert len(technicals_str) > 10
 
 
+class TestToSekPrice:
+    def teardown_method(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_FX = False
+        sl._to_sek_fn = None
+
+    def test_nordic_price_passes_through_unchanged(self):
+        from src.scheduler.scan_loop import _to_sek_price
+        assert _to_sek_price(150.0, "nordic") == 150.0
+
+    def test_us_price_without_fx_passes_through(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_FX = False
+        assert sl._to_sek_price(100.0, "us") == 100.0
+
+    def test_us_price_converted_via_fx(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_FX = True
+        sl._to_sek_fn = lambda price, currency: price * 10.5
+        assert sl._to_sek_price(100.0, "us") == pytest.approx(1050.0)
+
+    def test_us_price_falls_back_when_fx_returns_none(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_FX = True
+        sl._to_sek_fn = lambda price, currency: None
+        assert sl._to_sek_price(100.0, "us") == 100.0
+
+
+class TestGetCurrentPrices:
+    def teardown_method(self):
+        patch.stopall()
+        import src.scheduler.scan_loop as sl
+        sl._HAS_LIVE = False
+        sl._HAS_FX = False
+
+    def test_empty_tickers_returns_empty(self):
+        from src.scheduler.scan_loop import _get_current_prices
+        assert _get_current_prices([], "us") == {}
+
+    def test_uses_get_current_price_fallback(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_LIVE = False
+        sl._HAS_FX = False
+        with patch("src.scheduler.scan_loop.get_current_price", return_value=55.0) as mock_p:
+            result = sl._get_current_prices(["AAPL", "MSFT"], "us")
+        assert result == {"AAPL": 55.0, "MSFT": 55.0}
+
+    def test_fallback_applies_fx_conversion(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_LIVE = False
+        sl._HAS_FX = True
+        sl._to_sek_fn = lambda price, currency: price * 10.0
+        with patch("src.scheduler.scan_loop.get_current_price", return_value=50.0):
+            result = sl._get_current_prices(["AAPL"], "us")
+        assert result == {"AAPL": pytest.approx(500.0)}
+
+    def test_live_path_maps_yf_tickers_back(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_LIVE = True
+        sl._HAS_FX = False
+        sl._get_live_prices = lambda tickers: {t: 200.0 for t in tickers}
+        result = sl._get_current_prices(["ERIC-B.STO"], "nordic")
+        assert "ERIC-B.STO" in result
+        assert result["ERIC-B.STO"] == pytest.approx(200.0)
+
+    def test_live_path_falls_back_on_exception(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_LIVE = True
+        sl._HAS_FX = False
+
+        def _raise(_):
+            raise RuntimeError("network error")
+
+        sl._get_live_prices = _raise
+        with patch("src.scheduler.scan_loop.get_current_price", return_value=77.0):
+            result = sl._get_current_prices(["AAPL"], "us")
+        assert result == {"AAPL": 77.0}
+
+    def test_live_path_applies_fx_conversion(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_LIVE = True
+        sl._HAS_FX = True
+        sl._to_sek_fn = lambda price, currency: price * 10.0
+        sl._get_live_prices = lambda tickers: {t: 100.0 for t in tickers}
+        result = sl._get_current_prices(["AAPL"], "us")
+        assert result == {"AAPL": pytest.approx(1000.0)}
+
+
 class TestRunScanEventCallback:
     def setup_method(self):
         reset_portfolios()

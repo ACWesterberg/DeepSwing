@@ -147,7 +147,18 @@ def _standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_current_price(ticker: str, market: str) -> Optional[float]:
-    """Return latest available close price."""
+    """Return latest available price. Uses financedata.live when installed (10-min TTL)."""
+    try:
+        from financedata.live import get_live_price
+        yf_ticker = ticker.replace(".STO", ".ST") if market == "nordic" else ticker
+        price = get_live_price(yf_ticker)
+        if price is not None:
+            return price
+    except ImportError:
+        pass
+    except Exception as exc:
+        logger.warning("get_live_price failed for %s: %s", ticker, exc)
+    # Fallback: last close from recent daily bars
     df = fetch_ohlcv(ticker, market, period="5d", interval="1d")
     if df is None or df.empty:
         return None
