@@ -5,8 +5,11 @@ import base64
 import json
 import logging
 import secrets
+import time
 from datetime import date, datetime
 from typing import Any
+
+_STATIC_VERSION = str(int(time.time()))
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, Response
@@ -71,7 +74,7 @@ async def _register_trade_event_handler() -> None:
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    return templates.TemplateResponse(request, "index.html")
+    return templates.TemplateResponse(request, "index.html", {"v": _STATIC_VERSION})
 
 
 @app.get("/api/status")

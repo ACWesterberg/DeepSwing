@@ -270,10 +270,13 @@ const _SCAN_PHASES = [
 ];
 
 function _showScanToast(market) {
-  const toast  = document.getElementById("scan-toast");
-  const msg    = document.getElementById("scan-toast-msg");
-  const timer  = document.getElementById("scan-toast-timer");
-  toast.classList.remove("hidden");
+  const toast   = document.getElementById("scan-toast");
+  const spinner = toast.querySelector(".scan-spinner");
+  const msg     = document.getElementById("scan-toast-msg");
+  const timer   = document.getElementById("scan-toast-timer");
+  toast.classList.remove("hidden", "scan-toast--done", "scan-toast--error");
+  spinner.style.display = "";
+  timer.textContent = "0s";
 
   const start = Date.now();
   let phaseIdx = 0;
@@ -282,19 +285,24 @@ function _showScanToast(market) {
   const tick = setInterval(() => {
     const elapsed = Math.round((Date.now() - start) / 1000);
     timer.textContent = `${elapsed}s`;
-    // Advance phase label based on elapsed seconds
-    while (phaseIdx + 1 < _SCAN_PHASES.length && elapsed >= _SCAN_PHASES[phaseIdx + 1][0]) {
-      phaseIdx++;
-    }
+    while (phaseIdx + 1 < _SCAN_PHASES.length && elapsed >= _SCAN_PHASES[phaseIdx + 1][0]) phaseIdx++;
     msg.textContent = `${market.toUpperCase()}: ${_SCAN_PHASES[phaseIdx][1]}`;
   }, 500);
 
   return { start, tick };
 }
 
-function _hideScanToast(tick) {
+function _completeScanToast(tick, resultText, isError) {
   clearInterval(tick);
-  document.getElementById("scan-toast").classList.add("hidden");
+  const toast   = document.getElementById("scan-toast");
+  const spinner = toast.querySelector(".scan-spinner");
+  const msg     = document.getElementById("scan-toast-msg");
+  const timer   = document.getElementById("scan-toast-timer");
+  spinner.style.display = "none";
+  msg.textContent = resultText;
+  timer.textContent = "";
+  toast.classList.add(isError ? "scan-toast--error" : "scan-toast--done");
+  setTimeout(() => toast.classList.add("hidden"), 3500);
 }
 
 async function runScan(market) {
@@ -302,17 +310,15 @@ async function runScan(market) {
   btn.disabled = true;
   const { tick } = _showScanToast(market);
   try {
-    const r = await fetch(`/api/scan/${market}`, { method: "POST" });
+    const r    = await fetch(`/api/scan/${market}`, { method: "POST" });
     const data = await r.json();
-    _hideScanToast(tick);
     const candidates = data.candidates?.length ?? 0;
     const decisions  = data.decisions?.length ?? 0;
-    const vixHalt    = data.vix_halt ? " (VIX halt)" : "";
-    alert(`${market.toUpperCase()} scan complete${vixHalt}.\n${candidates} candidate(s) → ${decisions} decision(s).`);
+    const suffix = data.vix_halt ? " — VIX halt, no entries" : ` — ${candidates} candidate(s), ${decisions} decision(s)`;
+    _completeScanToast(tick, `${market.toUpperCase()} scan done${suffix}`, false);
     refreshAll();
   } catch (e) {
-    _hideScanToast(tick);
-    alert("Scan failed — check server logs.");
+    _completeScanToast(tick, `${market.toUpperCase()} scan failed — check server logs`, true);
   } finally {
     btn.disabled = false;
   }

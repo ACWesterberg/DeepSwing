@@ -97,6 +97,8 @@ header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.05em; }
   font-variant-numeric: tabular-nums;
   font-size: 12px;
 }
+.scan-toast--done  { border-bottom-color: var(--green); }
+.scan-toast--error { border-bottom-color: var(--red); }
 
 .reset-btn {
   margin-left: 12px;
