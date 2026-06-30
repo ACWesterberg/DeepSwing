@@ -124,6 +124,36 @@ async def decisions():
     return get_recent_decisions()
 
 
+@app.get("/api/decisions/history")
+async def decisions_history(
+    limit: int = 100,
+    track: str = "",
+    action: str = "",
+    ticker: str = "",
+):
+    """Persisted decision history, newest first, with optional filters."""
+    from sqlalchemy import desc
+    from src.db import Decision, get_session
+
+    session = get_session()
+    try:
+        query = session.query(Decision)
+        if track:
+            query = query.filter(Decision.track == track)
+        if action:
+            query = query.filter(Decision.action == action.upper())
+        if ticker:
+            query = query.filter(Decision.ticker.ilike(f"%{ticker}%"))
+        rows = (
+            query.order_by(desc(Decision.timestamp))
+            .limit(max(1, min(limit, 500)))
+            .all()
+        )
+        return {"decisions": [r.to_dict() for r in rows]}
+    finally:
+        session.close()
+
+
 @app.post("/api/backtest")
 async def run_backtest(
     market: str = "us",

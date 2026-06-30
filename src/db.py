@@ -112,6 +112,42 @@ class Heuristic(Base):
     )
 
 
+class Decision(Base):
+    __tablename__ = "decisions"
+
+    id = Column(Integer, primary_key=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    market = Column(String(10), nullable=False)   # "nordic" | "us"
+    track = Column(String(10), nullable=False)    # "claude" | "gpt"
+    ticker = Column(String(20), nullable=False)
+    action = Column(String(10), nullable=False)   # BUY | HOLD | SELL | BLOCKED | ERROR
+    confidence = Column(Float)
+    rrr = Column(Float)
+    regime = Column(String(20))
+    reasoning = Column(Text)
+    block_reason = Column(Text)
+
+    __table_args__ = (
+        Index("ix_decisions_time", "timestamp"),
+        Index("ix_decisions_ticker", "ticker"),
+        Index("ix_decisions_track_time", "track", "timestamp"),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "market": self.market,
+            "track": self.track,
+            "ticker": self.ticker,
+            "action": self.action,
+            "confidence": self.confidence,
+            "rrr": self.rrr,
+            "regime": self.regime,
+            "reasoning": self.reasoning,
+            "reason": self.block_reason,
+        }
+
+
 def get_engine():
     db_url = f"sqlite:///{settings.db_path}"
     return create_engine(db_url, connect_args={"check_same_thread": False})

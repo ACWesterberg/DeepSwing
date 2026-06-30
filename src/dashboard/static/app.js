@@ -5,6 +5,7 @@ document.querySelectorAll(".tab").forEach(btn => {
     document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
     btn.classList.add("active");
     document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    if (btn.dataset.tab === "decisions") refreshHistory();
   });
 });
 
@@ -106,13 +107,33 @@ async function refreshComparison() {
 
 const ACTION_CLASS = { BUY: "act-buy", HOLD: "act-hold", SELL: "act-sell", BLOCKED: "act-blocked", ERROR: "act-blocked" };
 
+function decisionCard(d, showTime) {
+  const cls = ACTION_CLASS[d.action] || "act-hold";
+  const conf = (d.confidence !== undefined && d.confidence !== null) ? ` · conf ${d.confidence}` : "";
+  const rrr = (d.rrr !== undefined && d.rrr !== null) ? ` · RRR ${d.rrr}` : "";
+  const market = (d.market || "").toUpperCase();
+  const time = (showTime && d.timestamp) ? `<span class="decision-time">${new Date(d.timestamp).toLocaleString()}</span>` : "";
+  const reason = d.reason ? `<div class="decision-blocked">Blocked: ${d.reason}</div>` : "";
+  const why = d.reasoning ? `<div class="decision-reason">${d.reasoning}</div>` : "";
+  return `<div class="decision-card">
+    <div class="decision-head">
+      <span class="track-pill track-${d.track}">${d.track}</span>
+      <strong>${d.ticker}</strong>
+      <span class="action-pill ${cls}">${d.action}</span>
+      <span class="decision-meta">${market}${d.regime ? " · " + d.regime : ""}${conf}${rrr}</span>
+      ${time}
+    </div>
+    ${reason}
+    ${why}
+  </div>`;
+}
+
 async function refreshDecisions() {
   const data = await fetchJSON("/api/decisions");
   const list = document.getElementById("decisions-list");
   if (!list) return;
   if (!data) { list.innerHTML = "<p class='neutral'>No decisions yet.</p>"; return; }
 
-  // Flatten markets → rows, newest market scan first
   const rows = [];
   let latestTs = null;
   for (const [market, scan] of Object.entries(data)) {
@@ -127,24 +148,25 @@ async function refreshDecisions() {
     list.innerHTML = "<p class='neutral'>No decisions in the latest scan (no candidates passed the screener).</p>";
     return;
   }
+  list.innerHTML = rows.map(d => decisionCard(d, false)).join("");
+}
 
-  list.innerHTML = rows.map(d => {
-    const cls = ACTION_CLASS[d.action] || "act-hold";
-    const conf = (d.confidence !== undefined && d.confidence !== null) ? ` · conf ${d.confidence}` : "";
-    const rrr = (d.rrr !== undefined && d.rrr !== null) ? ` · RRR ${d.rrr}` : "";
-    const reason = d.reason ? `<div class="decision-blocked">Blocked: ${d.reason}</div>` : "";
-    const why = d.reasoning ? `<div class="decision-reason">${d.reasoning}</div>` : "";
-    return `<div class="decision-card">
-      <div class="decision-head">
-        <span class="track-pill track-${d.track}">${d.track}</span>
-        <strong>${d.ticker}</strong>
-        <span class="action-pill ${cls}">${d.action}</span>
-        <span class="decision-meta">${(d.market || "").toUpperCase()}${d.regime ? " · " + d.regime : ""}${conf}${rrr}</span>
-      </div>
-      ${reason}
-      ${why}
-    </div>`;
-  }).join("");
+async function refreshHistory() {
+  const list = document.getElementById("history-list");
+  if (!list) return;
+  const track = document.getElementById("hist-track")?.value || "";
+  const action = document.getElementById("hist-action")?.value || "";
+  const ticker = document.getElementById("hist-ticker")?.value.trim() || "";
+  const params = new URLSearchParams({ limit: "150" });
+  if (track) params.set("track", track);
+  if (action) params.set("action", action);
+  if (ticker) params.set("ticker", ticker);
+
+  const data = await fetchJSON("/api/decisions/history?" + params.toString());
+  const rows = data?.decisions || [];
+  list.innerHTML = rows.length
+    ? rows.map(d => decisionCard(d, true)).join("")
+    : "<p class='neutral'>No decisions recorded yet for this filter.</p>";
 }
 
 async function refreshTrack(track) {
@@ -257,6 +279,14 @@ document.getElementById("reset-btn").addEventListener("click", async () => {
   } else {
     alert(data.error || "Reset failed — check server logs.");
   }
+});
+
+// Decision history filters
+document.getElementById("hist-apply")?.addEventListener("click", refreshHistory);
+document.getElementById("hist-track")?.addEventListener("change", refreshHistory);
+document.getElementById("hist-action")?.addEventListener("change", refreshHistory);
+document.getElementById("hist-ticker")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") refreshHistory();
 });
 
 // Initial load + refresh every 60s

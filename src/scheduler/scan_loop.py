@@ -57,6 +57,34 @@ def get_recent_decisions() -> dict:
     return _recent_decisions
 
 
+def _persist_decisions(market: str, decisions: list[dict]) -> None:
+    """Write each decision to the DB for browsable history. Never breaks a scan."""
+    if not decisions:
+        return
+    from src.db import Decision, get_session
+
+    try:
+        session = get_session()
+        try:
+            for d in decisions:
+                session.add(Decision(
+                    market=market,
+                    track=d.get("track", ""),
+                    ticker=d.get("ticker", ""),
+                    action=d.get("action", ""),
+                    confidence=d.get("confidence"),
+                    rrr=d.get("rrr"),
+                    regime=d.get("regime"),
+                    reasoning=d.get("reasoning"),
+                    block_reason=d.get("reason"),
+                ))
+            session.commit()
+        finally:
+            session.close()
+    except Exception as exc:
+        logger.warning("Failed to persist decisions for %s: %s", market, exc)
+
+
 # Optional callback for pushing trade events to the dashboard WebSocket.
 # Injected by app.py on startup; called synchronously from the scan loop thread.
 _on_trade_event: Optional[Callable[[dict], None]] = None
@@ -275,6 +303,7 @@ def run_scan(market: MarketType) -> dict:
         "timestamp": datetime.utcnow().isoformat(),
         "decisions": decisions_log,
     }
+    _persist_decisions(market, decisions_log)
 
     return {
         "market": market,

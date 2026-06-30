@@ -22,6 +22,7 @@
     <button class="tab active" data-tab="comparison">Comparison</button>
     <button class="tab" data-tab="claude">Claude Track</button>
     <button class="tab" data-tab="gpt">GPT Track</button>
+    <button class="tab" data-tab="decisions">Decisions</button>
     <button class="tab" data-tab="heuristics-claude">Heuristics (Claude)</button>
     <button class="tab" data-tab="heuristics-gpt">Heuristics (GPT)</button>
   </nav>
@@ -108,6 +109,30 @@
     </div>
   </div>
 
+  <!-- Decision History tab -->
+  <div id="tab-decisions" class="tab-content">
+    <div class="panel">
+      <h2>Decision History</h2>
+      <div class="filter-bar">
+        <select id="hist-track">
+          <option value="">All tracks</option>
+          <option value="claude">Claude</option>
+          <option value="gpt">GPT</option>
+        </select>
+        <select id="hist-action">
+          <option value="">All actions</option>
+          <option value="BUY">BUY</option>
+          <option value="HOLD">HOLD</option>
+          <option value="BLOCKED">BLOCKED</option>
+          <option value="SELL">SELL</option>
+        </select>
+        <input id="hist-ticker" type="text" placeholder="Ticker…" />
+        <button id="hist-apply" class="filter-btn">Apply</button>
+      </div>
+      <div id="history-list"></div>
+    </div>
+  </div>
+
   <!-- Heuristics tabs -->
   <div id="tab-heuristics-claude" class="tab-content">
     <div class="panel">
@@ -123,6 +148,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=4"></script>
+  <script src="/static/app.js?v=5"></script>
 </body>
 </html>
