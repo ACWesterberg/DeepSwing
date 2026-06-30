@@ -56,26 +56,35 @@ def _score_candidate(signals: TechnicalSignals, regime: RegimeResult) -> float |
     Returns a numeric score (higher = stronger candidate) or None to reject.
     Enforces all mandatory filters before scoring.
     """
+    def _reject(reason: str) -> None:
+        logger.debug("REJECT %s: %s (rsi=%.1f vol=%.2fx regime=%s)", signals.ticker, reason, signals.rsi_14, signals.volume_ratio, regime.regime)
+
     # --- Mandatory filters ---
     if not signals.price_above_50sma:
+        _reject("below 50 SMA")
         return None
     if not (settings.rsi_min <= signals.rsi_14 <= settings.rsi_max):
+        _reject(f"RSI {signals.rsi_14:.1f} outside [{settings.rsi_min},{settings.rsi_max}]")
         return None
     if signals.volume_ratio < settings.volume_spike_multiplier:
+        _reject(f"volume {signals.volume_ratio:.2f}x < {settings.volume_spike_multiplier}x")
         return None
 
     # Regime-specific filter: skip neutral regime
     if regime.regime == "neutral":
+        _reject("neutral regime")
         return None
 
     # Regime-specific setup checks
     if regime.regime == "trending":
         # Want EMA21 above SMA50 (bullish momentum structure)
         if not signals.ema_21_above_50sma:
+            _reject("trending but EMA21 below SMA50")
             return None
     elif regime.regime == "mean-reverting":
         # Want price near or below BB lower band (pullback into band)
         if signals.bb_pct_b > 0.35:
+            _reject(f"mean-rev but bb_pct_b {signals.bb_pct_b:.2f} > 0.35")
             return None
 
     # --- Score components ---

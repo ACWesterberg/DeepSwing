@@ -341,6 +341,66 @@ async def trigger_scan(market: str):
     return result
 
 
+@app.get("/api/debug/screener/{market}")
+async def debug_screener(market: str):
+    """Return per-ticker screener breakdown — why each stock passed or was rejected."""
+    if market not in ("nordic", "us"):
+        return {"error": "market must be 'nordic' or 'us'"}
+
+    from src.data.market_data import fetch_batch_nordic, fetch_batch_us, get_sector
+    from src.analysis.technical import compute_signals
+    from src.analysis.regime import classify_regime
+    from src.scheduler.scan_loop import _to_sek_price
+    from config.settings import settings as s
+
+    fetch_fn = fetch_batch_nordic if market == "nordic" else fetch_batch_us
+    watchlist = s.nordic_watchlist if market == "nordic" else s.us_watchlist
+    batch = fetch_fn(watchlist)
+
+    rows = []
+    for ticker, df in batch.items():
+        if df is None or df.empty:
+            rows.append({"ticker": ticker, "status": "no_data"})
+            continue
+        try:
+            signals = compute_signals(ticker, df)
+            regime  = classify_regime(df)
+            reasons = []
+            if not signals.price_above_50sma:
+                reasons.append("below_50sma")
+            if not (s.rsi_min <= signals.rsi_14 <= s.rsi_max):
+                reasons.append(f"rsi_{signals.rsi_14:.1f}_outside_{s.rsi_min}-{s.rsi_max}")
+            if signals.volume_ratio < s.volume_spike_multiplier:
+                reasons.append(f"vol_{signals.volume_ratio:.2f}x<{s.volume_spike_multiplier}x")
+            if regime.regime == "neutral":
+                reasons.append("neutral_regime")
+            elif regime.regime == "trending" and not signals.ema_21_above_50sma:
+                reasons.append("ema21_below_sma50")
+            elif regime.regime == "mean-reverting" and signals.bb_pct_b > 0.35:
+                reasons.append(f"bb_pct_b_{signals.bb_pct_b:.2f}>0.35")
+            rows.append({
+                "ticker": ticker,
+                "status": "PASS" if not reasons else "REJECT",
+                "reasons": reasons,
+                "rsi": round(signals.rsi_14, 1),
+                "volume_ratio": round(signals.volume_ratio, 2),
+                "regime": regime.regime,
+                "price_above_50sma": signals.price_above_50sma,
+                "ema21_above_50sma": signals.ema_21_above_50sma,
+            })
+        except Exception as e:
+            rows.append({"ticker": ticker, "status": "error", "error": str(e)})
+
+    passed  = [r for r in rows if r.get("status") == "PASS"]
+    reasons_tally: dict[str, int] = {}
+    for r in rows:
+        for reason in r.get("reasons", []):
+            key = reason.split("_")[0] if "_" in reason else reason
+            reasons_tally[key] = reasons_tally.get(key, 0) + 1
+
+    return {"market": market, "total": len(rows), "passed": len(passed), "rejection_tally": reasons_tally, "tickers": rows}
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
