@@ -344,7 +344,7 @@ def run_scan(market: MarketType) -> dict:
                 heuristics_text=store.to_prompt_text(heuristics_list),
             )
             if exit_dec and exit_dec["action"] == "SELL":
-                exit_price = _to_sek_price(signals.current_price, market)
+                exit_price = _to_sek_price(signals.current_price, position.ticker, market)
                 closed = portfolio.close_trade(
                     trade_id=position.trade_id,
                     exit_price=exit_price,
