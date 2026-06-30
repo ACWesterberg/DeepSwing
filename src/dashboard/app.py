@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
+import secrets
 from datetime import date, datetime
 from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 from config.settings import settings
@@ -22,6 +25,28 @@ from src.scheduler.scan_loop import clear_recent_decisions, get_recent_decisions
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="DeepSwing Dashboard", version="1.0.0")
+
+
+class _BasicAuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if not settings.dashboard_password:
+            return await call_next(request)
+        auth = request.headers.get("Authorization", "")
+        if auth.startswith("Basic "):
+            try:
+                user, pwd = base64.b64decode(auth[6:]).decode().split(":", 1)
+                if secrets.compare_digest(user, settings.dashboard_user) and \
+                   secrets.compare_digest(pwd, settings.dashboard_password):
+                    return await call_next(request)
+            except Exception:
+                pass
+        return Response(
+            "Unauthorized",
+            status_code=401,
+            headers={"WWW-Authenticate": 'Basic realm="DeepSwing"'},
+        )
+
+app.add_middleware(_BasicAuthMiddleware)
 
 _template_dir = str(__file__).replace("app.py", "templates")
 _static_dir = str(__file__).replace("app.py", "static")

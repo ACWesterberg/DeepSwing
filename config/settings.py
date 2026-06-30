@@ -58,6 +58,8 @@ class Settings(BaseSettings):
 
     # Dashboard security
     reset_pin: str = "3821"
+    dashboard_user: str = "deepswing"
+    dashboard_password: str = ""   # leave empty to disable auth
 
     # Screener thresholds
     rsi_min: float = 40.0
