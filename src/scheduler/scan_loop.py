@@ -38,13 +38,35 @@ except ImportError:
     _HAS_FX = False
 
 
-def _to_sek_price(price: float, market: str) -> float:
-    """Convert a price to SEK. Nordic prices are already in SEK; US prices are in USD."""
-    if market == "nordic" or not _HAS_FX:
+# financedata returns prices in each stock's native currency — currency mapping
+# (exchange → currency) is the calling project's responsibility, not financedata's.
+_NORDIC_SUFFIX_CURRENCY: dict[str, str] = {
+    ".ST": "SEK",
+    ".OL": "NOK",
+    ".HE": "EUR",
+    ".CO": "DKK",
+}
+
+
+def _currency_for_ticker(ticker: str, market: str) -> str:
+    """Resolve the native currency a ticker's price is quoted in."""
+    if market != "nordic":
+        return "USD"
+    for suffix, currency in _NORDIC_SUFFIX_CURRENCY.items():
+        if ticker.endswith(suffix):
+            return currency
+    # Legacy .STO suffix or unrecognized Nordic ticker — assume Swedish (SEK)
+    return "SEK"
+
+
+def _to_sek_price(price: float, ticker: str, market: str) -> float:
+    """Convert a ticker's native-currency price to SEK."""
+    currency = _currency_for_ticker(ticker, market)
+    if currency == "SEK" or not _HAS_FX:
         return price
-    sek = _to_sek_fn(price, "USD")
+    sek = _to_sek_fn(price, currency)
     if sek is None:
-        logger.warning("USD→SEK FX rate unavailable; using raw USD price %.4f", price)
+        logger.warning("%s→SEK FX rate unavailable; using raw %s price %.4f", currency, currency, price)
         return price
     return sek
 
@@ -212,10 +234,10 @@ def run_scan(market: MarketType) -> dict:
                 })
                 continue
 
-            # Convert prices to SEK (US prices come in USD; Nordic already in SEK)
-            entry_sek = _to_sek_price(candidate.signals.current_price, market)
-            stop_sek = _to_sek_price(decision["stop_loss"], market)
-            target_sek = _to_sek_price(decision["target"], market)
+            # Convert prices to SEK from the ticker's native currency
+            entry_sek = _to_sek_price(candidate.signals.current_price, candidate.ticker, market)
+            stop_sek = _to_sek_price(decision["stop_loss"], candidate.ticker, market)
+            target_sek = _to_sek_price(decision["target"], candidate.ticker, market)
 
             # Risk validation
             open_pos_info = [
@@ -405,7 +427,7 @@ def _get_current_prices(tickers: list[str], market: str) -> dict[str, float]:
         try:
             raw = _get_live_prices(yf_tickers)
             return {
-                ticker_map[yf]: _to_sek_price(price, market)
+                ticker_map[yf]: _to_sek_price(price, ticker_map[yf], market)
                 for yf, price in raw.items()
                 if price is not None and yf in ticker_map
             }
@@ -415,7 +437,7 @@ def _get_current_prices(tickers: list[str], market: str) -> dict[str, float]:
     for ticker in tickers:
         price = get_current_price(ticker, market)
         if price is not None:
-            prices[ticker] = _to_sek_price(price, market)
+            prices[ticker] = _to_sek_price(price, ticker, market)
     return prices
 
 
