@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Callable, Literal, Optional
 
 from config.settings import settings
@@ -46,6 +47,15 @@ def _to_sek_price(price: float, market: str) -> float:
         logger.warning("USD→SEK FX rate unavailable; using raw USD price %.4f", price)
         return price
     return sek
+
+# Most recent scan decisions per market — ephemeral, in-memory, for dashboard display.
+_recent_decisions: dict[str, dict] = {}
+
+
+def get_recent_decisions() -> dict:
+    """Return the latest scan decisions keyed by market."""
+    return _recent_decisions
+
 
 # Optional callback for pushing trade events to the dashboard WebSocket.
 # Injected by app.py on startup; called synchronously from the scan loop thread.
@@ -160,7 +170,14 @@ def run_scan(market: MarketType) -> dict:
 
             if decision is None or decision["action"] != "BUY":
                 logger.debug("[%s] %s → %s", track, candidate.ticker, decision.get("action") if decision else "None")
-                decisions_log.append({"track": track, "ticker": candidate.ticker, "action": decision.get("action", "HOLD") if decision else "ERROR"})
+                decisions_log.append({
+                    "track": track,
+                    "ticker": candidate.ticker,
+                    "action": decision.get("action", "HOLD") if decision else "ERROR",
+                    "confidence": round(decision.get("confidence", 0.0), 2) if decision else 0.0,
+                    "reasoning": decision.get("reasoning", "") if decision else "",
+                    "regime": candidate.regime.regime,
+                })
                 continue
 
             # Convert prices to SEK (US prices come in USD; Nordic already in SEK)
@@ -191,6 +208,10 @@ def run_scan(market: MarketType) -> dict:
                     "track": track,
                     "ticker": candidate.ticker,
                     "action": "BLOCKED",
+                    "confidence": round(decision["confidence"], 2),
+                    "reasoning": decision["reasoning"],
+                    "rrr": round(risk.rrr, 2) if risk.rrr else None,
+                    "regime": candidate.regime.regime,
                     "reason": risk.rejection_reason,
                 })
                 continue
@@ -218,8 +239,10 @@ def run_scan(market: MarketType) -> dict:
                     "entry_price": position.entry_price,
                     "stop_loss": stop_sek,
                     "target": target_sek,
-                    "confidence": decision["confidence"],
-                    "rrr": risk.rrr,
+                    "confidence": round(decision["confidence"], 2),
+                    "reasoning": decision["reasoning"],
+                    "rrr": round(risk.rrr, 2),
+                    "regime": candidate.regime.regime,
                     "sector": sector,
                 }
                 decisions_log.append(trade_event)
@@ -247,6 +270,11 @@ def run_scan(market: MarketType) -> dict:
 
     logger.info("=== Scan complete: %s | %d candidates | %d decisions ===",
                 market, len(candidates), len(decisions_log))
+
+    _recent_decisions[market] = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "decisions": decisions_log,
+    }
 
     return {
         "market": market,

@@ -58,6 +58,7 @@ async function refreshAll() {
   await Promise.all([
     refreshStatus(),
     refreshComparison(),
+    refreshDecisions(),
     refreshTrack("claude"),
     refreshTrack("gpt"),
   ]);
@@ -101,6 +102,49 @@ async function refreshComparison() {
     const gv = data.gpt?.metrics?.[key] ?? "—";
     tbody.innerHTML += `<tr><td>${label}</td><td>${fmt(cv)}</td><td>${fmt(gv)}</td></tr>`;
   }
+}
+
+const ACTION_CLASS = { BUY: "act-buy", HOLD: "act-hold", SELL: "act-sell", BLOCKED: "act-blocked", ERROR: "act-blocked" };
+
+async function refreshDecisions() {
+  const data = await fetchJSON("/api/decisions");
+  const list = document.getElementById("decisions-list");
+  if (!list) return;
+  if (!data) { list.innerHTML = "<p class='neutral'>No decisions yet.</p>"; return; }
+
+  // Flatten markets → rows, newest market scan first
+  const rows = [];
+  let latestTs = null;
+  for (const [market, scan] of Object.entries(data)) {
+    if (scan?.timestamp && (!latestTs || scan.timestamp > latestTs)) latestTs = scan.timestamp;
+    for (const d of (scan?.decisions || [])) rows.push({ ...d, market });
+  }
+
+  const meta = document.getElementById("decisions-meta");
+  if (meta) meta.textContent = latestTs ? "— scanned " + new Date(latestTs).toLocaleString() : "";
+
+  if (rows.length === 0) {
+    list.innerHTML = "<p class='neutral'>No decisions in the latest scan (no candidates passed the screener).</p>";
+    return;
+  }
+
+  list.innerHTML = rows.map(d => {
+    const cls = ACTION_CLASS[d.action] || "act-hold";
+    const conf = (d.confidence !== undefined && d.confidence !== null) ? ` · conf ${d.confidence}` : "";
+    const rrr = (d.rrr !== undefined && d.rrr !== null) ? ` · RRR ${d.rrr}` : "";
+    const reason = d.reason ? `<div class="decision-blocked">Blocked: ${d.reason}</div>` : "";
+    const why = d.reasoning ? `<div class="decision-reason">${d.reasoning}</div>` : "";
+    return `<div class="decision-card">
+      <div class="decision-head">
+        <span class="track-pill track-${d.track}">${d.track}</span>
+        <strong>${d.ticker}</strong>
+        <span class="action-pill ${cls}">${d.action}</span>
+        <span class="decision-meta">${(d.market || "").toUpperCase()}${d.regime ? " · " + d.regime : ""}${conf}${rrr}</span>
+      </div>
+      ${reason}
+      ${why}
+    </div>`;
+  }).join("");
 }
 
 async function refreshTrack(track) {

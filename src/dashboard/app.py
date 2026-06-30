@@ -17,7 +17,7 @@ from config.settings import settings
 from src.portfolio.metrics import compute_metrics
 from src.portfolio.simulator import get_portfolio, reset_portfolios
 from src.scheduler.market_hours import active_markets, is_market_open
-from src.scheduler.scan_loop import run_scan, set_trade_event_handler
+from src.scheduler.scan_loop import get_recent_decisions, run_scan, set_trade_event_handler
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +116,12 @@ async def heuristics(track: str, page: int = 1, page_size: int = 20):
         "page": page,
         "heuristics": all_h[start: start + page_size],
     }
+
+
+@app.get("/api/decisions")
+async def decisions():
+    """Latest per-market scan decisions (action + reasoning) for all tracks."""
+    return get_recent_decisions()
 
 
 @app.post("/api/backtest")

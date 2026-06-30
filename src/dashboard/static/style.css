@@ -159,6 +159,31 @@ header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.05em; }
 .heuristic-meta { display: flex; gap: 12px; font-size: 11px; color: var(--text-muted); flex-wrap: wrap; }
 .core-badge { background: #1a2a3a; color: var(--accent-gpt); padding: 1px 6px; border-radius: 10px; font-size: 10px; }
 
+/* Latest Decisions panel */
+.panel-meta { font-size: 11px; color: var(--text-muted); text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+.decision-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+}
+.decision-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.decision-meta { font-size: 11px; color: var(--text-muted); }
+.decision-reason { font-size: 12px; color: var(--text); margin-top: 6px; line-height: 1.45; }
+.decision-blocked { font-size: 12px; color: var(--yellow); margin-top: 6px; }
+
+.track-pill { font-size: 10px; text-transform: uppercase; padding: 1px 7px; border-radius: 10px; letter-spacing: 0.04em; }
+.track-claude { background: rgba(124, 58, 237, 0.15); color: var(--accent-claude); }
+.track-gpt { background: rgba(14, 165, 233, 0.15); color: var(--accent-gpt); }
+
+.action-pill { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 10px; letter-spacing: 0.04em; }
+.act-buy { background: #1a3a20; color: var(--green); }
+.act-hold { background: var(--border); color: var(--text-muted); }
+.act-sell { background: #2d1a1a; color: var(--red); }
+.act-blocked { background: rgba(210, 153, 34, 0.15); color: var(--yellow); }
+
 /* Horizontal scroll for tables on narrow screens */
 .table-scroll {
   overflow-x: auto;
