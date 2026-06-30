@@ -57,6 +57,10 @@ def get_recent_decisions() -> dict:
     return _recent_decisions
 
 
+def clear_recent_decisions() -> None:
+    _recent_decisions.clear()
+
+
 def _persist_decisions(market: str, decisions: list[dict]) -> None:
     """Write each decision to the DB for browsable history. Never breaks a scan."""
     if not decisions:

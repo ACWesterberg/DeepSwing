@@ -17,7 +17,7 @@ from config.settings import settings
 from src.portfolio.metrics import compute_metrics
 from src.portfolio.simulator import get_portfolio, reset_portfolios
 from src.scheduler.market_hours import active_markets, is_market_open
-from src.scheduler.scan_loop import get_recent_decisions, run_scan, set_trade_event_handler
+from src.scheduler.scan_loop import clear_recent_decisions, get_recent_decisions, run_scan, set_trade_event_handler
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +216,8 @@ async def reset_simulation(body: _ResetRequest):
     if invalid:
         return {"error": f"Unknown tracks: {invalid}"}
 
+    from src.db import Decision, Session
+
     cleared: dict = {}
     for track in target_tracks:
         # Count and delete heuristic files
@@ -228,10 +230,16 @@ async def reset_simulation(body: _ResetRequest):
         # Clear cached heuristic store so next call rebuilds from empty dir
         _memory._stores.pop(track, None)
 
-        cleared[track] = {"heuristics_deleted": heuristic_count}
+        # Delete persisted decisions for this track
+        with Session() as db:
+            decision_count = db.query(Decision).filter(Decision.track == track).delete()
+            db.commit()
 
-    # Reset all in-memory portfolios (even non-targeted ones get a fresh object on next access)
+        cleared[track] = {"heuristics_deleted": heuristic_count, "decisions_deleted": decision_count}
+
+    # Reset all in-memory portfolios and the latest-decisions cache
     reset_portfolios()
+    clear_recent_decisions()
 
     await _broadcast({"event": "simulation_reset", "data": {"tracks": target_tracks}})
     logger.info("Simulation reset for tracks: %s", target_tracks)
