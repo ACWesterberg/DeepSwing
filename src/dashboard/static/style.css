@@ -60,6 +60,44 @@ header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.05em; }
 .scan-btn:hover { background: rgba(124, 58, 237, 0.12); }
 .scan-btn:disabled { opacity: 0.5; cursor: default; }
 
+/* Scan progress toast */
+.scan-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 24px;
+  background: var(--surface);
+  border-bottom: 2px solid var(--accent-claude);
+  font-size: 13px;
+  color: var(--text);
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  overflow: hidden;
+  max-height: 60px;
+}
+.scan-toast.hidden {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-bottom-width: 0;
+}
+.scan-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent-claude);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.scan-timer {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
 .reset-btn {
   margin-left: 12px;
   padding: 3px 10px;

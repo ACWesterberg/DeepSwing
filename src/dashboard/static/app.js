@@ -261,22 +261,59 @@ async function fetchJSON(url) {
 }
 
 // Reset button
+const _SCAN_PHASES = [
+  [0,  "Fetching market data…"],
+  [5,  "Running screener…"],
+  [12, "Analyzing news & macro…"],
+  [20, "Getting AI decisions…"],
+  [35, "Validating risk rules…"],
+];
+
+function _showScanToast(market) {
+  const toast  = document.getElementById("scan-toast");
+  const msg    = document.getElementById("scan-toast-msg");
+  const timer  = document.getElementById("scan-toast-timer");
+  toast.classList.remove("hidden");
+
+  const start = Date.now();
+  let phaseIdx = 0;
+  msg.textContent = `${market.toUpperCase()}: ${_SCAN_PHASES[0][1]}`;
+
+  const tick = setInterval(() => {
+    const elapsed = Math.round((Date.now() - start) / 1000);
+    timer.textContent = `${elapsed}s`;
+    // Advance phase label based on elapsed seconds
+    while (phaseIdx + 1 < _SCAN_PHASES.length && elapsed >= _SCAN_PHASES[phaseIdx + 1][0]) {
+      phaseIdx++;
+    }
+    msg.textContent = `${market.toUpperCase()}: ${_SCAN_PHASES[phaseIdx][1]}`;
+  }, 500);
+
+  return { start, tick };
+}
+
+function _hideScanToast(tick) {
+  clearInterval(tick);
+  document.getElementById("scan-toast").classList.add("hidden");
+}
+
 async function runScan(market) {
   const btn = document.getElementById(`scan-${market}-btn`);
-  const orig = btn.textContent;
-  btn.textContent = "Scanning…";
   btn.disabled = true;
+  const { tick } = _showScanToast(market);
   try {
     const r = await fetch(`/api/scan/${market}`, { method: "POST" });
     const data = await r.json();
-    const count = data.decisions?.length ?? 0;
+    _hideScanToast(tick);
     const candidates = data.candidates?.length ?? 0;
-    alert(`${market.toUpperCase()} scan complete.\n${candidates} candidate(s), ${count} decision(s).`);
+    const decisions  = data.decisions?.length ?? 0;
+    const vixHalt    = data.vix_halt ? " (VIX halt)" : "";
+    alert(`${market.toUpperCase()} scan complete${vixHalt}.\n${candidates} candidate(s) → ${decisions} decision(s).`);
     refreshAll();
   } catch (e) {
+    _hideScanToast(tick);
     alert("Scan failed — check server logs.");
   } finally {
-    btn.textContent = orig;
     btn.disabled = false;
   }
 }
