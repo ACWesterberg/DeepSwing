@@ -147,6 +147,50 @@ class DecisionEngine:
             logger.error("DSPy decision error for %s/%s: %s", self.track, candidate.ticker, exc, exc_info=True)
             return None
 
+    def decide_exit(
+        self,
+        ticker: str,
+        technicals: str,
+        regime: str,
+        news_summary: str,
+        macro_context: str,
+        heuristics_text: str,
+    ) -> Optional[dict]:
+        """
+        Run the decision program to evaluate an open holding on fresh news.
+        SELL means close the position; BUY/HOLD means keep holding.
+        """
+        if self._program is None or self._lm is None:
+            logger.error("DecisionEngine not initialized for track %s", self.track)
+            return None
+
+        try:
+            dspy.configure(lm=self._lm)
+            result = self._program(
+                technicals=technicals,
+                regime=regime or "Regime unknown.",
+                news_summary=news_summary or "No recent news available.",
+                macro_context=macro_context or "No macro data available.",
+                heuristics=heuristics_text or "No relevant heuristics yet.",
+            )
+
+            action = str(result.action).upper()
+            if action not in ("BUY", "SELL", "HOLD"):
+                logger.warning("Invalid action '%s' from %s track — defaulting to HOLD", action, self.track)
+                action = "HOLD"
+
+            return {
+                "action": action,
+                "confidence": _clamp(float(result.confidence), 0.0, 1.0),
+                "reasoning": str(result.reasoning),
+                "track": self.track,
+                "ticker": ticker,
+            }
+
+        except Exception as exc:
+            logger.error("DSPy exit decision error for %s/%s: %s", self.track, ticker, exc, exc_info=True)
+            return None
+
     def reload(self) -> None:
         """Reload compiled program from disk (called after MIPRO optimization)."""
         self._load_program()
@@ -163,6 +207,20 @@ def get_decision(
     """Convenience function — gets or creates track engine and runs decision."""
     engine = DecisionEngine.for_track(track)
     return engine.decide(candidate, news_summary, macro_context, heuristics_text)
+
+
+def get_exit_decision(
+    track: TrackType,
+    ticker: str,
+    technicals: str,
+    regime: str,
+    news_summary: str,
+    macro_context: str,
+    heuristics_text: str,
+) -> Optional[dict]:
+    """Convenience function — evaluates whether to exit an open holding on fresh news."""
+    engine = DecisionEngine.for_track(track)
+    return engine.decide_exit(ticker, technicals, regime, news_summary, macro_context, heuristics_text)
 
 
 def _clamp(value: float, lo: float, hi: float) -> float:

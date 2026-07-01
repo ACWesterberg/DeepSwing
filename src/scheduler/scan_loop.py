@@ -4,7 +4,7 @@ import logging
 from typing import Callable, Literal, Optional
 
 from config.settings import settings
-from src.agent.decision import get_decision
+from src.agent.decision import get_decision, get_exit_decision
 from src.agent.erl import run_erl
 from src.agent.memory import get_store
 from src.agent.news_analyzer import analyze_news
@@ -63,6 +63,13 @@ def run_scan(market: MarketType) -> dict:
         )
         return {"market": market, "candidates": [], "decisions": [], "vix_halt": True, "vix": vix}
 
+    # If every track is fully allocated, there's no cash to open new positions —
+    # skip the whole candidate/news/decision pipeline and just monitor holdings.
+    funded_tracks = [t for t in settings.tracks if get_portfolio(t).can_open_new_position]
+    if not funded_tracks:
+        logger.info("All cash allocated across tracks — holdings-only monitor for %s market", market)
+        return _monitor_holdings(market)
+
     watchlist = get_omxs30_tickers() if market == "nordic" else settings.us_watchlist
     macro_context = get_macro_context(market)
 
@@ -113,7 +120,7 @@ def run_scan(market: MarketType) -> dict:
         tech_snapshot = candidate.signals.to_prompt_str()
         sector = get_sector(candidate.ticker)
 
-        for track in settings.tracks:
+        for track in funded_tracks:
             portfolio = get_portfolio(track)
 
             # Retrieve heuristics
@@ -196,25 +203,8 @@ def run_scan(market: MarketType) -> dict:
                 decisions_log.append(trade_event)
                 _emit({"event": "trade_opened", "data": trade_event})
 
-    # --- Update open positions and trigger ERL for closed trades ---
-    for track in settings.tracks:
-        portfolio = get_portfolio(track)
-        current_prices = _get_current_prices(portfolio.get_open_tickers(), market)
-        closed_trades = portfolio.update_prices(current_prices)
-
-        for closed in closed_trades:
-            _emit({
-                "event": "trade_closed",
-                "data": {
-                    "track": track,
-                    "ticker": closed.ticker,
-                    "exit_reason": closed.exit_reason,
-                    "pnl_pct": round(closed.pnl_pct * 100, 2),
-                    "pnl": round(closed.pnl, 2),
-                    "exit_price": closed.exit_price,
-                },
-            })
-            _trigger_erl(track, closed)
+    # --- Update open positions, run jump-triggered news exits, trigger ERL ---
+    _update_positions(market)
 
     logger.info("=== Scan complete: %s | %d candidates | %d decisions ===",
                 market, len(candidates), len(decisions_log))
@@ -224,6 +214,150 @@ def run_scan(market: MarketType) -> dict:
         "candidates": [c.to_dict() for c in candidates],
         "decisions": decisions_log,
     }
+
+
+def _monitor_holdings(market: MarketType) -> dict:
+    """
+    Lightweight cycle used when no track has cash to open new positions.
+    Only prices for open holdings are pulled; stop-loss/take-profit still fire,
+    and a large price jump triggers a news-driven exit check per holding.
+    """
+    exits = _update_positions(market)
+    open_count = sum(
+        len([p for p in get_portfolio(t).open_positions if p.market == market])
+        for t in settings.tracks
+    )
+    logger.info("=== Holdings monitor complete: %s | %d open | %d exits ===",
+                market, open_count, len(exits))
+    return {
+        "market": market,
+        "mode": "holdings_monitor",
+        "candidates": [],
+        "decisions": [],
+        "exits": exits,
+    }
+
+
+def _update_positions(market: MarketType) -> list[dict]:
+    """
+    Refresh prices for this market's open positions across all tracks, run the
+    jump-triggered news exit check, and auto-close on stop/target. Triggers ERL
+    for every closed trade so news-driven exits are captured for optimization.
+    Returns a list of exit event dicts.
+    """
+    exits: list[dict] = []
+
+    for track in settings.tracks:
+        portfolio = get_portfolio(track)
+        positions = [p for p in portfolio.open_positions if p.market == market]
+        if not positions:
+            continue
+
+        current_prices = _get_current_prices([p.ticker for p in positions], market)
+
+        # Jump-triggered news exit check (may close positions before the stop/target sweep)
+        for position in positions:
+            price = current_prices.get(position.ticker)
+            if price is None:
+                continue
+            closed = _check_news_exit(track, portfolio, position, price, market)
+            if closed is not None:
+                exits.append(_emit_close(track, closed))
+
+        # Stop-loss / take-profit sweep for anything still open
+        closed_trades = portfolio.update_prices(current_prices)
+        for closed in closed_trades:
+            exits.append(_emit_close(track, closed))
+
+    return exits
+
+
+def _emit_close(track: str, closed) -> dict:
+    event = {
+        "track": track,
+        "ticker": closed.ticker,
+        "exit_reason": closed.exit_reason,
+        "pnl_pct": round(closed.pnl_pct * 100, 2),
+        "pnl": round(closed.pnl, 2),
+        "exit_price": closed.exit_price,
+    }
+    _emit({"event": "trade_closed", "data": event})
+    _trigger_erl(track, closed)
+    return event
+
+
+def _check_news_exit(track: str, portfolio, position, price: float, market: MarketType):
+    """
+    If a position's price has jumped since the last news check, pull fresh news
+    and ask the track's decision model whether to exit. On SELL, close the
+    position with exit_reason='news_exit' so ERL/MIPRO can learn from it.
+    Returns the ClosedTrade if closed, else None.
+    """
+    ref = position.last_news_price or position.entry_price
+    if ref <= 0:
+        return None
+
+    move = (price - ref) / ref
+    if abs(move) < settings.holdings_news_jump_pct:
+        return None
+
+    logger.info(
+        "[%s] %s jumped %+.1f%% (%.4f→%.4f) — running news check",
+        track, position.ticker, move * 100, ref, price,
+    )
+    position.last_news_price = price
+
+    articles = fetch_news_for_ticker(position.ticker, market)
+    tech_brief = (
+        f"Held since {position.entry_time.date()}, entry {position.entry_price:.4f}, "
+        f"now {price:.4f} ({move * 100:+.1f}% jump)"
+    )
+    news_summary = analyze_news(
+        ticker=position.ticker,
+        market=market,
+        current_price=price,
+        technicals_brief=tech_brief,
+        articles=articles,
+    )
+
+    store = get_store(track)
+    heuristics_list = store.retrieve(ticker=position.ticker, regime=position.regime, market=market)
+    heuristics_text = store.to_prompt_text(heuristics_list)
+
+    decision = get_exit_decision(
+        track=track,
+        ticker=position.ticker,
+        technicals=f"{position.technical_snapshot}\n[Update] {tech_brief}",
+        regime=position.regime,
+        news_summary=news_summary,
+        macro_context=get_macro_context(market),
+        heuristics_text=heuristics_text,
+    )
+
+    _emit({
+        "event": "news_alert",
+        "data": {
+            "track": track,
+            "ticker": position.ticker,
+            "price": price,
+            "move_pct": round(move * 100, 2),
+            "direction": "up" if move > 0 else "down",
+            "news": news_summary,
+            "action": decision.get("action") if decision else "ERROR",
+        },
+    })
+
+    if decision is None or decision["action"] != "SELL":
+        return None
+
+    logger.info("[%s] %s news-driven exit: %s", track, position.ticker, decision["reasoning"])
+    return portfolio.close_trade(
+        trade_id=position.trade_id,
+        exit_price=price,
+        exit_reason="news_exit",
+        reasoning=decision["reasoning"],
+        confidence=decision["confidence"],
+    )
 
 
 def _get_current_prices(tickers: list[str], market: str) -> dict[str, float]:

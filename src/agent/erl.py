@@ -56,7 +56,7 @@ def run_erl(
         f"Ticker: {trade.get('ticker')} | Market: {trade.get('market')}\n"
         f"Entry: {trade.get('entry_price'):.4f} | Exit: {trade.get('exit_price'):.4f}\n"
         f"P&L: {trade.get('pnl_pct', 0)*100:.2f}% | Duration: {trade.get('duration_days', '?')} days\n"
-        f"RRR achieved: {trade.get('rrr_achieved', 0):.2f} | Stop hit: {trade.get('stop_hit', False)}"
+        f"RRR achieved: {trade.get('rrr_achieved', 0):.2f} | Exit reason: {_exit_label(trade.get('exit_reason'))}"
     )
 
     prompt = ERL_PROMPT.format(
@@ -153,12 +153,24 @@ def _parse_heuristic(text: str) -> Optional[dict]:
     return result
 
 
+_EXIT_LABELS = {
+    "stop_loss": "stop-loss hit",
+    "take_profit": "target reached",
+    "trailing_stop": "trailing stop hit",
+    "news_exit": "news-driven exit (large price jump)",
+    "manual": "manual exit",
+}
+
+
+def _exit_label(exit_reason: Optional[str]) -> str:
+    return _EXIT_LABELS.get(exit_reason or "", exit_reason or "unknown")
+
+
 def _describe_outcome(trade: dict) -> str:
     pnl_pct = trade.get("pnl_pct", 0) * 100
     rrr = trade.get("rrr_achieved", 0)
+    reason = _exit_label(trade.get("exit_reason"))
     if pnl_pct > 0:
-        return f"PROFITABLE trade: +{pnl_pct:.2f}%, RRR achieved {rrr:.2f}"
+        return f"PROFITABLE trade: +{pnl_pct:.2f}% via {reason}, RRR achieved {rrr:.2f}"
     else:
-        stop_hit = trade.get("stop_hit", False)
-        reason = "stop-loss hit" if stop_hit else "manual/target exit"
         return f"LOSS: {pnl_pct:.2f}% via {reason}, RRR achieved {rrr:.2f}"

@@ -18,6 +18,7 @@ An AI-powered **swing trading simulator** running on a Raspberry Pi 5. Paper-tra
 - **DSPy 2.6 uses `dspy.configure(lm=...)`** — not `with dspy.settings.context(lm=...)` (deprecated in 2.6+)
 - **All DB records have a `track` column** — "claude" | "gpt"; heuristics stored in `heuristics/{track}/`
 - **MIPRO runs weekly, Sunday 02:00 CET** — requires 30+ closed trades to run; archives previous compiled JSON
+- **Holdings-only mode** — when every track's free cash is below `min_cash_for_new_position_pct` of equity, the scan skips the candidate/news/decision pipeline and just monitors open holdings. A price jump ≥ `holdings_news_jump_pct` triggers a news run + exit decision; a SELL closes the position with `exit_reason="news_exit"` (fed to ERL/MIPRO like any other exit)
 
 ---
 
@@ -73,7 +74,7 @@ src/agent/news_analyzer.py  Claude Haiku per-ticker news analysis
 src/portfolio/simulator.py  Paper trading engine (Portfolio class); dual-track
 src/portfolio/metrics.py    Sharpe, drawdown, win rate, MIPRO metric
 src/scheduler/market_hours.py  is_market_open(), active_markets(), CET-aware
-src/scheduler/scan_loop.py  Main 15-min cycle: fetch → analyze → screen → decide → trade
+src/scheduler/scan_loop.py  Main 15-min cycle: fetch → analyze → screen → decide → trade; holdings-only monitor when fully allocated
 src/scheduler/optimizer.py  Weekly MIPROv2 + heuristic prune/promote
 src/dashboard/app.py        FastAPI + WebSocket; /api/comparison is the key endpoint
 src/dashboard/static/app.js Chart.js equity curves, head-to-head table, auto-refresh

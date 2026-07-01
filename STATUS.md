@@ -33,6 +33,7 @@ Last updated: 2026-06-26
 ### Phase 4 — Scheduler + Data Ingestion
 - [x] `src/scheduler/market_hours.py` — `is_market_open()`, `active_markets()`, CET timezone, weekday-aware
 - [x] `src/scheduler/scan_loop.py` — full scan cycle: data → technicals → regime → screen → (per candidate × per track: heuristics → decision → risk → execute) → position updates → ERL trigger
+- [x] Holdings-only mode — when every track is fully allocated (free cash < `min_cash_for_new_position_pct` of equity), skip the candidate/news/decision pipeline and just monitor open holdings; a price jump ≥ `holdings_news_jump_pct` triggers a news run + exit decision, closing on SELL with `exit_reason="news_exit"` (captured by ERL/MIPRO)
 - [x] `src/data/news_fetcher.py` — NewsAPI (EN) + DI.se/Börsdata/Redeye RSS (SE); deduplication
 - [x] `src/data/insider_fetcher.py` — SEC EDGAR Form 4 search (US); FI Insynsregistret CSV (SE); 24h cache
 - [x] `src/data/macro_data.py` — FRED (Fed Funds Rate, CPI, 10Y Treasury, Unemployment); Riksbank SWEA API; ECB deposit rate; 6h cache

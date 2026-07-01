@@ -29,6 +29,7 @@ class OpenPosition:
     confidence: float = 0.0
     technical_snapshot: str = ""
     sector: str = ""
+    last_news_price: float = 0.0  # price at the last news check; drives jump detection
 
     @property
     def unrealised_pnl(self) -> float:
@@ -149,6 +150,11 @@ class Portfolio:
     def is_drawdown_mode(self) -> bool:
         return self.drawdown >= settings.drawdown_pause_threshold
 
+    @property
+    def can_open_new_position(self) -> bool:
+        """False once free cash is too small to fund a new position — treated as fully allocated."""
+        return self.cash >= settings.min_cash_for_new_position_pct * self.equity
+
     def open_trade(
         self,
         ticker: str,
@@ -194,6 +200,7 @@ class Portfolio:
             confidence=confidence,
             technical_snapshot=technical_snapshot,
             sector=sector,
+            last_news_price=filled_price,
         )
         self.open_positions.append(position)
         self._next_trade_id += 1

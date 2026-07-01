@@ -66,6 +66,15 @@ class Settings(BaseSettings):
     scan_interval_minutes: int = 15
     news_refresh_interval_minutes: int = 60
 
+    # Holdings-only mode: when a track's free cash falls below this fraction of
+    # its equity, it can't meaningfully open a new position, so we skip the
+    # candidate scan for it and just monitor open holdings.
+    min_cash_for_new_position_pct: float = 0.05
+    # While monitoring holdings we only pull prices; a news run is triggered for
+    # a position only when its price moves at least this fraction since the last
+    # news check (a "large jump").
+    holdings_news_jump_pct: float = 0.05
+
     # Watchlists (configurable)
     # Emergency fallback only — universe.csv is the live source for Nordic tickers.
     # These are OMXS30 constituents in Yahoo Finance format (.ST not .STO).
