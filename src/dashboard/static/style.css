@@ -226,7 +226,88 @@ header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.05em; }
   display: none;
 }
 
+/* Prompts tab */
+.prompts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.prompt-version-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.prompt-version-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--green);
+}
+.prompt-version-label.baseline { color: var(--text-muted); }
+.prompt-version-meta { font-size: 11px; color: var(--text-muted); }
+
+.prompt-text {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+  font-family: "SF Mono", "Fira Code", monospace;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.prompt-history-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.prompt-history-item {
+  margin-bottom: 4px;
+}
+.prompt-history-item summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding: 7px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  list-style: none;
+  color: var(--text);
+  user-select: none;
+}
+.prompt-history-item summary::-webkit-details-marker { display: none; }
+.prompt-history-item summary::before {
+  content: "▶";
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-right: 8px;
+  transition: transform 0.15s;
+}
+.prompt-history-item[open] summary::before { transform: rotate(90deg); }
+.prompt-history-item summary:hover { background: #1a2030; }
+.prompt-demos-badge { font-size: 11px; color: var(--text-muted); }
+.prompt-text-history { max-height: 200px; margin-top: 6px; margin-bottom: 0; }
+
 /* Mobile breakpoints */
+@media (max-width: 800px) {
+  .prompts-grid { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 600px) {
   header {
     flex-wrap: wrap;
