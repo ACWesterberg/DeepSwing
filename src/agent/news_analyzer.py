@@ -67,8 +67,8 @@ def analyze_news(
         resp = client.chat.completions.create(
             model=settings.gpt_news_model,
             # max_completion_tokens works across the GPT-5 family (reasoning or not);
-            # leaves headroom in case the news model reasons before the short answer.
-            max_completion_tokens=512,
+            # generous headroom so reasoning tokens don't starve the short answer.
+            max_completion_tokens=2000,
             messages=[{"role": "user", "content": prompt}],
         )
         return (resp.choices[0].message.content or "").strip()

@@ -49,6 +49,22 @@ class TradeDecision(dspy.Signature):
     )
 
 
+def build_lm(track: TrackType, model: str, api_key: str, *, max_tokens: int = 1024) -> "dspy.LM":
+    """
+    Build a dspy.LM for a track. OpenAI GPT-5-class reasoning models reject the
+    usual params — they require temperature=1.0 and max_tokens>=16000 — so the
+    GPT branch enforces those. Claude models keep the requested max_tokens.
+    """
+    if track == "claude":
+        return dspy.LM(model=f"anthropic/{model}", api_key=api_key, max_tokens=max_tokens)
+    return dspy.LM(
+        model=f"openai/{model}",
+        api_key=api_key,
+        temperature=1.0,
+        max_tokens=max(max_tokens, 16000),
+    )
+
+
 class DecisionEngine:
     """
     Wraps a DSPy TradeDecision program per track.
@@ -73,17 +89,9 @@ class DecisionEngine:
 
     def _init_lm(self) -> None:
         if self.track == "claude":
-            self._lm = dspy.LM(
-                model=f"anthropic/{settings.claude_decision_model}",
-                api_key=settings.anthropic_api_key,
-                max_tokens=1024,
-            )
+            self._lm = build_lm(self.track, settings.claude_decision_model, settings.anthropic_api_key)
         else:
-            self._lm = dspy.LM(
-                model=f"openai/{settings.gpt_decision_model}",
-                api_key=settings.openai_api_key,
-                max_tokens=1024,
-            )
+            self._lm = build_lm(self.track, settings.gpt_decision_model, settings.openai_api_key)
 
     def _load_program(self) -> None:
         compiled_path = settings.compiled_dir / f"{self.track}_trade_decision.json"
