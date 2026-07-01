@@ -38,17 +38,18 @@ def run_mipro_optimization(track: TrackType) -> bool:
 
     logger.info("MIPRO [%s]: starting optimization with %d trades", track, len(trades))
 
-    # Build training examples from closed trades
+    # Build training examples from closed trades that captured their DSPy inputs
     trainset = []
     for t in trades:
-        if not hasattr(t, "_entry_inputs"):
+        inputs = getattr(t, "entry_inputs", None)
+        if not inputs:
             continue  # Only trades that stored their DSPy inputs can be used
         example = dspy.Example(
-            technicals=t._entry_inputs.get("technicals", ""),
-            regime=t._entry_inputs.get("regime", ""),
-            news_summary=t._entry_inputs.get("news_summary", ""),
-            macro_context=t._entry_inputs.get("macro_context", ""),
-            heuristics=t._entry_inputs.get("heuristics", ""),
+            technicals=inputs.get("technicals", ""),
+            regime=inputs.get("regime", ""),
+            news_summary=inputs.get("news_summary", ""),
+            macro_context=inputs.get("macro_context", ""),
+            heuristics=inputs.get("heuristics", ""),
             action="BUY" if t.pnl_pct > 0 else "HOLD",
         ).with_inputs("technicals", "regime", "news_summary", "macro_context", "heuristics")
         trainset.append(example)

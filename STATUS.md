@@ -69,7 +69,7 @@ Last updated: 2026-06-26
 ### Improvements
 - [ ] **Insider data parsing** — FI Insynsregistret CSV column names vary by export version; needs more robust header detection
 - [ ] **Sector correlation check** — current implementation only blocks duplicate tickers; needs sector-level correlation matrix (yfinance sector tags) to enforce the 0.7 max correlation rule properly
-- [ ] **ERL input capture** — `scan_loop.py` currently passes `"See trade entry data"` as the technicals string to ERL; needs to store actual technical snapshot at trade entry (e.g. in Position object or a side dict)
+- [x] **ERL / MIPRO input capture** — trade-entry DSPy inputs (technicals, regime, news, macro, heuristics) are now captured in `decision.py` and stored on `OpenPosition.entry_inputs`, carried to `ClosedTrade`, and consumed by `optimizer.py` to build the MIPRO trainset. Previously `optimizer.py` checked `hasattr(t, "_entry_inputs")` which was never set, so the trainset was always empty and MIPRO always skipped.
 - [ ] **Walk-forward validation** — backtesting harness to validate strategy parameters on historical data before deploying changes
 - [ ] **OMXS30 dynamic watchlist** — currently hardcoded; fetch from an API or scrape the official composition periodically
 - [ ] **VIX/OMXVIX turbulence halt** — fetch VIX as a circuit-breaker for extreme volatility (currently noted as configurable but not implemented)

@@ -198,6 +198,68 @@ class TestTechnicalSnapshotLifecycle:
 
 
 # ---------------------------------------------------------------------------
+# MIPRO entry-input capture flows through the full lifecycle
+# ---------------------------------------------------------------------------
+
+_ENTRY_INPUTS = {
+    "technicals": "RSI=55.2, EMA20=above, ATR=1.5",
+    "regime": "trending; recommended tactic: EMA crossover entries",
+    "news_summary": "Neutral news. Insider activity: none",
+    "macro_context": "No macro data available.",
+    "heuristics": "No relevant heuristics yet.",
+}
+
+
+def _open_with_inputs(portfolio, ticker: str = "AAPL"):
+    return portfolio.open_trade(
+        ticker=ticker,
+        market="us",
+        quantity=10.0,
+        entry_price=100.0,
+        stop_loss=95.0,
+        target=115.0,
+        regime="trending",
+        reasoning="Strong uptrend continuation",
+        confidence=0.85,
+        technical_snapshot="RSI=55.2",
+        sector="Technology",
+        entry_inputs=dict(_ENTRY_INPUTS),
+    )
+
+
+class TestEntryInputsLifecycle:
+    def test_entry_inputs_stored_on_open_position(self):
+        portfolio = get_portfolio("claude")
+        pos = _open_with_inputs(portfolio)
+        assert pos.entry_inputs == _ENTRY_INPUTS
+
+    def test_entry_inputs_preserved_in_closed_trade(self):
+        portfolio = get_portfolio("claude")
+        _open_with_inputs(portfolio)
+        closed = portfolio.update_prices({"AAPL": 120.0})[0]
+        assert closed.entry_inputs == _ENTRY_INPUTS
+
+    def test_entry_inputs_default_empty_when_not_provided(self):
+        portfolio = get_portfolio("claude")
+        pos = _open_position(portfolio)  # no entry_inputs passed
+        assert pos.entry_inputs == {}
+
+    def test_optimizer_filter_accepts_captured_trades(self):
+        """The old hasattr(_entry_inputs) check always failed — verify trades now qualify."""
+        portfolio = get_portfolio("claude")
+        for i in range(3):
+            _open_with_inputs(portfolio, ticker=f"TICK{i}")
+            portfolio.update_prices({f"TICK{i}": 120.0})  # close at target
+
+        # Mirror optimizer.py's filter + labelling exactly
+        qualifying = [t for t in portfolio.closed_trades if getattr(t, "entry_inputs", None)]
+        assert len(qualifying) == 3
+        assert qualifying[0].entry_inputs["technicals"] == _ENTRY_INPUTS["technicals"]
+        # Winners label as BUY, losers as HOLD
+        assert ["BUY" if t.pnl_pct > 0 else "HOLD" for t in qualifying] == ["BUY", "BUY", "BUY"]
+
+
+# ---------------------------------------------------------------------------
 # ERL filter logic (low quality / unparseable)
 # ---------------------------------------------------------------------------
 
