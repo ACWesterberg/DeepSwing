@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import src.scheduler.scan_loop as sl
+import src.data.news_fetcher as nf
 from src.data.news_fetcher import format_market_environment
 
 
@@ -51,3 +52,39 @@ class TestEarningsFilter:
             with patch.object(sl.settings, "earnings_buffer_days", 2):
                 kept = sl._filter_earnings(cands)
         assert kept == []  # days == buffer → dropped
+
+
+class TestUsMarketHeadlines:
+    def setup_method(self):
+        nf._market_cache.clear()
+
+    def teardown_method(self):
+        nf._market_cache.clear()
+
+    def test_us_uses_newsapi_and_normalizes(self):
+        articles = [
+            {"headline": "Fed holds rates steady", "source": "Reuters",
+             "published_at": "2026-07-01T08:00:00Z"},
+            {"headline": "Oil jumps on Gulf tension", "source": "Bloomberg",
+             "published_at": "2026-07-01T07:30:00Z"},
+        ]
+        with patch.object(nf.settings, "news_api_key", "k"):
+            with patch.object(nf, "fetch_newsapi", return_value=articles) as m:
+                out = nf.fetch_market_headlines("us", limit=10)
+        m.assert_called_once()
+        assert {h["headline"] for h in out} == {"Fed holds rates steady", "Oil jumps on Gulf tension"}
+        assert out[0]["published_at"] == "2026-07-01 08:00"  # T/Z normalized
+
+    def test_us_empty_without_api_key(self):
+        with patch.object(nf.settings, "news_api_key", ""):
+            with patch.object(nf, "fetch_newsapi") as m:
+                out = nf.fetch_market_headlines("us", limit=10)
+        assert out == []
+        m.assert_not_called()
+
+    def test_result_is_cached_per_market(self):
+        with patch.object(nf.settings, "news_api_key", "k"):
+            with patch.object(nf, "fetch_newsapi", return_value=[]) as m:
+                nf.fetch_market_headlines("us", limit=5)
+                nf.fetch_market_headlines("us", limit=5)  # second call served from cache
+        assert m.call_count == 1

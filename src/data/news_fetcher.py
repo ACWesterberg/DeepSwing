@@ -5,16 +5,22 @@ import os
 from datetime import datetime, timedelta, timezone
 
 from config.settings import settings
-from financedata import get_news, SWEDISH_RSS_FEEDS
+from financedata import fetch_newsapi, get_news, SWEDISH_RSS_FEEDS
 
 os.environ.setdefault("NEWS_API_KEY", settings.news_api_key or "")
 
 logger = logging.getLogger(__name__)
 
-# Market-wide headline cache — shared across both tracks and both markets within
-# a short window, so a single scan cycle fetches the feeds once.
-_market_cache: tuple[datetime, list[dict]] | None = None
+# Market-wide headline cache, keyed by market — shared across both tracks within
+# a short window, so a single scan cycle fetches once per market.
+_market_cache: dict[str, tuple[datetime, list[dict]]] = {}
 _MARKET_TTL_SECONDS = 30 * 60
+
+# Broad market/macro/geopolitical query for US market-wide headlines (NewsAPI).
+_US_MARKET_QUERY = (
+    '"stock market" OR "Federal Reserve" OR "S&P 500" OR '
+    'inflation OR "oil prices" OR geopolitics'
+)
 
 
 def fetch_news_for_ticker(ticker: str, market: str) -> list[dict]:
@@ -31,21 +37,32 @@ def fetch_news_for_ticker(ticker: str, market: str) -> list[dict]:
     return result.get(ticker, [])
 
 
-def fetch_market_headlines(max_age_hours: int = 24, limit: int = 20) -> list[dict]:
+def fetch_market_headlines(market: str = "nordic", max_age_hours: int = 24, limit: int = 20) -> list[dict]:
     """
-    All recent headlines from the market RSS feeds — NOT filtered to any ticker.
-    This is the market-wide / macro / geopolitical environment signal. Cached for
-    ~30 min so repeated scans (both markets, both tracks) reuse one fetch.
-    Returns [{headline, source, published_at}] newest-first.
+    Recent market-wide headlines — NOT filtered to any ticker. The market-wide /
+    macro / geopolitical environment signal. Nordic pulls the RSS feeds directly;
+    US uses a broad NewsAPI query. Cached ~30 min per market so a scan cycle
+    fetches once. Returns [{headline, source, published_at}] newest-first.
     """
-    global _market_cache
+    now = datetime.now(timezone.utc)
+    cached = _market_cache.get(market)
+    if cached and (now - cached[0]).total_seconds() < _MARKET_TTL_SECONDS:
+        return cached[1]
+
+    if market == "us":
+        items = _fetch_us_market_headlines(max_age_hours, limit)
+    else:
+        items = _fetch_rss_market_headlines(max_age_hours, limit)
+
+    _market_cache[market] = (now, items)
+    logger.info("Market-wide news [%s]: %d headlines", market, len(items))
+    return items
+
+
+def _fetch_rss_market_headlines(max_age_hours: int, limit: int) -> list[dict]:
     import feedparser  # financedata dependency; imported lazily so tests can stub it
 
-    now = datetime.now(timezone.utc)
-    if _market_cache and (now - _market_cache[0]).total_seconds() < _MARKET_TTL_SECONDS:
-        return _market_cache[1]
-
-    cutoff = now - timedelta(hours=max_age_hours)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
     items: list[dict] = []
     seen: set[str] = set()
 
@@ -74,10 +91,33 @@ def fetch_market_headlines(max_age_hours: int = 24, limit: int = 20) -> list[dic
             items.append({"headline": title[:300], "source": source, "published_at": pub_str})
 
     items.sort(key=lambda a: a.get("published_at") or "", reverse=True)
-    items = items[:limit]
-    _market_cache = (now, items)
-    logger.info("Market-wide news: %d headlines from %d feeds", len(items), len(SWEDISH_RSS_FEEDS))
-    return items
+    return items[:limit]
+
+
+def _fetch_us_market_headlines(max_age_hours: int, limit: int) -> list[dict]:
+    if not settings.news_api_key:
+        logger.info("US market news skipped — no NEWS_API_KEY configured")
+        return []
+    try:
+        articles = fetch_newsapi(_US_MARKET_QUERY, max_age_hours=max_age_hours, page_size=limit)
+    except Exception as exc:
+        logger.warning("US market news fetch failed: %s", exc)
+        return []
+
+    items: list[dict] = []
+    seen: set[str] = set()
+    for a in articles:
+        title = (a.get("headline") or "").strip()
+        if not title or title.lower() in seen:
+            continue
+        seen.add(title.lower())
+        items.append({
+            "headline": title[:300],
+            "source": a.get("source", "NewsAPI"),
+            "published_at": (a.get("published_at") or "").replace("T", " ").rstrip("Z")[:16],
+        })
+    items.sort(key=lambda a: a.get("published_at") or "", reverse=True)
+    return items[:limit]
 
 
 def format_market_environment(headlines: list[dict]) -> str:

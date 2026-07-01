@@ -159,7 +159,7 @@ def run_scan(market: MarketType) -> dict:
     # decision model, ERL, and MIPRO without a signature change.
     try:
         market_env = format_market_environment(
-            fetch_market_headlines(limit=settings.market_news_max_headlines)
+            fetch_market_headlines(market, limit=settings.market_news_max_headlines)
         )
         macro_context = f"{macro_context}\n\n{market_env}"
     except Exception as exc:
