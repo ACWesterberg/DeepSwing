@@ -83,6 +83,13 @@ def main():
 
     logger.info("Simulation tracks: %s", settings.tracks)
 
+    # Log resolved model IDs, and optionally ping each so a bad ID/credential
+    # surfaces now rather than at the next scan/ERL/MIPRO run.
+    from src.scheduler.preflight import check_models, log_model_config
+    log_model_config()
+    if settings.preflight_check_models:
+        check_models()
+
     # Start background scheduler
     scheduler = start_scheduler()
 

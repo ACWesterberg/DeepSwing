@@ -84,6 +84,10 @@ class Settings(BaseSettings):
     mipro_backup_repo_dir: str = ""
     mipro_backup_push: bool = True  # commit locally always; push to remote if True
 
+    # Boot-time preflight: ping each configured model once so a bad ID/credential
+    # surfaces immediately in the logs instead of at the next scan/ERL/MIPRO run.
+    preflight_check_models: bool = True
+
     # Watchlists (configurable)
     # Emergency fallback only — universe.csv is the live source for Nordic tickers.
     # These are OMXS30 constituents in Yahoo Finance format (.ST not .STO).
