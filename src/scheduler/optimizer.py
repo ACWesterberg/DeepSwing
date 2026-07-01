@@ -10,7 +10,7 @@ import dspy
 from dspy.teleprompt import MIPROv2
 
 from config.settings import settings
-from src.agent.decision import TradeDecision
+from src.agent.decision import TradeDecision, build_lm
 from src.portfolio.metrics import compute_metrics
 from src.portfolio.simulator import get_portfolio
 
@@ -91,28 +91,13 @@ def run_mipro_optimization(track: TrackType) -> bool:
     # Two roles: the task model runs the program against trades (many calls, so
     # kept on the cheaper decision tier); the prompt model *writes* the candidate
     # instructions (few calls, so given the heaviest reasoner for best prompts).
+    # build_lm applies the temperature/max_tokens that GPT-5-class models require.
     if track == "claude":
-        task_lm = dspy.LM(
-            model=f"anthropic/{settings.claude_decision_model}",
-            api_key=settings.anthropic_api_key,
-            max_tokens=1024,
-        )
-        prompt_lm = dspy.LM(
-            model=f"anthropic/{settings.claude_prompt_model}",
-            api_key=settings.anthropic_api_key,
-            max_tokens=4096,
-        )
+        task_lm = build_lm(track, settings.claude_decision_model, settings.anthropic_api_key)
+        prompt_lm = build_lm(track, settings.claude_prompt_model, settings.anthropic_api_key, max_tokens=4096)
     else:
-        task_lm = dspy.LM(
-            model=f"openai/{settings.gpt_decision_model}",
-            api_key=settings.openai_api_key,
-            max_tokens=1024,
-        )
-        prompt_lm = dspy.LM(
-            model=f"openai/{settings.gpt_prompt_model}",
-            api_key=settings.openai_api_key,
-            max_tokens=4096,
-        )
+        task_lm = build_lm(track, settings.gpt_decision_model, settings.openai_api_key)
+        prompt_lm = build_lm(track, settings.gpt_prompt_model, settings.openai_api_key, max_tokens=4096)
 
     program = dspy.Predict(TradeDecision)
 
