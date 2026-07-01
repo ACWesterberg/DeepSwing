@@ -279,6 +279,7 @@ def run_scan(market: MarketType) -> dict:
                 confidence=decision["confidence"],
                 technical_snapshot=tech_snapshot,
                 sector=sector,
+                entry_inputs=decision.get("entry_inputs", {}),
             )
 
             if position:

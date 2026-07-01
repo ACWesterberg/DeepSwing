@@ -29,6 +29,7 @@ class OpenPosition:
     confidence: float = 0.0
     technical_snapshot: str = ""
     sector: str = ""
+    entry_inputs: dict = field(default_factory=dict)
 
     @property
     def unrealised_pnl(self) -> float:
@@ -79,6 +80,7 @@ class ClosedTrade:
     confidence: float
     exit_reason: str  # "stop_loss" | "take_profit" | "trailing_stop" | "manual"
     technical_snapshot: str = ""
+    entry_inputs: dict = field(default_factory=dict)
 
     @property
     def pnl(self) -> float:
@@ -162,6 +164,7 @@ class Portfolio:
         confidence: float,
         technical_snapshot: str = "",
         sector: str = "",
+        entry_inputs: Optional[dict] = None,
     ) -> Optional[OpenPosition]:
         # Apply simulated slippage (adverse, so price moves against us)
         filled_price = entry_price * (1 + settings.simulated_slippage)
@@ -194,6 +197,7 @@ class Portfolio:
             confidence=confidence,
             technical_snapshot=technical_snapshot,
             sector=sector,
+            entry_inputs=entry_inputs or {},
         )
         self.open_positions.append(position)
         self._next_trade_id += 1
@@ -244,6 +248,7 @@ class Portfolio:
             confidence=confidence or position.confidence,
             exit_reason=exit_reason,
             technical_snapshot=position.technical_snapshot,
+            entry_inputs=position.entry_inputs,
         )
         self.closed_trades.append(closed)
 

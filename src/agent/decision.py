@@ -113,15 +113,18 @@ class DecisionEngine:
             logger.error("DecisionEngine not initialized for track %s", self.track)
             return None
 
+        # Capture the exact inputs fed to the program so MIPRO can train on them later
+        entry_inputs = {
+            "technicals": candidate.signals.to_prompt_str(),
+            "regime": candidate.regime.to_prompt_str(),
+            "news_summary": news_summary or "No recent news available.",
+            "macro_context": macro_context or "No macro data available.",
+            "heuristics": heuristics_text or "No relevant heuristics yet.",
+        }
+
         try:
             with dspy.context(lm=self._lm):
-                result = self._program(
-                    technicals=candidate.signals.to_prompt_str(),
-                    regime=candidate.regime.to_prompt_str(),
-                    news_summary=news_summary or "No recent news available.",
-                    macro_context=macro_context or "No macro data available.",
-                    heuristics=heuristics_text or "No relevant heuristics yet.",
-                )
+                result = self._program(**entry_inputs)
 
             action = str(result.action).upper()
             if action not in ("BUY", "SELL", "HOLD"):
@@ -141,6 +144,7 @@ class DecisionEngine:
                 "reasoning": str(result.reasoning),
                 "track": self.track,
                 "ticker": candidate.ticker,
+                "entry_inputs": entry_inputs,
             }
 
         except Exception as exc:
