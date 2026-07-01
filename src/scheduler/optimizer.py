@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from pathlib import Path
 from typing import Literal
 
@@ -18,6 +19,30 @@ logger = logging.getLogger(__name__)
 TrackType = Literal["claude", "gpt"]
 
 MIN_TRADES_FOR_OPTIMIZATION = 30
+
+# Scales realized return before the tanh squash. At k=10 a ±10% move lands
+# near the (0,1) extremes, which matches typical swing-trade magnitudes.
+_PNL_METRIC_SCALE = 10.0
+
+
+def _pnl_weighted_metric(example, prediction, trace=None) -> float:
+    """
+    Reward a decision by the money it would have made, not just action-match.
+
+    Each training example carries the realized `pnl_pct` (a fraction) of a trade
+    that was actually taken. If the model would BUY, it "earns" that return; if it
+    passes, it earns nothing. The result is squashed to (0, 1):
+
+        take a +5% winner  → ~0.73     take a −5% loser → ~0.27
+        pass on anything   →  0.50     take a +15% winner → ~0.95
+
+    So passing beats taking a loser but loses to taking a winner, and the *size*
+    of each win/loss drives the optimization — which binary action-match ignored.
+    """
+    pred_action = str(getattr(prediction, "action", "")).upper()
+    pnl = float(getattr(example, "pnl_pct", 0.0) or 0.0)
+    realized = pnl if pred_action == "BUY" else 0.0
+    return 0.5 + 0.5 * math.tanh(realized * _PNL_METRIC_SCALE)
 
 
 def run_mipro_optimization(track: TrackType) -> bool:
@@ -51,6 +76,7 @@ def run_mipro_optimization(track: TrackType) -> bool:
             macro_context=inputs.get("macro_context", ""),
             heuristics=inputs.get("heuristics", ""),
             action="BUY" if t.pnl_pct > 0 else "HOLD",
+            pnl_pct=float(t.pnl_pct),  # carried for the P&L-weighted metric
         ).with_inputs("technicals", "regime", "news_summary", "macro_context", "heuristics")
         trainset.append(example)
 
@@ -78,18 +104,10 @@ def run_mipro_optimization(track: TrackType) -> bool:
 
     program = dspy.Predict(TradeDecision)
 
-    def metric(example, prediction, trace=None):
-        """MIPRO metric: reward correct BUY decisions, penalize false BUYs."""
-        pred_action = str(getattr(prediction, "action", "HOLD")).upper()
-        true_action = str(example.action).upper()
-        if pred_action == true_action:
-            return 1.0
-        return 0.0
-
     try:
         dspy.configure(lm=lm)
         optimizer = MIPROv2(
-            metric=metric,
+            metric=_pnl_weighted_metric,
             auto="light",  # lighter optimization for Pi resources
             num_threads=1,  # single-threaded for Pi 5
         )

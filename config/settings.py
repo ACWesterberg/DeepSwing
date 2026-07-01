@@ -61,11 +61,13 @@ class Settings(BaseSettings):
     dashboard_user: str = "deepswing"
     dashboard_password: str = ""   # leave empty to disable auth
 
-    # Screener thresholds
-    rsi_min: float = 40.0
-    rsi_max: float = 65.0
-    volume_spike_multiplier: float = 1.5
-    max_candidates_per_session: int = 10
+    # Screener thresholds — loosened to widen the funnel (more at-bats for MIPRO
+    # to learn from). The AI decision + RRR>=2 risk validation remain the quality
+    # gate downstream, so this raises trade volume without lowering standards.
+    rsi_min: float = 35.0                  # was 40.0
+    rsi_max: float = 70.0                  # was 65.0
+    volume_spike_multiplier: float = 1.2   # was 1.5 (20% above avg vol, not 50%)
+    max_candidates_per_session: int = 15   # was 10
 
     # Scheduler intervals (minutes)
     scan_interval_minutes: int = 15
