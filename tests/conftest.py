@@ -19,6 +19,7 @@ for _mod in [
     # AI / LLM clients
     "dspy",
     "dspy.predict",
+    "dspy.teleprompt",
     "anthropic",
     "openai",
     # Scheduler / server (not needed for unit/integration tests)
