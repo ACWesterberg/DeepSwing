@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-import anthropic
+import openai
 
 from config.settings import settings
 
@@ -40,8 +40,8 @@ def analyze_news(
     articles: list[dict],
 ) -> str:
     """
-    Pre-filter articles then call Claude Haiku for per-ticker news analysis.
-    Returns a short summary string.
+    Pre-filter articles then call the shared news model (GPT) for per-ticker
+    news analysis. Returns a short summary string. Shared across both tracks.
     """
     relevant = _prefilter(ticker, articles)
 
@@ -63,13 +63,15 @@ def analyze_news(
     )
 
     try:
-        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        resp = client.messages.create(
-            model=settings.claude_news_model,
-            max_tokens=256,
+        client = openai.OpenAI(api_key=settings.openai_api_key)
+        resp = client.chat.completions.create(
+            model=settings.gpt_news_model,
+            # max_completion_tokens works across the GPT-5 family (reasoning or not);
+            # leaves headroom in case the news model reasons before the short answer.
+            max_completion_tokens=512,
             messages=[{"role": "user", "content": prompt}],
         )
-        return resp.content[0].text.strip()
+        return (resp.choices[0].message.content or "").strip()
     except Exception as exc:
         logger.error("News analysis error for %s: %s", ticker, exc)
         return "News analysis unavailable."

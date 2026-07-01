@@ -38,10 +38,11 @@ Both configurable in `config/settings.py` (`nordic_watchlist`, `us_watchlist`).
 |---|---|---|
 | Scan decisions (15-min) | `claude-sonnet-5` | `gpt-5` |
 | ERL causal analysis | `claude-opus-4-8` + extended thinking | `gpt-5.5` + `reasoning_effort=high` |
-| News analysis | `claude-haiku-4-5` (shared, kept cheap) | — |
-| MIPRO optimization | Each track compiled against its own model | — |
+| News analysis | `gpt-5-mini` (shared by both tracks) | `gpt-5-mini` |
+| MIPRO — task model (evaluates candidates) | `claude-sonnet-5` | `gpt-5` |
+| MIPRO — prompt model (writes instructions) | `claude-opus-4-8` | `gpt-5.5` |
 
-All model IDs are env-overridable (see `.env.example`). Scan/ERL models were upgraded from the original Haiku/4o-mini/Sonnet-4-6/4o tier — the cheap mini tier proved too weak for decision reasoning; news stays on Haiku since summarization doesn't need a top model.
+All model IDs are env-overridable (see `.env.example`). Scan/ERL models were upgraded from the original Haiku/4o-mini/Sonnet-4-6/4o tier. News analysis is a single shared GPT call (`gpt-5-mini`) fed identically to both tracks — kept on a light model, and on GPT to use the free-token quota. MIPRO uses a heavy proposer (`prompt_model`) to write candidate instructions while the cheaper decision model evaluates them.
 
 ---
 

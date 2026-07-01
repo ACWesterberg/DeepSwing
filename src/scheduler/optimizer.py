@@ -88,26 +88,40 @@ def run_mipro_optimization(track: TrackType) -> bool:
     split = int(len(trainset) * 0.8)
     train, val = trainset[:split], trainset[split:]
 
-    # Configure DSPy LM for this track
+    # Two roles: the task model runs the program against trades (many calls, so
+    # kept on the cheaper decision tier); the prompt model *writes* the candidate
+    # instructions (few calls, so given the heaviest reasoner for best prompts).
     if track == "claude":
-        lm = dspy.LM(
+        task_lm = dspy.LM(
             model=f"anthropic/{settings.claude_decision_model}",
             api_key=settings.anthropic_api_key,
             max_tokens=1024,
         )
+        prompt_lm = dspy.LM(
+            model=f"anthropic/{settings.claude_prompt_model}",
+            api_key=settings.anthropic_api_key,
+            max_tokens=4096,
+        )
     else:
-        lm = dspy.LM(
+        task_lm = dspy.LM(
             model=f"openai/{settings.gpt_decision_model}",
             api_key=settings.openai_api_key,
             max_tokens=1024,
+        )
+        prompt_lm = dspy.LM(
+            model=f"openai/{settings.gpt_prompt_model}",
+            api_key=settings.openai_api_key,
+            max_tokens=4096,
         )
 
     program = dspy.Predict(TradeDecision)
 
     try:
-        dspy.configure(lm=lm)
+        dspy.configure(lm=task_lm)
         optimizer = MIPROv2(
             metric=_pnl_weighted_metric,
+            prompt_model=prompt_lm,  # heavy reasoner writes the instructions
+            task_model=task_lm,      # decision-tier model evaluates candidates
             auto="light",  # lighter optimization for Pi resources
             num_threads=1,  # single-threaded for Pi 5
         )
