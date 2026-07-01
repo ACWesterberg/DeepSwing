@@ -334,19 +334,6 @@ def _check_news_exit(track: str, portfolio, position, price: float, market: Mark
         heuristics_text=heuristics_text,
     )
 
-    _emit({
-        "event": "news_alert",
-        "data": {
-            "track": track,
-            "ticker": position.ticker,
-            "price": price,
-            "move_pct": round(move * 100, 2),
-            "direction": "up" if move > 0 else "down",
-            "news": news_summary,
-            "action": decision.get("action") if decision else "ERROR",
-        },
-    })
-
     if decision is None or decision["action"] != "SELL":
         return None
 
