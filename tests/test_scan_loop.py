@@ -76,6 +76,9 @@ SCAN_PATCHES = [
     "src.scheduler.scan_loop.compute_signals",
     "src.scheduler.scan_loop.classify_regime",
     "src.scheduler.scan_loop._to_sek_price",
+    "src.scheduler.scan_loop.fetch_market_headlines",
+    "src.scheduler.scan_loop.format_market_environment",
+    "src.scheduler.scan_loop.get_days_to_earnings",
 ]
 
 
@@ -101,6 +104,9 @@ def _apply_patches(patches: list, **overrides):
     started["compute_signals"].return_value = _make_signals("AAPL")
     started["classify_regime"].return_value = _make_regime()
     started["get_decision"].return_value = _buy_decision(100.0)
+    started["fetch_market_headlines"].return_value = []
+    started["format_market_environment"].return_value = "No market-wide news available."
+    started["get_days_to_earnings"].return_value = {}  # no earnings info → nothing filtered
     # Pass prices through unchanged — FX conversion tested separately in TestToSekPrice
     started["_to_sek_price"].side_effect = lambda price, ticker, market: price
     # Use the mocked get_current_price value so tests can control stop-hit behaviour
