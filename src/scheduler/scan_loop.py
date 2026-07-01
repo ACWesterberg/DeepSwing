@@ -450,11 +450,16 @@ def _trigger_erl(track: str, closed_trade) -> None:
         trade_dict["stop_hit"] = closed_trade.exit_reason == "stop_loss"
         trade_dict["pnl_pct"] = closed_trade.pnl_pct
 
+        # Entry-time news/macro so ERL can attribute outcomes to the environment
+        entry_inputs = getattr(closed_trade, "entry_inputs", {}) or {}
+
         run_erl(
             track=track,
             trade=trade_dict,
             technicals_str=closed_trade.technical_snapshot,
             regime_str=closed_trade.regime,
+            news_str=entry_inputs.get("news_summary", ""),
+            macro_str=entry_inputs.get("macro_context", ""),
         )
     except Exception as exc:
         logger.error("ERL trigger error for %s trade %s: %s", track, closed_trade.trade_id, exc)

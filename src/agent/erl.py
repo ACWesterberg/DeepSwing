@@ -24,6 +24,12 @@ Technical signals at entry:
 
 Market regime at entry: {regime}
 
+News & sentiment at entry:
+{news}
+
+Macro backdrop at entry:
+{macro}
+
 Outcome: {outcome}
 
 Your task:
@@ -45,6 +51,8 @@ def run_erl(
     trade: dict,
     technicals_str: str,
     regime_str: str,
+    news_str: str = "",
+    macro_str: str = "",
 ) -> Optional[str]:
     """
     Run Experiential Reflective Learning on a closed trade.
@@ -63,6 +71,8 @@ def run_erl(
         trade_summary=trade_summary,
         technicals=technicals_str,
         regime=regime_str,
+        news=news_str or "No news/sentiment captured at entry.",
+        macro=macro_str or "No macro context captured at entry.",
         outcome=outcome,
     )
 
