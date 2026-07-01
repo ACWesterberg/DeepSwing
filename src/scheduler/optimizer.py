@@ -144,6 +144,10 @@ def run_mipro_optimization(track: TrackType) -> bool:
             metrics.win_rate * 100, metrics.avg_rrr,
         )
 
+        # Offsite backup of the new program (best-effort, never fails the run)
+        from src.scheduler.backup import backup_compiled_program
+        backup_compiled_program(track, metrics.to_dict())
+
         return True
 
     except Exception as exc:
