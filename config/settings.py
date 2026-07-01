@@ -34,13 +34,15 @@ class Settings(BaseSettings):
     starting_capital_sek: float = 100_000.0
 
     # Claude models
-    claude_decision_model: str = "claude-haiku-4-5"
-    claude_erl_model: str = "claude-sonnet-4-6"
+    claude_decision_model: str = "claude-sonnet-5"          # scan decisions (up from Haiku)
+    claude_news_model: str = "claude-haiku-4-5-20251001"    # news analysis — kept cheap
+    claude_erl_model: str = "claude-opus-4-8"               # heavy post-trade reasoning
     claude_erl_extended_thinking: bool = True
 
     # GPT models
-    gpt_decision_model: str = "gpt-4o-mini"
-    gpt_erl_model: str = "gpt-4o"
+    gpt_decision_model: str = "gpt-5"                        # scan decisions (up from 4o-mini)
+    gpt_erl_model: str = "gpt-5.5"                           # heavy post-trade reasoning
+    gpt_erl_reasoning_effort: str = "high"                   # GPT "thinking" for ERL; "" disables
 
     # Risk parameters
     max_risk_per_trade: float = 0.01       # 1% of portfolio

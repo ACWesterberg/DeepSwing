@@ -65,7 +65,7 @@ def analyze_news(
     try:
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         resp = client.messages.create(
-            model=settings.claude_decision_model,
+            model=settings.claude_news_model,
             max_tokens=256,
             messages=[{"role": "user", "content": prompt}],
         )
