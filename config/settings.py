@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     rsi_max: float = 70.0                  # was 65.0
     volume_spike_multiplier: float = 1.2   # was 1.5 (20% above avg vol, not 50%)
     max_candidates_per_session: int = 15   # was 10
+    earnings_buffer_days: int = 2          # exclude candidates within N days of earnings
+    market_news_max_headlines: int = 20    # market-wide headlines injected into macro context
 
     # Scheduler intervals (minutes)
     scan_interval_minutes: int = 15

@@ -16,11 +16,28 @@ from financedata import (  # noqa: E402
     get_prices_batch,
     get_current_price,
     get_vix,
+    get_fundamentals as _get_fundamentals,
+    ts_to_days as _ts_to_days,
 )
 
 logger = logging.getLogger(__name__)
 
 _sector_cache: dict[str, str] = {}
+
+
+def get_days_to_earnings(tickers: list[str]) -> dict[str, Optional[int]]:
+    """
+    Days until each ticker's next earnings date (None if unknown or in the past).
+    Batched + cached via financedata fundamentals (7-day TTL, parallel fetch).
+    """
+    if not tickers:
+        return {}
+    try:
+        funds = _get_fundamentals(tickers)
+    except Exception as exc:
+        logger.warning("Earnings lookup failed: %s", exc)
+        return {}
+    return {t: _ts_to_days(funds.get(t, {}).get("earnings_timestamp")) for t in tickers}
 
 
 def fetch_ohlcv(

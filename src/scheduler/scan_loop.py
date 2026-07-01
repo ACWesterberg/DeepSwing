@@ -15,9 +15,9 @@ from src.analysis.screener import screen_candidates
 from src.analysis.technical import compute_signals
 from src.data.insider_fetcher import get_insider_summary
 from src.data.macro_data import get_macro_context
-from src.data.market_data import fetch_batch_nordic, fetch_batch_us, get_current_price, get_sector, get_vix
+from src.data.market_data import fetch_batch_nordic, fetch_batch_us, get_current_price, get_days_to_earnings, get_sector, get_vix
 from src.data.watchlist import get_omxs30_tickers, get_us_tickers
-from src.data.news_fetcher import fetch_news_for_ticker
+from src.data.news_fetcher import fetch_market_headlines, fetch_news_for_ticker, format_market_environment
 from src.portfolio.simulator import get_portfolio
 
 logger = logging.getLogger(__name__)
@@ -154,6 +154,17 @@ def run_scan(market: MarketType) -> dict:
     watchlist = get_omxs30_tickers() if market == "nordic" else get_us_tickers()
     macro_context = get_macro_context(market)
 
+    # Market-wide news environment (geopolitics, sector themes, risk sentiment) —
+    # fetched once per scan and folded into the macro context so it reaches the
+    # decision model, ERL, and MIPRO without a signature change.
+    try:
+        market_env = format_market_environment(
+            fetch_market_headlines(limit=settings.market_news_max_headlines)
+        )
+        macro_context = f"{macro_context}\n\n{market_env}"
+    except Exception as exc:
+        logger.warning("Market-wide news fetch failed: %s", exc)
+
     # --- Fetch OHLCV ---
     if market == "nordic":
         ohlcv_map = fetch_batch_nordic(watchlist)
@@ -177,6 +188,12 @@ def run_scan(market: MarketType) -> dict:
     candidates = screen_candidates(analysis_map, market)
     if not candidates:
         logger.info("No candidates passed screener for %s", market)
+        return {"market": market, "candidates": [], "decisions": []}
+
+    # --- Earnings-proximity filter: never trade into an earnings gap ---
+    candidates = _filter_earnings(candidates)
+    if not candidates:
+        logger.info("All candidates filtered out by earnings proximity for %s", market)
         return {"market": market, "candidates": [], "decisions": []}
 
     # --- Decision + risk + execution per candidate × track ---
@@ -417,6 +434,22 @@ def run_scan(market: MarketType) -> dict:
         "candidates": [c.to_dict() for c in candidates],
         "decisions": decisions_log,
     }
+
+
+def _filter_earnings(candidates: list) -> list:
+    """Drop candidates within settings.earnings_buffer_days of their earnings date."""
+    buffer = settings.earnings_buffer_days
+    if buffer <= 0 or not candidates:
+        return candidates
+    days_map = get_days_to_earnings([c.ticker for c in candidates])
+    kept = []
+    for c in candidates:
+        days = days_map.get(c.ticker)
+        if days is not None and days <= buffer:
+            logger.info("Earnings filter: skipping %s (earnings in %d day(s))", c.ticker, days)
+            continue
+        kept.append(c)
+    return kept
 
 
 def _get_current_prices(tickers: list[str], market: str) -> dict[str, float]:
