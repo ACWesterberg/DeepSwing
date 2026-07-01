@@ -71,6 +71,13 @@ class Settings(BaseSettings):
     scan_interval_minutes: int = 15
     news_refresh_interval_minutes: int = 60
 
+    # MIPRO artifact backup — path to a local git working copy of a standalone
+    # backups repo (e.g. ~/Github/deepswing-mipro-backups). Set via env
+    # MIPRO_BACKUP_REPO_DIR. Empty disables backup. The Pi must have push
+    # credentials configured on that working copy's remote.
+    mipro_backup_repo_dir: str = ""
+    mipro_backup_push: bool = True  # commit locally always; push to remote if True
+
     # Watchlists (configurable)
     # Emergency fallback only — universe.csv is the live source for Nordic tickers.
     # These are OMXS30 constituents in Yahoo Finance format (.ST not .STO).
