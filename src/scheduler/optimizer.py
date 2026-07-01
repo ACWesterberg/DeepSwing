@@ -75,7 +75,7 @@ def run_mipro_optimization(track: TrackType) -> bool:
             news_summary=inputs.get("news_summary", ""),
             macro_context=inputs.get("macro_context", ""),
             heuristics=inputs.get("heuristics", ""),
-            action="BUY" if t.pnl_pct > 0 else "HOLD",
+            action="BUY" if t.pnl_pct > 0 else "PASS",  # matches BUY/PASS signature
             pnl_pct=float(t.pnl_pct),  # carried for the P&L-weighted metric
         ).with_inputs("technicals", "regime", "news_summary", "macro_context", "heuristics")
         trainset.append(example)
