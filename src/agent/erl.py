@@ -113,11 +113,18 @@ def _call_model(track: TrackType, prompt: str) -> Optional[str]:
 
         else:  # gpt
             client = openai.OpenAI(api_key=settings.openai_api_key)
-            resp = client.chat.completions.create(
-                model=settings.gpt_erl_model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=1024,
-            )
+            kwargs: dict = {
+                "model": settings.gpt_erl_model,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+            if settings.gpt_erl_reasoning_effort:
+                # Reasoning models require max_completion_tokens (not max_tokens)
+                # and need headroom for the thinking budget on top of the answer.
+                kwargs["reasoning_effort"] = settings.gpt_erl_reasoning_effort
+                kwargs["max_completion_tokens"] = 4000
+            else:
+                kwargs["max_tokens"] = 1024
+            resp = client.chat.completions.create(**kwargs)
             return resp.choices[0].message.content
 
     except Exception as exc:

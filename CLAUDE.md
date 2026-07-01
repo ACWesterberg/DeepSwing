@@ -36,10 +36,12 @@ Both configurable in `config/settings.py` (`nordic_watchlist`, `us_watchlist`).
 
 | Task | Claude track | GPT track |
 |---|---|---|
-| Scan decisions (15-min) | `claude-haiku-4-5` | `gpt-4o-mini` |
-| ERL causal analysis | `claude-sonnet-4-6` + extended thinking | `gpt-4o` |
-| News analysis | `claude-haiku-4-5` (shared) | — |
+| Scan decisions (15-min) | `claude-sonnet-5` | `gpt-5` |
+| ERL causal analysis | `claude-opus-4-8` + extended thinking | `gpt-5.5` + `reasoning_effort=high` |
+| News analysis | `claude-haiku-4-5` (shared, kept cheap) | — |
 | MIPRO optimization | Each track compiled against its own model | — |
+
+All model IDs are env-overridable (see `.env.example`). Scan/ERL models were upgraded from the original Haiku/4o-mini/Sonnet-4-6/4o tier — the cheap mini tier proved too weak for decision reasoning; news stays on Haiku since summarization doesn't need a top model.
 
 ---
 
