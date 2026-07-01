@@ -22,7 +22,7 @@ from starlette.requests import Request
 from config.settings import settings
 from src.portfolio.metrics import compute_metrics
 from src.portfolio.simulator import get_portfolio, reset_portfolios
-from src.scheduler.market_hours import active_markets, is_market_open
+from src.scheduler.market_hours import active_markets, is_exchange_open
 from src.scheduler.scan_loop import clear_recent_decisions, get_recent_decisions, run_scan, set_trade_event_handler
 
 logger = logging.getLogger(__name__)
@@ -136,8 +136,8 @@ async def status():
     return {
         "timestamp": datetime.utcnow().isoformat(),
         "active_markets": active_markets(),
-        "nordic_open": is_market_open("nordic"),
-        "us_open": is_market_open("us"),
+        "nordic_open": is_exchange_open("nordic"),
+        "us_open": is_exchange_open("us"),
         "tracks": settings.tracks,
         "claude_configured": bool(settings.anthropic_api_key),
         "gpt_configured": bool(settings.openai_api_key),
