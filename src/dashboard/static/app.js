@@ -197,16 +197,19 @@ async function refreshTrack(track) {
     posBody.innerHTML = (pData.open_positions || []).map(p => {
       const pnlClass = p.unrealised_pnl_pct >= 0 ? "pos" : "neg";
       const days = Math.round((Date.now() - new Date(p.entry_time)) / 86400000);
+      const qty = p.quantity % 1 === 0 ? p.quantity : p.quantity.toFixed(2);
       return `<tr>
         <td><strong>${p.ticker}</strong></td>
         <td>${fmt(p.entry_price)}</td>
         <td>${fmt(p.current_price)}</td>
+        <td>${qty}</td>
+        <td>SEK ${fmtNum(p.market_value)}</td>
         <td class="${pnlClass}">${p.unrealised_pnl_pct}%</td>
         <td class="neg">${fmt(p.stop_loss)}</td>
         <td class="pos">${fmt(p.target)}</td>
         <td class="neutral">${days}d</td>
       </tr>`;
-    }).join("") || `<tr><td colspan="7" class="neutral">No open positions</td></tr>`;
+    }).join("") || `<tr><td colspan="9" class="neutral">No open positions</td></tr>`;
   }
 
   if (tData) {
