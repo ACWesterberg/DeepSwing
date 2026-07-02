@@ -151,6 +151,13 @@ def run_scan(market: MarketType) -> dict:
         )
         return {"market": market, "candidates": [], "decisions": [], "vix_halt": True, "vix": vix}
 
+    # If no track has cash to open a new position, the candidate/news/decision
+    # pipeline can't produce a trade — skip it and just monitor open holdings.
+    funded_tracks = [t for t in settings.tracks if get_portfolio(t).can_open_new_position]
+    if not funded_tracks:
+        logger.info("All cash allocated across tracks — holdings-only monitor for %s market", market)
+        return _monitor_holdings(market)
+
     watchlist = get_omxs30_tickers() if market == "nordic" else get_us_tickers()
     macro_context = get_macro_context(market)
 
@@ -218,7 +225,8 @@ def run_scan(market: MarketType) -> dict:
         tech_snapshot = candidate.signals.to_prompt_str()
         sector = get_sector(candidate.ticker)
 
-        for track in settings.tracks:
+        # Only tracks with cash to deploy get an entry decision this scan.
+        for track in funded_tracks:
             portfolio = get_portfolio(track)
 
             # Retrieve heuristics
@@ -320,79 +328,27 @@ def run_scan(market: MarketType) -> dict:
                 decisions_log.append(trade_event)
                 _emit({"event": "trade_opened", "data": trade_event})
 
-    # --- AI exit review for open positions in this market ---
+    # --- News-driven exit review, gated on a large price move ---
+    # Holdings are otherwise monitored on price alone (stop/target below). We only
+    # spend a news pull + AI exit review on a position that has jumped since its
+    # last news check — using the fresh batch signals for tickers still in the
+    # watchlist. Set holdings_news_jump_pct=0.0 to review every scan.
     for track in settings.tracks:
         portfolio = get_portfolio(track)
-        store = get_store(track)
         for position in list(portfolio.open_positions):
-            if position.market != market:
-                continue
-            if position.ticker not in analysis_map:
+            if position.market != market or position.ticker not in analysis_map:
                 continue
             signals, regime = analysis_map[position.ticker]
-            days_held = (datetime.utcnow() - position.entry_time).days
-            pnl_pct = position.unrealised_pnl_pct * 100
-            pos_ctx = (
-                f"Entry: {position.entry_price:.4f}, Current: {position.current_price:.4f}, "
-                f"P&L: {pnl_pct:+.2f}%, Stop: {position.stop_loss:.4f}, "
-                f"Target: {position.target:.4f}, Days held: {days_held}"
-            )
-            heuristics_list = store.retrieve(
-                ticker=position.ticker,
-                regime=regime.regime,
-                market=market,
-            )
-            pos_articles = fetch_news_for_ticker(position.ticker, market)
-            pos_news = analyze_news(
-                ticker=position.ticker,
-                market=market,
-                current_price=signals.current_price,
-                technicals_brief=f"Price {signals.current_price:.4f}, RSI {signals.rsi_14:.1f}",
-                articles=pos_articles,
-            )
-            exit_dec = get_exit_decision(
-                ticker=position.ticker,
-                market=market,
-                track=track,
+            current_sek = _to_sek_price(signals.current_price, position.ticker, market)
+            event = _maybe_news_exit(
+                track, portfolio, position, current_sek, market,
                 signals_str=signals.to_prompt_str(),
                 regime_str=regime.to_prompt_str(),
-                position_context=pos_ctx,
-                news_summary=pos_news or "No recent news available.",
+                regime_label=regime.regime,
                 macro_context=macro_context,
-                heuristics_text=store.to_prompt_text(heuristics_list),
             )
-            if exit_dec and exit_dec["action"] == "SELL":
-                exit_price = _to_sek_price(signals.current_price, position.ticker, market)
-                closed = portfolio.close_trade(
-                    trade_id=position.trade_id,
-                    exit_price=exit_price,
-                    exit_reason="ai_exit",
-                    regime=regime.regime,
-                    reasoning=exit_dec["reasoning"],
-                    confidence=exit_dec["confidence"],
-                )
-                if closed:
-                    logger.info(
-                        "[%s] AI exit: %s at %.4f (P&L %.2f%%) — %s",
-                        track, position.ticker, exit_price, pnl_pct, exit_dec["reasoning"][:80],
-                    )
-                    decisions_log.append({
-                        "track": track,
-                        "ticker": position.ticker,
-                        "action": "SELL",
-                        "confidence": round(exit_dec["confidence"], 2),
-                        "reasoning": exit_dec["reasoning"],
-                        "regime": regime.regime,
-                    })
-                    _emit({"event": "trade_closed", "data": {
-                        "track": track,
-                        "ticker": closed.ticker,
-                        "exit_reason": "ai_exit",
-                        "pnl_pct": round(closed.pnl_pct * 100, 2),
-                        "pnl": round(closed.pnl, 2),
-                        "exit_price": closed.exit_price,
-                    }})
-                    _trigger_erl(track, closed)
+            if event:
+                decisions_log.append(event)
 
     # --- Update open positions and trigger ERL for closed trades ---
     for track in settings.tracks:
@@ -404,21 +360,8 @@ def run_scan(market: MarketType) -> dict:
         current_prices: dict[str, float] = {}
         for pos_market, pos_tickers in positions_by_market.items():
             current_prices.update(_get_current_prices(pos_tickers, pos_market))
-        closed_trades = portfolio.update_prices(current_prices)
-
-        for closed in closed_trades:
-            _emit({
-                "event": "trade_closed",
-                "data": {
-                    "track": track,
-                    "ticker": closed.ticker,
-                    "exit_reason": closed.exit_reason,
-                    "pnl_pct": round(closed.pnl_pct * 100, 2),
-                    "pnl": round(closed.pnl, 2),
-                    "exit_price": closed.exit_price,
-                },
-            })
-            _trigger_erl(track, closed)
+        for closed in portfolio.update_prices(current_prices):
+            _emit_close(track, closed)
 
     logger.info("=== Scan complete: %s | %d candidates | %d decisions ===",
                 market, len(candidates), len(decisions_log))
@@ -434,6 +377,172 @@ def run_scan(market: MarketType) -> dict:
         "candidates": [c.to_dict() for c in candidates],
         "decisions": decisions_log,
     }
+
+
+def _monitor_holdings(market: MarketType) -> dict:
+    """
+    Lightweight cycle used when no track has cash to open a new position: pull
+    prices for open holdings, run the jump-gated news exit per position, then the
+    stop-loss/take-profit sweep. No watchlist fetch, no candidate/entry pipeline.
+    """
+    decisions_log: list[dict] = []
+    macro_context = get_macro_context(market)
+
+    for track in settings.tracks:
+        portfolio = get_portfolio(track)
+        positions = [p for p in portfolio.open_positions if p.market == market]
+        if not positions:
+            continue
+
+        prices = _get_current_prices([p.ticker for p in positions], market)
+
+        # A large price jump triggers a news pull + AI exit review; otherwise we
+        # rely on the mechanical stop/target sweep below. No fresh OHLCV here, so
+        # the exit review reuses the entry-time technical snapshot.
+        for position in list(positions):
+            price = prices.get(position.ticker)
+            if price is None:
+                continue
+            event = _maybe_news_exit(
+                track, portfolio, position, price, market,
+                signals_str=position.technical_snapshot or "No live technicals (holdings-only monitor).",
+                regime_str=position.regime,
+                regime_label=position.regime,
+                macro_context=macro_context,
+            )
+            if event:
+                decisions_log.append(event)
+
+        for closed in portfolio.update_prices(prices):
+            _emit_close(track, closed)
+
+    open_count = sum(
+        len([p for p in get_portfolio(t).open_positions if p.market == market])
+        for t in settings.tracks
+    )
+    logger.info("=== Holdings monitor: %s | %d open | %d exits ===",
+                market, open_count, len(decisions_log))
+
+    _recent_decisions[market] = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "decisions": decisions_log,
+    }
+    _persist_decisions(market, decisions_log)
+
+    return {
+        "market": market,
+        "mode": "holdings_monitor",
+        "candidates": [],
+        "decisions": decisions_log,
+    }
+
+
+def _maybe_news_exit(
+    track: str,
+    portfolio,
+    position,
+    current_price_sek: float,
+    market: MarketType,
+    signals_str: str,
+    regime_str: str,
+    regime_label: str,
+    macro_context: str,
+) -> Optional[dict]:
+    """
+    News-driven exit for a holding, gated on a large price move. Only when the
+    position has moved >= holdings_news_jump_pct since its last news check do we
+    pull news and run the AI exit review; a SELL closes it as 'news_exit'. All
+    prices are SEK. Returns a decisions_log event if closed, else None.
+    """
+    ref = position.last_news_price or position.entry_price
+    if ref <= 0:
+        return None
+    move = (current_price_sek - ref) / ref
+    if abs(move) < settings.holdings_news_jump_pct:
+        return None
+
+    position.last_news_price = current_price_sek
+    position.current_price = current_price_sek
+    move_pct = move * 100
+    days_held = (datetime.utcnow() - position.entry_time).days
+    logger.info(
+        "[%s] %s moved %+.1f%% since last news check (%.4f→%.4f) — running exit review",
+        track, position.ticker, move_pct, ref, current_price_sek,
+    )
+
+    articles = fetch_news_for_ticker(position.ticker, market)
+    news_summary = analyze_news(
+        ticker=position.ticker,
+        market=market,
+        current_price=current_price_sek,
+        technicals_brief=(
+            f"Held from {position.entry_price:.4f}, now {current_price_sek:.4f} "
+            f"({move_pct:+.1f}% since last check)"
+        ),
+        articles=articles,
+    )
+
+    store = get_store(track)
+    heuristics_list = store.retrieve(ticker=position.ticker, regime=regime_label, market=market)
+    pos_ctx = (
+        f"Entry: {position.entry_price:.4f}, Current: {current_price_sek:.4f}, "
+        f"P&L: {position.unrealised_pnl_pct * 100:+.2f}%, Stop: {position.stop_loss:.4f}, "
+        f"Target: {position.target:.4f}, Days held: {days_held}, "
+        f"Move since last news: {move_pct:+.1f}%"
+    )
+    exit_dec = get_exit_decision(
+        ticker=position.ticker,
+        market=market,
+        track=track,
+        signals_str=signals_str,
+        regime_str=regime_str,
+        position_context=pos_ctx,
+        news_summary=news_summary or "No recent news available.",
+        macro_context=macro_context,
+        heuristics_text=store.to_prompt_text(heuristics_list),
+    )
+    if not exit_dec or exit_dec["action"] != "SELL":
+        return None
+
+    closed = portfolio.close_trade(
+        trade_id=position.trade_id,
+        exit_price=current_price_sek,
+        exit_reason="news_exit",
+        regime=regime_label,
+        reasoning=exit_dec["reasoning"],
+        confidence=exit_dec["confidence"],
+    )
+    if not closed:
+        return None
+    logger.info(
+        "[%s] news exit: %s at %.4f (P&L %.2f%%) — %s",
+        track, position.ticker, current_price_sek, closed.pnl_pct * 100, exit_dec["reasoning"][:80],
+    )
+    _emit_close(track, closed)
+    return {
+        "track": track,
+        "ticker": position.ticker,
+        "action": "SELL",
+        "confidence": round(exit_dec["confidence"], 2),
+        "reasoning": exit_dec["reasoning"],
+        "regime": regime_label,
+    }
+
+
+def _emit_close(track: str, closed) -> None:
+    """Broadcast a trade-closed event and run ERL for a just-closed trade."""
+    _emit({
+        "event": "trade_closed",
+        "data": {
+            "track": track,
+            "ticker": closed.ticker,
+            "exit_reason": closed.exit_reason,
+            "pnl_pct": round(closed.pnl_pct * 100, 2),
+            "pnl": round(closed.pnl, 2),
+            "exit_price": closed.exit_price,
+        },
+    })
+    _trigger_erl(track, closed)
 
 
 def _filter_earnings(candidates: list) -> list:

@@ -79,6 +79,16 @@ class Settings(BaseSettings):
     scan_interval_minutes: int = 15
     news_refresh_interval_minutes: int = 60
 
+    # Fully-allocated behaviour: once a track's free cash falls below this fraction
+    # of its equity it can't meaningfully open a new position, so the scan skips the
+    # candidate/news/decision pipeline for it. When no track is funded the whole scan
+    # drops to a lightweight holdings-only monitor.
+    min_cash_for_new_position_pct: float = 0.05
+    # Holdings are monitored on price alone; a news pull + AI exit review only fires
+    # for a position once it has moved at least this fraction (up or down) since its
+    # last news check — a "large jump". Set to 0.0 to review every scan.
+    holdings_news_jump_pct: float = 0.05
+
     # MIPRO artifact backup — path to a local git working copy of a standalone
     # backups repo (e.g. ~/Github/deepswing-mipro-backups). Set via env
     # MIPRO_BACKUP_REPO_DIR. Empty disables backup. The Pi must have push

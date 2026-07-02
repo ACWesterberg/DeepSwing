@@ -31,7 +31,7 @@ Last updated: 2026-07-01
 
 ### Phase 4 — Scheduler + Data Ingestion
 - [x] `src/scheduler/market_hours.py` — `is_market_open()` (scan window), `is_exchange_open()` (badge, true exchange hours), `active_markets()`, CET-aware
-- [x] `src/scheduler/scan_loop.py` — full scan cycle; VIX circuit-breaker; per-position-market FX conversion to SEK; AI exit review; WebSocket trade events; decision persistence
+- [x] `src/scheduler/scan_loop.py` — full scan cycle; VIX circuit-breaker; per-position-market FX conversion to SEK; capacity-aware scanning (skips the candidate/news/decision pipeline for tracks with no free cash, drops to a holdings-only monitor when all tracks are fully allocated); jump-triggered news exits (news + AI exit review only fire once a holding moves ≥ `holdings_news_jump_pct`); WebSocket trade events; decision persistence
 - [x] `src/data/` — now thin wrappers over the shared **`financedata`** package: `market_data`, `news_fetcher`, `insider_fetcher`, `macro_data`; `universe.py` + `config/universe.csv` drive the Nordic watchlist (OMXS/OSLO/OMXH/OMXC)
 - [x] FX / currency handling — `_to_sek_price` + suffix→currency map (.ST/SEK, .OL/NOK, .HE/EUR, .CO/DKK, US/USD); per-position-market conversion
 
