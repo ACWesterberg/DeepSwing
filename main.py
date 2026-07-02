@@ -76,6 +76,13 @@ def main():
     init_db()
     logger.info("Database initialized at %s", settings.db_path)
 
+    # Restore persisted portfolio state, then arm persistence so tracks survive
+    # future restarts. Restore runs with the handler off, so it never writes back.
+    from src.portfolio.persistence import restore_portfolios, save_portfolio
+    from src.portfolio.simulator import set_persistence_handler
+    restore_portfolios()
+    set_persistence_handler(save_portfolio)
+
     # Ensure compiled + heuristic dirs exist
     settings.compiled_dir.mkdir(parents=True, exist_ok=True)
     for track in settings.tracks:

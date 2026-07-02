@@ -26,6 +26,7 @@ Last updated: 2026-07-01
 ### Phase 3 — Simulation + ERL + DSPy Optimization
 - [x] `src/portfolio/simulator.py` — track-tagged paper portfolio; open/close with slippage; trailing stop; stop-loss/take-profit auto-close; drawdown-mode flag; `entry_inputs` captured on positions/trades
 - [x] `src/portfolio/metrics.py` — Sharpe, max drawdown, win rate, avg RRR, total return, `optimization_metric = win_rate × avg_rrr`
+- [x] `src/portfolio/persistence.py` — durable portfolio state: full live state (cash, open positions, closed trades, peak equity, next trade id) mirrored to the `portfolio_state` table on every open/close + end of scan, rehydrated on startup so tracks survive a redeploy; `/api/reset` clears persisted rows
 - [x] `src/agent/erl.py` — post-trade causal analysis; Claude Opus + extended thinking (Claude); GPT-5.5 + `reasoning_effort` (GPT); structured heuristic extraction + storage
 - [x] `src/scheduler/optimizer.py` — weekly MIPROv2 per track; P&L-weighted metric; split prompt-model (heavy proposer) / task-model (decision tier); archives previous compiled program; `DecisionEngine.reload()`; offsite backup; heuristic prune/promote
 

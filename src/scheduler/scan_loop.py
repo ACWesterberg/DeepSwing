@@ -18,7 +18,7 @@ from src.data.macro_data import get_macro_context
 from src.data.market_data import fetch_batch_nordic, fetch_batch_us, get_current_price, get_days_to_earnings, get_sector, get_vix
 from src.data.watchlist import get_omxs30_tickers, get_us_tickers
 from src.data.news_fetcher import fetch_market_headlines, fetch_news_for_ticker, format_market_environment
-from src.portfolio.simulator import get_portfolio
+from src.portfolio.simulator import get_portfolio, persist_portfolio
 
 logger = logging.getLogger(__name__)
 
@@ -362,6 +362,9 @@ def run_scan(market: MarketType) -> dict:
             current_prices.update(_get_current_prices(pos_tickers, pos_market))
         for closed in portfolio.update_prices(current_prices):
             _emit_close(track, closed)
+        # End-of-scan flush — captures mark-to-market / trailing-stop updates on
+        # positions that didn't close (opens/closes already persisted inline).
+        persist_portfolio(portfolio)
 
     logger.info("=== Scan complete: %s | %d candidates | %d decisions ===",
                 market, len(candidates), len(decisions_log))
@@ -415,6 +418,7 @@ def _monitor_holdings(market: MarketType) -> dict:
 
         for closed in portfolio.update_prices(prices):
             _emit_close(track, closed)
+        persist_portfolio(portfolio)
 
     open_count = sum(
         len([p for p in get_portfolio(t).open_positions if p.market == market])

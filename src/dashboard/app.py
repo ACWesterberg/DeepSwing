@@ -325,8 +325,11 @@ async def reset_simulation(body: _ResetRequest):
 
         cleared[track] = {"heuristics_deleted": heuristic_count, "decisions_deleted": decision_count}
 
-    # Reset all in-memory portfolios and the latest-decisions cache
-    reset_portfolios()
+    # Reset in-memory portfolios, drop their persisted state (so a restart
+    # doesn't resurrect them), and clear the latest-decisions cache.
+    from src.portfolio.persistence import delete_portfolio_state
+    reset_portfolios(target_tracks)
+    delete_portfolio_state(target_tracks)
     clear_recent_decisions()
 
     await _broadcast({"event": "simulation_reset", "data": {"tracks": target_tracks}})

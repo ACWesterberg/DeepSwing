@@ -19,6 +19,7 @@ An AI-powered **swing trading simulator** running on a Raspberry Pi 5. Paper-tra
 - **All DB records have a `track` column** — "claude" | "gpt"; heuristics stored in `heuristics/{track}/`
 - **MIPRO runs weekly, Sunday 02:00 CET** — requires 30+ closed trades to run; archives previous compiled JSON
 - **Capacity-aware scanning** — a track with free cash below `min_cash_for_new_position_pct` (5%) of its equity is treated as fully allocated and gets no entry decisions; when *no* track is funded the scan skips the whole candidate/news/decision pipeline and runs a holdings-only monitor. Holdings are tracked on price alone — a news pull + AI exit review only fires once a position moves ≥ `holdings_news_jump_pct` (5%) since its last check (closes as `exit_reason="news_exit"`). Set either knob to 0 to restore always-on behaviour.
+- **Portfolio state is durable** — the live `Portfolio` (cash, open positions, closed trades, peak equity) is an in-memory object mirrored to the `portfolio_state` DB table on every open/close and at end of scan, and rehydrated on startup (`persistence.restore_portfolios()`), so tracks survive a redeploy/restart. `main.py` restores *before* arming the persistence handler; `/api/reset` deletes the persisted rows so a restart doesn't resurrect cleared tracks. Heuristics stay file-backed; MIPRO programs stay git-backed.
 
 ---
 
@@ -61,7 +62,8 @@ All model IDs are env-overridable (see `.env.example`). Scan/ERL models were upg
 
 ```
 config/settings.py          All config — API keys, risk params, model names, watchlists
-src/db.py                   SQLAlchemy models (Trade, Position, PortfolioSnapshot, Heuristic)
+src/db.py                   SQLAlchemy models (Trade, Position, PortfolioSnapshot, PortfolioState, Heuristic, Decision)
+src/portfolio/persistence.py  DB save/restore of live portfolio state (survives restarts)
 src/data/market_data.py     OHLCV fetch — yfinance + Alpha Vantage
 src/data/news_fetcher.py    NewsAPI + Swedish RSS
 src/data/insider_fetcher.py SEC EDGAR + FI Insynsregistret

@@ -91,6 +91,22 @@ class PortfolioSnapshot(Base):
     __table_args__ = (Index("ix_snapshots_track_time", "track", "timestamp"),)
 
 
+class PortfolioState(Base):
+    """Full live state of one track's portfolio — the durable mirror of the
+    in-memory Portfolio, so tracks survive a process restart / redeploy."""
+    __tablename__ = "portfolio_state"
+
+    track = Column(String(10), primary_key=True)
+    updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    cash = Column(Float, nullable=False)
+    starting_equity = Column(Float, nullable=False)
+    peak_equity = Column(Float, nullable=False)
+    total_commission = Column(Float, default=0.0)
+    next_trade_id = Column(Integer, default=1)
+    open_positions = Column(JSON, default=list)   # list of serialized OpenPosition
+    closed_trades = Column(JSON, default=list)     # list of serialized ClosedTrade
+
+
 class Heuristic(Base):
     __tablename__ = "heuristics"
 
