@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import datetime
 from typing import Callable, Literal, Optional
 
@@ -129,7 +130,23 @@ def _emit(event: dict) -> None:
             logger.warning("Trade event callback error: %s", exc)
 
 
+# Serialize scans across threads — the scheduler and a manual /api/scan trigger
+# must never run concurrently, or two scans could double-open the same ticker.
+_scan_lock = threading.Lock()
+
+
 def run_scan(market: MarketType) -> dict:
+    """Run a scan, but never concurrently with another scan (see _scan_lock)."""
+    if not _scan_lock.acquire(blocking=False):
+        logger.info("Scan already in progress — skipping %s scan", market)
+        return {"market": market, "candidates": [], "decisions": [], "busy": True}
+    try:
+        return _run_scan(market)
+    finally:
+        _scan_lock.release()
+
+
+def _run_scan(market: MarketType) -> dict:
     """
     Full scan cycle for a given market:
     1. Fetch OHLCV for watchlist
@@ -474,7 +491,7 @@ def _maybe_news_exit(
         track, position.ticker, move_pct, ref, current_price_sek,
     )
 
-    articles = fetch_news_for_ticker(position.ticker, market)
+    articles = fetch_news_for_ticker(position.ticker, market, force_refresh=True)
     news_summary = analyze_news(
         ticker=position.ticker,
         market=market,

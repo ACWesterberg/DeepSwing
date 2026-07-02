@@ -339,10 +339,13 @@ async def reset_simulation(body: _ResetRequest):
 
 @app.post("/api/scan/{market}")
 async def trigger_scan(market: str):
-    """Manually trigger a scan (for testing)."""
+    """Manually trigger a scan. run_scan is a long blocking call, so it runs in a
+    worker thread — otherwise it would freeze the whole event loop (every page and
+    API refresh) for the duration of the scan."""
     if market not in ("nordic", "us"):
         return {"error": "market must be 'nordic' or 'us'"}
-    result = run_scan(market)
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, run_scan, market)
     await _broadcast({"event": "scan_complete", "data": result})
     return result
 

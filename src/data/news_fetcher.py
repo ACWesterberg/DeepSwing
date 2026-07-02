@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from config.settings import settings
 from financedata import fetch_newsapi, get_news, SWEDISH_RSS_FEEDS
@@ -16,6 +18,23 @@ logger = logging.getLogger(__name__)
 _market_cache: dict[str, tuple[datetime, list[dict]]] = {}
 _MARKET_TTL_SECONDS = 30 * 60
 
+# Per-ticker news cache, keyed by (ticker, market). Candidates recur across the
+# 15-min scans, so this avoids re-hitting NewsAPI for the same ticker.
+_ticker_cache: dict[tuple[str, str], tuple[datetime, list[dict]]] = {}
+
+# Rate-limit breaker: when a NewsAPI fetch stalls on 429 backoff we skip NewsAPI
+# (RSS only) until this time, so one throttled ticker doesn't cost ~1 min each.
+_newsapi_cooldown_until: Optional[datetime] = None
+
+
+def _newsapi_available() -> bool:
+    if not settings.news_api_key:
+        return False
+    if _newsapi_cooldown_until and datetime.now(timezone.utc) < _newsapi_cooldown_until:
+        return False
+    return True
+
+
 # Broad market/macro/geopolitical query for US market-wide headlines (NewsAPI).
 _US_MARKET_QUERY = (
     '"stock market" OR "Federal Reserve" OR "S&P 500" OR '
@@ -23,18 +42,48 @@ _US_MARKET_QUERY = (
 )
 
 
-def fetch_news_for_ticker(ticker: str, market: str) -> list[dict]:
+def fetch_news_for_ticker(ticker: str, market: str, force_refresh: bool = False) -> list[dict]:
     """Fetch recent news articles for a ticker. Returns financedata article format:
     [{headline, source_url, published_at, source}]
-    """
+
+    Results are cached per (ticker, market) for news_refresh_interval_minutes.
+    If NewsAPI is being rate-limited, it's skipped (RSS only) until the cooldown
+    expires so a throttled ticker doesn't stall the scan. Pass force_refresh to
+    bypass the cache (used by the jump-triggered exit review, where freshness
+    matters most)."""
+    global _newsapi_cooldown_until
+
+    now = datetime.now(timezone.utc)
+    key = (ticker, market)
+    ttl = settings.news_refresh_interval_minutes * 60
+    cached = _ticker_cache.get(key)
+    if not force_refresh and cached and (now - cached[0]).total_seconds() < ttl:
+        return cached[1]
+
     feeds = SWEDISH_RSS_FEEDS if market == "nordic" else []
+    use_newsapi = _newsapi_available()
+    started = time.monotonic()
     result = get_news(
         tickers=[ticker],
         feeds=feeds,
         max_age_hours=48,
-        use_newsapi=bool(settings.news_api_key),
+        use_newsapi=use_newsapi,
     )
-    return result.get(ticker, [])
+    elapsed = time.monotonic() - started
+    articles = result.get(ticker, [])
+
+    # A slow NewsAPI call means we hit 429 backoff — trip the breaker so the rest
+    # of this scan skips NewsAPI and just uses RSS.
+    threshold = settings.newsapi_slow_threshold_seconds
+    if use_newsapi and threshold > 0 and elapsed >= threshold:
+        _newsapi_cooldown_until = now + timedelta(minutes=settings.newsapi_cooldown_minutes)
+        logger.warning(
+            "NewsAPI stalled %.0fs on %s — skipping NewsAPI for %d min (RSS only)",
+            elapsed, ticker, settings.newsapi_cooldown_minutes,
+        )
+
+    _ticker_cache[key] = (now, articles)
+    return articles
 
 
 def fetch_market_headlines(market: str = "nordic", max_age_hours: int = 24, limit: int = 20) -> list[dict]:

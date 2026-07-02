@@ -77,7 +77,14 @@ class Settings(BaseSettings):
 
     # Scheduler intervals (minutes)
     scan_interval_minutes: int = 15
-    news_refresh_interval_minutes: int = 60
+    news_refresh_interval_minutes: int = 60  # also the per-ticker news cache TTL
+
+    # NewsAPI rate-limit resilience: if a per-ticker fetch stalls longer than
+    # this (retry/backoff = throttled), trip a breaker that skips NewsAPI for
+    # newsapi_cooldown_minutes so the rest of the scan uses RSS only and doesn't
+    # stall ~1 min per ticker. Set the threshold to 0 to disable the breaker.
+    newsapi_slow_threshold_seconds: float = 8.0
+    newsapi_cooldown_minutes: int = 20
 
     # Fully-allocated behaviour: once a track's free cash falls below this fraction
     # of its equity it can't meaningfully open a new position, so the scan skips the
