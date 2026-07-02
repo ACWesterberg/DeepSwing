@@ -332,7 +332,9 @@ class TestHeuristicStoreBehavior:
         )
         assert (tmp_path / "claude" / f"{heuristic_id}.json").exists()
 
-    def test_retrieve_increments_access_count(self, tmp_path):
+    def test_retrieve_increments_access_count_rate_limited(self, tmp_path):
+        """Back-to-back retrievals count once — the counter is throttled to one
+        increment per hour so 15-min scan cycles can't inflate it."""
         from src.agent.memory import get_store
         store = get_store("claude")
         heuristic_id = store.save(
@@ -344,13 +346,38 @@ class TestHeuristicStoreBehavior:
         store.retrieve(ticker="AAPL", regime="any", market="us", top_k=1)
 
         data = json.loads((tmp_path / "claude" / f"{heuristic_id}.json").read_text())
-        assert data["access_count"] == 2
+        assert data["access_count"] == 1
+        assert data["last_accessed"] is not None
+
+    def test_retrieve_counts_again_after_an_hour(self, tmp_path):
+        from datetime import datetime, timedelta
+        from src.agent.memory import get_store
+        store = get_store("claude")
+        heuristic_id = store.save(trigger="A", action="B", quality_score=5.0)
+
+        store.retrieve(ticker="AAPL", regime="any", market="us", top_k=1)
+        path = tmp_path / "claude" / f"{heuristic_id}.json"
+        data = json.loads(path.read_text())
+        data["last_counted"] = (datetime.utcnow() - timedelta(hours=2)).isoformat()
+        path.write_text(json.dumps(data))
+
+        store.retrieve(ticker="AAPL", regime="any", market="us", top_k=1)
+        assert json.loads(path.read_text())["access_count"] == 2
 
     def test_prune_removes_low_quality_low_access(self, tmp_path):
+        from datetime import datetime, timedelta
         from src.agent.memory import get_store
         store = get_store("claude")
         keep_id = store.save(trigger="A", action="B", quality_score=6.0)
         prune_id = store.save(trigger="C", action="D", quality_score=2.0)
+
+        # Backdate both past the grace period — prune never touches fresh rules
+        backdated = (datetime.utcnow() - timedelta(days=8)).isoformat()
+        for hid in (keep_id, prune_id):
+            path = tmp_path / "claude" / f"{hid}.json"
+            data = json.loads(path.read_text())
+            data["created"] = backdated
+            path.write_text(json.dumps(data))
 
         removed = store.prune(quality_threshold=4.0, access_threshold=2)
 
@@ -358,15 +385,28 @@ class TestHeuristicStoreBehavior:
         assert (tmp_path / "claude" / f"{keep_id}.json").exists()
         assert not (tmp_path / "claude" / f"{prune_id}.json").exists()
 
+    def test_prune_spares_fresh_low_quality_heuristics(self, tmp_path):
+        from src.agent.memory import get_store
+        store = get_store("claude")
+        fresh_id = store.save(trigger="C", action="D", quality_score=2.0)
+
+        removed = store.prune(quality_threshold=4.0, access_threshold=2)
+
+        assert removed == 0
+        assert (tmp_path / "claude" / f"{fresh_id}.json").exists()
+
     def test_promote_core_marks_frequently_accessed(self, tmp_path):
         from src.agent.memory import get_store
         store = get_store("claude")
         heuristic_id = store.save(trigger="A", action="B", quality_score=7.0)
 
-        # Retrieve 10 times to hit the promotion threshold
-        for _ in range(10):
-            store.retrieve(ticker="ANY", regime="any", market="us", top_k=1)
+        # Simulate accrued access across many hours (retrieval counting is
+        # rate-limited, so a loop of immediate retrieves no longer gets there)
+        path = tmp_path / "claude" / f"{heuristic_id}.json"
+        data = json.loads(path.read_text())
+        data["access_count"] = 10
+        path.write_text(json.dumps(data))
 
         store.promote_core(access_threshold=10)
-        data = json.loads((tmp_path / "claude" / f"{heuristic_id}.json").read_text())
+        data = json.loads(path.read_text())
         assert data["is_core"] is True

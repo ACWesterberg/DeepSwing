@@ -52,6 +52,13 @@ class Settings(BaseSettings):
     hard_cap_risk_per_trade: float = 0.02  # 2% hard cap
     min_rrr: float = 2.0
     atr_stop_multiplier: float = 1.5
+    # Risk-based sizing alone is unbounded (tight stop → huge position), so position
+    # value is also capped as a fraction of equity — and at available cash.
+    max_position_pct: float = 0.25
+    # Trailing stop distance in ATRs once a position is in profit. Wider than the
+    # entry stop (1.5×ATR) so ordinary daily noise doesn't knock out winners
+    # before the RRR>=2 target is reachable.
+    trailing_stop_atr_multiplier: float = 2.0
     drawdown_pause_threshold: float = 0.10
     max_sector_correlation: float = 0.7
     max_positions_per_sector: int = 2

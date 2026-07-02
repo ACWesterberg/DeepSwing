@@ -161,6 +161,25 @@ class TestRunScanReturnShape:
         assert result.get("vix_halt") is True
         assert result["decisions"] == []
 
+    def test_vix_halt_still_enforces_stops_on_holdings(self):
+        """A VIX halt must block new entries but keep managing open positions."""
+        mocks = _apply_patches(SCAN_PATCHES)
+        from src.scheduler.scan_loop import run_scan
+
+        run_scan("us")  # opens positions at ~100 with stop 97
+        for track in ("claude", "gpt"):
+            assert len(get_portfolio(track).open_positions) == 1
+
+        mocks["get_vix"].return_value = 40.0
+        mocks["get_current_price"].return_value = 90.0  # below stop
+        result = run_scan("us")
+
+        assert result.get("vix_halt") is True
+        for track in ("claude", "gpt"):
+            portfolio = get_portfolio(track)
+            assert len(portfolio.open_positions) == 0
+            assert len(portfolio.closed_trades) == 1
+
     def test_vix_below_threshold_proceeds(self):
         mocks = _apply_patches(SCAN_PATCHES, get_vix=34.9)
         from src.scheduler.scan_loop import run_scan
@@ -229,7 +248,7 @@ class TestRunScanStopHitAndERL:
 
     def test_stop_hit_triggers_erl(self):
         mocks = _apply_patches(SCAN_PATCHES)
-        from src.scheduler.scan_loop import run_scan
+        from src.scheduler.scan_loop import run_scan, wait_for_erl
 
         # Open a position first
         run_scan("us")
@@ -239,18 +258,20 @@ class TestRunScanStopHitAndERL:
         # Price below stop (entry ~100, stop=97, current_price mock returns 95 → stop hit)
         mocks["get_current_price"].return_value = 85.0
         run_scan("us")
+        wait_for_erl()  # ERL runs in background threads now
 
         # ERL should have been called once per track
         assert mocks["run_erl"].call_count == len(["claude", "gpt"])
 
     def test_erl_receives_technical_snapshot(self):
         mocks = _apply_patches(SCAN_PATCHES)
-        from src.scheduler.scan_loop import run_scan
+        from src.scheduler.scan_loop import run_scan, wait_for_erl
 
         run_scan("us")
         mocks["run_erl"].reset_mock()
         mocks["get_current_price"].return_value = 80.0
         run_scan("us")
+        wait_for_erl()
 
         for call in mocks["run_erl"].call_args_list:
             technicals_str = call.kwargs.get("technicals_str") or call.args[2]
@@ -294,10 +315,12 @@ class TestToSekPrice:
         from src.scheduler.scan_loop import _to_sek_price
         assert _to_sek_price(150.0, "ERIC-B.ST", "nordic") == 150.0
 
-    def test_us_price_without_fx_passes_through(self):
+    def test_us_price_without_fx_returns_none(self):
+        # Booking a raw USD price against a SEK book corrupts sizing/P&L —
+        # conversion failure must surface as None, never a silent pass-through.
         import src.scheduler.scan_loop as sl
         sl._HAS_FX = False
-        assert sl._to_sek_price(100.0, "AAPL", "us") == 100.0
+        assert sl._to_sek_price(100.0, "AAPL", "us") is None
 
     def test_us_price_converted_via_fx(self):
         import src.scheduler.scan_loop as sl
@@ -305,11 +328,11 @@ class TestToSekPrice:
         sl._to_sek_fn = lambda price, currency: price * 10.5
         assert sl._to_sek_price(100.0, "AAPL", "us") == pytest.approx(1050.0)
 
-    def test_us_price_falls_back_when_fx_returns_none(self):
+    def test_us_price_returns_none_when_fx_rate_unavailable(self):
         import src.scheduler.scan_loop as sl
         sl._HAS_FX = True
         sl._to_sek_fn = lambda price, currency: None
-        assert sl._to_sek_price(100.0, "AAPL", "us") == 100.0
+        assert sl._to_sek_price(100.0, "AAPL", "us") is None
 
     def test_norwegian_price_converted_via_nok(self):
         import src.scheduler.scan_loop as sl
@@ -344,10 +367,19 @@ class TestGetCurrentPrices:
     def test_uses_get_current_price_fallback(self):
         import src.scheduler.scan_loop as sl
         sl._HAS_LIVE = False
-        sl._HAS_FX = False
+        sl._HAS_FX = True
+        sl._to_sek_fn = lambda price, currency: price
         with patch("src.scheduler.scan_loop.get_current_price", return_value=55.0) as mock_p:
             result = sl._get_current_prices(["AAPL", "MSFT"], "us")
         assert result == {"AAPL": 55.0, "MSFT": 55.0}
+
+    def test_us_tickers_skipped_when_fx_unavailable(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_LIVE = False
+        sl._HAS_FX = False
+        with patch("src.scheduler.scan_loop.get_current_price", return_value=55.0):
+            result = sl._get_current_prices(["AAPL"], "us")
+        assert result == {}
 
     def test_fallback_applies_fx_conversion(self):
         import src.scheduler.scan_loop as sl
@@ -370,7 +402,8 @@ class TestGetCurrentPrices:
     def test_live_path_falls_back_on_exception(self):
         import src.scheduler.scan_loop as sl
         sl._HAS_LIVE = True
-        sl._HAS_FX = False
+        sl._HAS_FX = True
+        sl._to_sek_fn = lambda price, currency: price
 
         def _raise(_):
             raise RuntimeError("network error")

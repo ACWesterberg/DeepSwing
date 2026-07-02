@@ -14,6 +14,16 @@ logger = logging.getLogger(__name__)
 TrackType = Literal["claude", "gpt"]
 
 
+def _hours_since(iso_ts: Optional[str], now: datetime) -> float:
+    """Hours between an ISO timestamp and now; inf when missing/unparseable."""
+    if not iso_ts:
+        return float("inf")
+    try:
+        return (now - datetime.fromisoformat(iso_ts)).total_seconds() / 3600.0
+    except ValueError:
+        return float("inf")
+
+
 class HeuristicStore:
     """
     File-backed heuristic store with SQLite mirroring.
@@ -88,10 +98,16 @@ class HeuristicStore:
         scored.sort(key=lambda x: x[0], reverse=True)
         top = [h for _, h in scored[:top_k]]
 
-        # Update access counts
+        # Update access counts — at most once per hour per heuristic. Retrieval
+        # happens every 15-min scan × every candidate, so unthrottled counting
+        # inflates counts by hundreds per day and makes the prune/promote
+        # thresholds meaningless (rich-get-richer entrenchment of early rules).
+        now = datetime.utcnow()
         for h in top:
-            h["access_count"] = h.get("access_count", 0) + 1
-            h["last_accessed"] = datetime.utcnow().isoformat()
+            h["last_accessed"] = now.isoformat()
+            if _hours_since(h.get("last_counted"), now) >= 1.0:
+                h["access_count"] = h.get("access_count", 0) + 1
+                h["last_counted"] = now.isoformat()
             file_path = self._dir / f"{h['id']}.json"
             file_path.write_text(json.dumps(h, indent=2))
 
@@ -108,12 +124,21 @@ class HeuristicStore:
             )
         return "\n".join(lines)
 
-    def prune(self, quality_threshold: float = 4.0, access_threshold: int = 2) -> int:
-        """Remove low-quality, low-access heuristics. Returns count deleted."""
+    def prune(
+        self,
+        quality_threshold: float = 4.0,
+        access_threshold: int = 2,
+        min_age_days: float = 7.0,
+    ) -> int:
+        """Remove low-quality, low-access heuristics older than min_age_days.
+        The age gate gives new rules a grace period before they can be culled."""
         removed = 0
+        now = datetime.utcnow()
         for path in self._dir.glob("*.json"):
             try:
                 h = json.loads(path.read_text())
+                if _hours_since(h.get("created"), now) < min_age_days * 24:
+                    continue
                 if h.get("quality_score", 5.0) < quality_threshold and h.get("access_count", 0) < access_threshold:
                     path.unlink()
                     removed += 1

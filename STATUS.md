@@ -65,11 +65,32 @@ Last updated: 2026-07-02
 - [x] `.gitignore` — excludes `.env`, `venv/`, `data/*.db`, `heuristics/`, `compiled/`
 - [x] Deployed and running on Pi 5; Cloudflare Tunnel live (`trade.westerberg.dev`); dashboard cookie auth
 
+### Correctness & security review fixes (2026-07-02)
+- [x] **VIX halt no longer abandons holdings** — a VIX ≥ 35 halt blocks new entries but falls through to the holdings monitor, so stops/targets/news exits still run during volatility spikes
+- [x] **ATR-scaled trailing stop + correct exit labels** — the fixed 2% trail (tighter than most tickers' daily ATR; killed winners long before the RRR 2.0 target) is now `trailing_stop_atr_multiplier` (2×ATR, SEK-converted at entry, persisted per position); trailed exits close as `exit_reason="trailing_stop"` instead of being mislabeled `"stop_loss"`, so ERL no longer analyzes profitable trailed exits as stop-outs
+- [x] **ATR stop-sanity check fixed** — `stop < atr_stop * 0.90` applied 10% of *price* as slack (toothless) and mixed SEK entry prices with native-currency ATR; now compares stop distance vs 1.5×ATR as fractions of price (currency-safe, 10% slack on the ATR distance)
+- [x] **Position-value cap** — risk-based sizing is unbounded with tight stops (position could exceed cash and the approved BUY silently vanished at execution); position value is now capped at `max_position_pct` (25%) of equity and at available cash; execution-time failures land in the decisions feed as BLOCKED
+- [x] **US market hours in ET** — the fixed 15:30–22:00 CET window missed the first NYSE hour (or overshot the close) during the ~3 weeks/year when US and EU DST are out of sync; US windows are now evaluated in America/New_York
+- [x] **FX guard** — `_to_sek_price` returns `None` when conversion is unavailable instead of silently booking raw USD/EUR prices against the SEK book; entries are BLOCKED, price updates skipped
+- [x] **ERL off the scan thread** — ERL (extended-thinking call, potentially minutes per closed trade) ran inline in the scan despite "non-blocking" claims; now runs in daemon threads (`wait_for_erl()` for tests/shutdown)
+- [x] **Sharpe honesty** — per-trade returns were annualized as if daily (×√252, overstating several-fold); now scaled by the actual average holding period; `/api/comparison` equity curves get a live mark-to-market point so open P&L is visible in the head-to-head chart
+- [x] **Heuristic count calibration** — access counts increment at most once per hour per heuristic (were inflated by every 15-min scan × candidate, entrenching early rules); prune gets a 7-day grace period so new rules aren't culled before they can be used
+- [x] **Dashboard security** — session cookie was the plaintext password (irrevocable if leaked); now a random server-side token. WebSocket `/ws` bypassed the auth middleware entirely (BaseHTTPMiddleware only sees http scope); auth is now enforced in the endpoint. Reset PIN compared constant-time
+- [x] **Reset/scan race** — `/api/reset` now takes the scan lock; previously an in-flight scan's end-of-scan persist could resurrect the just-cleared portfolio state
+- [x] **Peak equity ratchet** — `peak_equity` now updates on mark-to-market, not only on closes, so drawdown mode sees peaks reached while positions were open
+- [x] **Tests** — 229 passing (was 206): trailing-stop labeling, position/cash caps, currency-safe ATR check, VIX-halt holdings sweep, FX-guard semantics, US DST market hours, heuristic rate-limiting/grace period
+
 ---
 
 ## To Do 🔲
 
 ### Improvements
+- [ ] **MIPRO counterfactual training data** — the trainset only contains trades that were *taken* (survivorship bias; a PASS always scores 0.5 in the metric). PASS decisions are already persisted in the `decisions` table and could be labeled from subsequent price history
+- [ ] **Heuristic outcome feedback** — `quality_score` is fixed at creation from the ERL model's self-assessment and never re-scored against the results of trades that used the heuristic
+- [ ] **Hurst on returns** — `regime.py` runs R/S analysis on price *levels*, biasing H upward ("trending" over-classified); should use the return series. Changes live classification — do deliberately. Lag-1 autocorrelation is computed but unused in classification
+- [ ] **Backtester realism** — no slippage/commissions, stops checked against daily closes only (no intraday high/low), open positions valued at entry price, no trailing stop; results can't validate live behavior until these match
+- [ ] **Dead DB tables** — `Trade`, `Position`, `PortfolioSnapshot`, `Heuristic` are never written (state lives in `portfolio_state` JSON + heuristic files); wire them up as an audit log or drop them
+- [ ] **Nordic news prefilter** — `_prefilter` matches on the ticker base ("VOLV-B"), which never appears in headlines ("Volvo"); relevance rests on generic keywords
 - [ ] **Sector correlation matrix** — a per-sector position *count* cap is enforced; the true 0.7 max-correlation rule (yfinance sector tags → correlation matrix) is not yet implemented
 - [ ] **`_fix_rrr` masks target discipline** — auto-stretching targets in the 1.0–2.0 RRR band means MIPRO never learns to place good targets, only to avoid broken stops; consider learning target placement instead
 - [ ] **News model on reasoning tier** — `gpt-5-mini` may spend budget on reasoning; monitor Swedish news summary quality, bump model or tune `max_completion_tokens` if weak
@@ -93,6 +114,6 @@ Last updated: 2026-07-02
 | Item | Detail |
 |---|---|
 | MIPRO sample size | `auto="light"` on ~30 trades (24 train / 6 val) yields calibration, not transformation; expect modest gains until trade count grows |
-| Portfolio state is in-memory | `closed_trades`/positions live in the running process and are not rehydrated from the DB on restart; a restart resets MIPRO's available trainset |
 | Reasoning-model IDs | GPT-5/5.5 and Claude 5 IDs are env-overridable; a wrong ID surfaces at boot via preflight but still requires a manual `.env` fix |
-| Non-SEK Nordic FX | Depends on `financedata`'s `to_sek`/`get_fx_rate`; if an FX rate is unavailable the raw native-currency price is used (logged) |
+| Non-SEK FX unavailable | If an FX rate can't be resolved, entries are blocked and price updates skipped (never booked raw); a persistent FX outage means stops on non-SEK holdings don't advance until rates return |
+| Dashboard sessions | Session tokens are in-memory; a process restart logs all dashboard users out (they just log in again) |

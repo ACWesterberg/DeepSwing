@@ -52,13 +52,18 @@ All model IDs are env-overridable (see `.env.example`). Scan/ERL models were upg
 
 ---
 
-## Risk rules (all enforced in `src/agent/risk.py`)
+## Risk rules (all enforced in `src/agent/risk.py` unless noted)
 
 - 1% max risk per trade (hard cap 2%)
 - Min RRR 2.0
-- Stop-loss at 1.5× ATR below entry
+- Stop-loss at 1.5× ATR below entry — validated as *fractions of price* so the check is currency-safe (entry/stop are SEK, ATR is native currency)
+- Position value capped at `max_position_pct` (25%) of equity **and** at available cash — risk-based sizing alone is unbounded when stops are tight
 - >10% portfolio drawdown → halve all position sizes
-- No duplicate tickers across open positions
+- No duplicate tickers across open positions; max 2 positions per sector
+- Trailing stop trails at `trailing_stop_atr_multiplier` (2×) ATR once in profit (`simulator.py`); trailed exits close as `exit_reason="trailing_stop"`, not `"stop_loss"` — ERL depends on this distinction
+- VIX ≥ 35 halts **new entries only** — open holdings still get the stop/target sweep and news-exit review (`scan_loop.py` falls through to the holdings monitor)
+- Non-SEK prices are never booked without FX conversion — `_to_sek_price` returns `None` on failure and callers skip; never fall back to raw native prices
+- US market hours are evaluated in **US Eastern Time** (`market_hours.py`), not fixed CET — the US/EU DST transitions are weeks apart
 
 ---
 
@@ -79,10 +84,10 @@ src/agent/decision.py       DSPy TradeDecision program; DecisionEngine per track
 src/agent/risk.py           Position sizing, stop validation, RRR check
 src/agent/memory.py         HeuristicStore — file-backed, track-namespaced
 src/agent/erl.py            Post-trade causal analysis → heuristic extraction
-src/agent/news_analyzer.py  Claude Haiku per-ticker news analysis
+src/agent/news_analyzer.py  Shared per-ticker news analysis (gpt-5-mini, both tracks)
 src/portfolio/simulator.py  Paper trading engine (Portfolio class); dual-track
 src/portfolio/metrics.py    Sharpe, drawdown, win rate, MIPRO metric
-src/scheduler/market_hours.py  is_market_open(), active_markets(), CET-aware
+src/scheduler/market_hours.py  is_market_open(), active_markets(); Nordic in CET, US in ET
 src/scheduler/scan_loop.py  Main 15-min cycle: fetch → analyze → screen → decide → trade
 src/scheduler/optimizer.py  Weekly MIPROv2 + heuristic prune/promote
 src/dashboard/app.py        FastAPI + WebSocket; /api/comparison is the key endpoint
@@ -114,11 +119,11 @@ curl -X POST http://localhost:8000/api/scan/us
 
 See [STATUS.md](STATUS.md) for the full To Do list. Priority items:
 
-1. **Fix ERL input capture** — `scan_loop.py` passes placeholder technicals string to ERL; needs to store the real technical snapshot at trade entry on the Position object
-2. **Fix drawdown mode wiring** — `risk.py::_is_drawdown_mode()` returns `False` (placeholder); `scan_loop.py` needs to pass `portfolio.is_drawdown_mode` into the risk validator
-3. **Sector correlation enforcement** — currently only blocks duplicate tickers; full sector correlation matrix needed
-4. **Unit tests** — `tests/` is empty; priority: technical.py, regime.py, risk.py, screener.py
-5. **Pi deployment** — deploy, verify scheduler, set up Cloudflare Tunnel
+1. **MIPRO counterfactual training data** — the trainset only contains trades that were *taken* (survivorship bias); PASS decisions are persisted in the `decisions` table and could be labeled from subsequent price data
+2. **Heuristic outcome feedback** — `quality_score` is fixed at creation (model self-assessment); it should be re-scored against the results of trades that used the heuristic
+3. **Sector correlation matrix** — a per-sector position *count* cap is enforced; the true 0.7 max-correlation rule is not
+4. **Hurst on returns** — `regime.py` runs R/S analysis on price *levels*, which biases toward "trending"; should use the return series (changes live classification, so needs care)
+5. **Backtester realism** — no slippage/commissions, stops checked on daily closes only (no intraday high/low), open positions valued at entry price, no trailing stop
 
 ---
 

@@ -59,16 +59,16 @@ def compute_metrics(portfolio: "Portfolio") -> PerformanceMetrics:
     rrrs = [t.rrr_achieved for t in trades if t.rrr_achieved > 0]
     avg_rrr = float(np.mean(rrrs)) if rrrs else 0.0
 
-    sharpe = _compute_sharpe(returns)
+    durations = [t.duration_days for t in trades]
+    avg_duration = float(np.mean(durations)) if durations else 0.0
+
+    sharpe = _compute_sharpe(returns, avg_duration_days=avg_duration)
 
     # Max drawdown from equity curve
     equity_curve = _build_equity_curve(portfolio)
     max_dd = _max_drawdown(equity_curve)
 
     total_return = (portfolio.equity - portfolio.starting_equity) / portfolio.starting_equity * 100
-
-    durations = [t.duration_days for t in trades]
-    avg_duration = float(np.mean(durations)) if durations else 0.0
 
     return PerformanceMetrics(
         track=portfolio.track,
@@ -83,16 +83,23 @@ def compute_metrics(portfolio: "Portfolio") -> PerformanceMetrics:
     )
 
 
-def _compute_sharpe(returns: list[float], risk_free_rate: float = 0.03) -> float:
-    """Annualized Sharpe ratio (assumes daily returns, 252 trading days)."""
+def _compute_sharpe(
+    returns: list[float],
+    avg_duration_days: float = 1.0,
+    risk_free_rate: float = 0.03,
+) -> float:
+    """Annualized Sharpe from per-trade returns. Trades span multiple days, so
+    annualization scales by the actual average holding period — treating each
+    trade as a daily return (×√252) would overstate Sharpe several-fold."""
     if len(returns) < 2:
         return 0.0
+    periods_per_year = 252.0 / max(avg_duration_days, 1.0)
     arr = np.array(returns)
-    excess = arr - risk_free_rate / 252
+    excess = arr - risk_free_rate / periods_per_year
     std = np.std(excess, ddof=1)
     if std == 0:
         return 0.0
-    return float(np.mean(excess) / std * math.sqrt(252))
+    return float(np.mean(excess) / std * math.sqrt(periods_per_year))
 
 
 def _build_equity_curve(portfolio: "Portfolio") -> list[float]:

@@ -61,6 +61,7 @@ class OpenPosition:
     sector: str = ""
     entry_inputs: dict = field(default_factory=dict)
     last_news_price: float = 0.0  # price (SEK) at the last news check; drives jump detection
+    trail_distance: float = 0.0   # trailing-stop distance in SEK (ATR-scaled at entry)
 
     @property
     def unrealised_pnl(self) -> float:
@@ -113,6 +114,7 @@ class OpenPosition:
             "sector": self.sector,
             "entry_inputs": self.entry_inputs,
             "last_news_price": self.last_news_price,
+            "trail_distance": self.trail_distance,
         }
 
     @classmethod
@@ -135,6 +137,7 @@ class OpenPosition:
             sector=d.get("sector", ""),
             entry_inputs=d.get("entry_inputs") or {},
             last_news_price=d.get("last_news_price", 0.0),
+            trail_distance=d.get("trail_distance", 0.0),
         )
 
 
@@ -287,6 +290,7 @@ class Portfolio:
         technical_snapshot: str = "",
         sector: str = "",
         entry_inputs: Optional[dict] = None,
+        trail_distance: float = 0.0,
     ) -> Optional[OpenPosition]:
         # Apply simulated slippage (adverse, so price moves against us)
         filled_price = entry_price * (1 + settings.simulated_slippage)
@@ -321,6 +325,7 @@ class Portfolio:
             sector=sector,
             entry_inputs=entry_inputs or {},
             last_news_price=filled_price,
+            trail_distance=trail_distance,
         )
         self.open_positions.append(position)
         self._next_trade_id += 1
@@ -403,22 +408,36 @@ class Portfolio:
 
             position.current_price = price
 
-            # Update trailing stop (Parabolic SAR approximation: step up by 2% of price)
+            # Trail by the position's ATR-scaled distance once in profit; the 2%
+            # fallback covers positions persisted before trail_distance existed.
+            trail_dist = position.trail_distance or price * 0.02
             if position.trailing_stop is None:
                 position.trailing_stop = position.stop_loss
-            if price > position.entry_price and price * 0.98 > position.trailing_stop:
-                position.trailing_stop = price * 0.98
+            if price > position.entry_price and price - trail_dist > position.trailing_stop:
+                position.trailing_stop = price - trail_dist
 
             effective_stop = max(position.stop_loss, position.trailing_stop or 0)
 
             if price <= effective_stop:
-                closed = self.close_trade(position.trade_id, price, "stop_loss")
+                # Label correctly: a trailed stop above the original stop is a
+                # trailing_stop exit — ERL treats these very differently.
+                reason = (
+                    "trailing_stop"
+                    if (position.trailing_stop or 0) > position.stop_loss
+                    else "stop_loss"
+                )
+                closed = self.close_trade(position.trade_id, price, reason)
                 if closed:
                     closed_this_update.append(closed)
             elif price >= position.target:
                 closed = self.close_trade(position.trade_id, price, "take_profit")
                 if closed:
                     closed_this_update.append(closed)
+
+        # Ratchet peak equity on mark-to-market too — not only on closes — so
+        # drawdown mode reflects peaks reached while positions were open.
+        if self.equity > self.peak_equity:
+            self.peak_equity = self.equity
 
         return closed_this_update
 

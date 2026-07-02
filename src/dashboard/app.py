@@ -34,12 +34,27 @@ app = FastAPI(title="DeepSwing Dashboard", version="1.0.0")
 
 
 _SESSION_COOKIE = "ds_session"
+_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30  # 30 days
+
+# Server-side session store: random token → expiry epoch. The cookie must never
+# carry the password itself — a leaked cookie would leak the credential and be
+# irrevocable. In-memory, so a restart logs everyone out (acceptable).
+_sessions: dict[str, float] = {}
+
+
+def _token_valid(token: str) -> bool:
+    expiry = _sessions.get(token)
+    if expiry is None:
+        return False
+    if expiry < time.time():
+        _sessions.pop(token, None)
+        return False
+    return True
 
 
 def _valid_session(request: Request) -> bool:
     """Return True if the request carries a valid session cookie."""
-    token = request.cookies.get(_SESSION_COOKIE, "")
-    return bool(token) and secrets.compare_digest(token, settings.dashboard_password)
+    return _token_valid(request.cookies.get(_SESSION_COOKIE, ""))
 
 
 class _AuthMiddleware(BaseHTTPMiddleware):
@@ -117,13 +132,15 @@ async def login(request: Request):
     form = await request.form()
     pwd = form.get("password", "")
     if settings.dashboard_password and secrets.compare_digest(str(pwd), settings.dashboard_password):
+        token = secrets.token_urlsafe(32)
+        _sessions[token] = time.time() + _SESSION_TTL_SECONDS
         resp = Response(status_code=302, headers={"Location": "/"})
         resp.set_cookie(
             _SESSION_COOKIE,
-            settings.dashboard_password,
+            token,
             httponly=True,
             samesite="lax",
-            max_age=60 * 60 * 24 * 30,  # 30 days
+            max_age=_SESSION_TTL_SECONDS,
         )
         return resp
     return Response(status_code=302, headers={"Location": "/login?err=1"})
@@ -293,7 +310,7 @@ async def reset_simulation(body: _ResetRequest):
     import src.agent.memory as _memory
     import shutil
 
-    if body.pin != settings.reset_pin:
+    if not secrets.compare_digest(str(body.pin), settings.reset_pin):
         return {"error": "Invalid PIN"}
 
     target_tracks = body.tracks if body.tracks else list(settings.tracks)
@@ -301,36 +318,44 @@ async def reset_simulation(body: _ResetRequest):
     if invalid:
         return {"error": f"Unknown tracks: {invalid}"}
 
-    from src.db import Decision, get_session
+    # Never reset under a running scan — the scan holds references to the old
+    # portfolios and its end-of-scan persist would resurrect the cleared state.
+    from src.scheduler.scan_loop import _scan_lock
+    if not _scan_lock.acquire(blocking=False):
+        return {"error": "Scan in progress — try again in a moment"}
+    try:
+        from src.db import Decision, get_session
 
-    cleared: dict = {}
-    for track in target_tracks:
-        # Count and delete heuristic files
-        heuristic_dir = settings.heuristics_dir / track
-        heuristic_count = len(list(heuristic_dir.glob("*.json"))) if heuristic_dir.exists() else 0
-        if heuristic_dir.exists():
-            shutil.rmtree(heuristic_dir)
-            heuristic_dir.mkdir(parents=True, exist_ok=True)
+        cleared: dict = {}
+        for track in target_tracks:
+            # Count and delete heuristic files
+            heuristic_dir = settings.heuristics_dir / track
+            heuristic_count = len(list(heuristic_dir.glob("*.json"))) if heuristic_dir.exists() else 0
+            if heuristic_dir.exists():
+                shutil.rmtree(heuristic_dir)
+                heuristic_dir.mkdir(parents=True, exist_ok=True)
 
-        # Clear cached heuristic store so next call rebuilds from empty dir
-        _memory._stores.pop(track, None)
+            # Clear cached heuristic store so next call rebuilds from empty dir
+            _memory._stores.pop(track, None)
 
-        # Delete persisted decisions for this track
-        db = get_session()
-        try:
-            decision_count = db.query(Decision).filter(Decision.track == track).delete()
-            db.commit()
-        finally:
-            db.close()
+            # Delete persisted decisions for this track
+            db = get_session()
+            try:
+                decision_count = db.query(Decision).filter(Decision.track == track).delete()
+                db.commit()
+            finally:
+                db.close()
 
-        cleared[track] = {"heuristics_deleted": heuristic_count, "decisions_deleted": decision_count}
+            cleared[track] = {"heuristics_deleted": heuristic_count, "decisions_deleted": decision_count}
 
-    # Reset in-memory portfolios, drop their persisted state (so a restart
-    # doesn't resurrect them), and clear the latest-decisions cache.
-    from src.portfolio.persistence import delete_portfolio_state
-    reset_portfolios(target_tracks)
-    delete_portfolio_state(target_tracks)
-    clear_recent_decisions()
+        # Reset in-memory portfolios, drop their persisted state (so a restart
+        # doesn't resurrect them), and clear the latest-decisions cache.
+        from src.portfolio.persistence import delete_portfolio_state
+        reset_portfolios(target_tracks)
+        delete_portfolio_state(target_tracks)
+        clear_recent_decisions()
+    finally:
+        _scan_lock.release()
 
     await _broadcast({"event": "simulation_reset", "data": {"tracks": target_tracks}})
     logger.info("Simulation reset for tracks: %s", target_tracks)
@@ -412,6 +437,11 @@ async def debug_screener(market: str):
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    # BaseHTTPMiddleware only sees http-scope requests — websocket connections
+    # bypass _AuthMiddleware entirely, so auth must be enforced here.
+    if settings.dashboard_password and not _token_valid(websocket.cookies.get(_SESSION_COOKIE, "")):
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
     _ws_clients.append(websocket)
     try:
@@ -513,4 +543,8 @@ def _build_equity_curve_data(portfolio) -> list[dict]:
             "date": trade.exit_time.strftime("%Y-%m-%d %H:%M"),
             "equity": round(equity, 2),
         })
+    # Live mark-to-market point so unrealized P&L on open positions is visible —
+    # otherwise a track sitting on open losses looks better than it is.
+    if portfolio.open_positions:
+        points.append({"date": "now", "equity": round(portfolio.equity, 2)})
     return points

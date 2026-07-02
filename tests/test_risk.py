@@ -141,26 +141,19 @@ class TestValidateTrade:
         assert "ATR" in result.rejection_reason
 
     def test_drawdown_mode_halves_quantity(self):
-        normal = validate_trade(
+        # Wide stop (7%) with matching ATR so the position-value cap doesn't bind
+        # and the halving is directly observable.
+        kwargs = dict(
             action="BUY",
             entry_price=VALID_ENTRY,
-            stop_loss=VALID_STOP,
-            target=VALID_TARGET,
+            stop_loss=93.0,
+            target=115.0,  # RRR = 15/7 ≈ 2.14
             portfolio_equity=EQUITY,
             open_positions=[],
-            signals=_make_signals(),
-            is_drawdown_mode=False,
         )
-        drawdown = validate_trade(
-            action="BUY",
-            entry_price=VALID_ENTRY,
-            stop_loss=VALID_STOP,
-            target=VALID_TARGET,
-            portfolio_equity=EQUITY,
-            open_positions=[],
-            signals=_make_signals(),
-            is_drawdown_mode=True,
-        )
+        normal = validate_trade(**kwargs, signals=_make_signals(atr_14=5.0), is_drawdown_mode=False)
+        drawdown = validate_trade(**kwargs, signals=_make_signals(atr_14=5.0), is_drawdown_mode=True)
+        assert normal.approved is True
         assert drawdown.approved is True
         assert drawdown.quantity == pytest.approx(normal.quantity * 0.5, rel=1e-6)
         assert drawdown.risk_amount == pytest.approx(normal.risk_amount * 0.5, rel=1e-6)
@@ -176,9 +169,70 @@ class TestValidateTrade:
             signals=_make_signals(),
         )
         assert result.approved is True
-        # 1% of 100_000 = 1_000 SEK at risk; risk per share = 3.0 → qty = 333.33
-        expected_qty = (EQUITY * 0.01) / (VALID_ENTRY - VALID_STOP)
-        assert result.quantity == pytest.approx(expected_qty, rel=1e-3)
+        # 1% of 100_000 = 1_000 SEK at risk; risk per share = 3.0 → qty 333.33,
+        # but position value (33_333) exceeds the 25%-of-equity cap → 250 shares.
+        risk_qty = (EQUITY * 0.01) / (VALID_ENTRY - VALID_STOP)
+        cap_qty = EQUITY * 0.25 / VALID_ENTRY
+        assert result.quantity == pytest.approx(min(risk_qty, cap_qty), rel=1e-3)
+
+    def test_position_value_capped_at_max_position_pct(self):
+        # Very tight stop → risk-based qty would be 10% risk-per-share ⇒ huge position
+        result = validate_trade(
+            action="BUY",
+            entry_price=VALID_ENTRY,
+            stop_loss=99.0,   # 1 SEK risk/share → uncapped qty 1000 (100_000 value)
+            target=102.5,
+            portfolio_equity=EQUITY,
+            open_positions=[],
+            signals=_make_signals(),
+        )
+        assert result.approved is True
+        assert result.quantity * VALID_ENTRY <= EQUITY * 0.25 * 1.001
+
+    def test_position_value_capped_at_available_cash(self):
+        result = validate_trade(
+            action="BUY",
+            entry_price=VALID_ENTRY,
+            stop_loss=99.0,
+            target=102.5,
+            portfolio_equity=EQUITY,
+            open_positions=[],
+            signals=_make_signals(),
+            available_cash=10_000.0,
+        )
+        assert result.approved is True
+        # Fits inside cash with commission/slippage headroom
+        assert result.quantity * VALID_ENTRY <= 10_000.0
+
+    def test_atr_check_is_currency_safe(self):
+        # US ticker: entry/stop in SEK (~10.5×) but ATR stays in USD. A stop 3%
+        # below entry matches the 1.5×ATR distance and must be accepted even
+        # though the raw SEK-minus-USD arithmetic would be nonsense.
+        signals = _make_signals(current_price=100.0, atr_14=2.0)  # native USD
+        result = validate_trade(
+            action="BUY",
+            entry_price=1050.0,   # SEK
+            stop_loss=1018.5,     # 3% below entry, == 1.5×ATR in native terms
+            target=1150.0,
+            portfolio_equity=EQUITY,
+            open_positions=[],
+            signals=signals,
+        )
+        assert result.approved is True
+
+    def test_atr_check_rejects_loose_stop_in_sek(self):
+        signals = _make_signals(current_price=100.0, atr_14=2.0)
+        result = validate_trade(
+            action="BUY",
+            entry_price=1050.0,
+            stop_loss=900.0,      # ~14% below entry vs 3% ATR distance
+            target=1400.0,
+            portfolio_equity=EQUITY,
+            open_positions=[],
+            signals=signals,
+        )
+        assert result.approved is False
+        assert "ATR" in result.rejection_reason
 
 
     def test_sector_concentration_rejected_at_limit(self):

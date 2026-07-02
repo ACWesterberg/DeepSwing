@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from datetime import datetime
 from typing import Callable, Literal, Optional
 
@@ -60,15 +61,23 @@ def _currency_for_ticker(ticker: str, market: str) -> str:
     return "SEK"
 
 
-def _to_sek_price(price: float, ticker: str, market: str) -> float:
-    """Convert a ticker's native-currency price to SEK."""
+def _to_sek_price(price: float, ticker: str, market: str) -> Optional[float]:
+    """Convert a ticker's native-currency price to SEK. Returns None when the
+    conversion is unavailable — booking a raw USD/EUR price against a SEK
+    portfolio corrupts sizing and P&L, so callers must skip instead."""
     currency = _currency_for_ticker(ticker, market)
-    if currency == "SEK" or not _HAS_FX:
+    if currency == "SEK":
         return price
+    if not _HAS_FX:
+        logger.error(
+            "%s is quoted in %s but FX conversion is unavailable (financedata.fx missing) — skipping",
+            ticker, currency,
+        )
+        return None
     sek = _to_sek_fn(price, currency)
     if sek is None:
-        logger.warning("%s→SEK FX rate unavailable; using raw %s price %.4f", currency, currency, price)
-        return price
+        logger.warning("%s→SEK FX rate unavailable for %s — skipping price", currency, ticker)
+        return None
     return sek
 
 # Most recent scan decisions per market — ephemeral, in-memory, for dashboard display.
@@ -159,14 +168,19 @@ def _run_scan(market: MarketType) -> dict:
     """
     logger.info("=== Scan started: %s market ===", market)
 
-    # VIX circuit-breaker: halt new entries under extreme volatility
+    # VIX circuit-breaker: halt new entries under extreme volatility — but keep
+    # managing open positions (stops/targets/news exits); abandoning holdings in
+    # a volatility spike is exactly when stop enforcement matters most.
     vix = get_vix()
     if vix is not None and vix >= settings.vix_halt_threshold:
         logger.warning(
-            "VIX=%.1f >= threshold %.1f — halting new entries for %s market",
+            "VIX=%.1f >= threshold %.1f — halting new entries for %s market (holdings still monitored)",
             vix, settings.vix_halt_threshold, market,
         )
-        return {"market": market, "candidates": [], "decisions": [], "vix_halt": True, "vix": vix}
+        result = _monitor_holdings(market)
+        result["vix_halt"] = True
+        result["vix"] = vix
+        return result
 
     # If no track has cash to open a new position, the candidate/news/decision
     # pipeline can't produce a trade — skip it and just monitor open holdings.
@@ -280,6 +294,17 @@ def _run_scan(market: MarketType) -> dict:
             entry_sek = _to_sek_price(candidate.signals.current_price, candidate.ticker, market)
             stop_sek = _to_sek_price(decision["stop_loss"], candidate.ticker, market)
             target_sek = _to_sek_price(decision["target"], candidate.ticker, market)
+            if entry_sek is None or stop_sek is None or target_sek is None:
+                decisions_log.append({
+                    "track": track,
+                    "ticker": candidate.ticker,
+                    "action": "BLOCKED",
+                    "confidence": round(decision["confidence"], 2),
+                    "reasoning": decision["reasoning"],
+                    "regime": candidate.regime.regime,
+                    "reason": "FX conversion to SEK unavailable",
+                })
+                continue
 
             # Risk validation
             open_pos_info = [
@@ -296,6 +321,7 @@ def _run_scan(market: MarketType) -> dict:
                 signals=candidate.signals,
                 is_drawdown_mode=portfolio.is_drawdown_mode,
                 candidate_sector=sector,
+                available_cash=portfolio.cash,
             )
 
             if not risk.approved:
@@ -312,6 +338,11 @@ def _run_scan(market: MarketType) -> dict:
                 })
                 continue
 
+            # Trailing distance in SEK: ATR is native-currency, so scale it by the
+            # same FX rate the entry price was converted at.
+            fx_rate = entry_sek / candidate.signals.current_price if candidate.signals.current_price > 0 else 1.0
+            trail_distance = settings.trailing_stop_atr_multiplier * candidate.signals.atr_14 * fx_rate
+
             # Open position
             position = portfolio.open_trade(
                 ticker=candidate.ticker,
@@ -326,6 +357,7 @@ def _run_scan(market: MarketType) -> dict:
                 technical_snapshot=tech_snapshot,
                 sector=sector,
                 entry_inputs=decision.get("entry_inputs", {}),
+                trail_distance=trail_distance,
             )
 
             if position:
@@ -344,6 +376,19 @@ def _run_scan(market: MarketType) -> dict:
                 }
                 decisions_log.append(trade_event)
                 _emit({"event": "trade_opened", "data": trade_event})
+            else:
+                # Approved by risk but rejected at execution (e.g. cash consumed
+                # by an earlier candidate this scan) — record it, don't lose it.
+                decisions_log.append({
+                    "track": track,
+                    "ticker": candidate.ticker,
+                    "action": "BLOCKED",
+                    "confidence": round(decision["confidence"], 2),
+                    "reasoning": decision["reasoning"],
+                    "rrr": round(risk.rrr, 2),
+                    "regime": candidate.regime.regime,
+                    "reason": "Insufficient cash at execution",
+                })
 
     # --- News-driven exit review, gated on a large price move ---
     # Holdings are otherwise monitored on price alone (stop/target below). We only
@@ -357,6 +402,8 @@ def _run_scan(market: MarketType) -> dict:
                 continue
             signals, regime = analysis_map[position.ticker]
             current_sek = _to_sek_price(signals.current_price, position.ticker, market)
+            if current_sek is None:
+                continue
             event = _maybe_news_exit(
                 track, portfolio, position, current_sek, market,
                 signals_str=signals.to_prompt_str(),
@@ -590,23 +637,34 @@ def _get_current_prices(tickers: list[str], market: str) -> dict[str, float]:
         ticker_map = dict(zip(yf_tickers, tickers))
         try:
             raw = _get_live_prices(yf_tickers)
-            return {
-                ticker_map[yf]: _to_sek_price(price, ticker_map[yf], market)
-                for yf, price in raw.items()
-                if price is not None and yf in ticker_map
-            }
+            prices: dict[str, float] = {}
+            for yf, price in raw.items():
+                if price is None or yf not in ticker_map:
+                    continue
+                sek = _to_sek_price(price, ticker_map[yf], market)
+                if sek is not None:
+                    prices[ticker_map[yf]] = sek
+            return prices
         except Exception as exc:
             logger.warning("get_live_prices failed, falling back: %s", exc)
-    prices: dict[str, float] = {}
+    prices = {}
     for ticker in tickers:
         price = get_current_price(ticker, market)
-        if price is not None:
-            prices[ticker] = _to_sek_price(price, ticker, market)
+        if price is None:
+            continue
+        sek = _to_sek_price(price, ticker, market)
+        if sek is not None:
+            prices[ticker] = sek
     return prices
 
 
+# In-flight ERL threads — ERL is a heavy extended-thinking call, so it runs off
+# the scan thread. wait_for_erl() lets tests and shutdown paths drain them.
+_erl_threads: list[threading.Thread] = []
+
+
 def _trigger_erl(track: str, closed_trade) -> None:
-    """Run ERL analysis on a just-closed trade (non-blocking best-effort)."""
+    """Run ERL analysis on a just-closed trade in a background thread."""
     try:
         trade_dict = closed_trade.to_dict()
         trade_dict["id"] = closed_trade.trade_id
@@ -615,8 +673,7 @@ def _trigger_erl(track: str, closed_trade) -> None:
 
         # Entry-time news/macro so ERL can attribute outcomes to the environment
         entry_inputs = getattr(closed_trade, "entry_inputs", {}) or {}
-
-        run_erl(
+        kwargs = dict(
             track=track,
             trade=trade_dict,
             technicals_str=closed_trade.technical_snapshot,
@@ -626,3 +683,22 @@ def _trigger_erl(track: str, closed_trade) -> None:
         )
     except Exception as exc:
         logger.error("ERL trigger error for %s trade %s: %s", track, closed_trade.trade_id, exc)
+        return
+
+    def _worker() -> None:
+        try:
+            run_erl(**kwargs)
+        except Exception as exc:
+            logger.error("ERL error for %s trade %s: %s", track, trade_dict["id"], exc)
+
+    thread = threading.Thread(target=_worker, name=f"erl-{track}-{trade_dict['id']}", daemon=True)
+    _erl_threads.append(thread)
+    thread.start()
+
+
+def wait_for_erl(timeout: float = 60.0) -> None:
+    """Block until in-flight ERL threads finish (or timeout)."""
+    deadline = time.monotonic() + timeout
+    for thread in list(_erl_threads):
+        thread.join(max(0.0, deadline - time.monotonic()))
+    _erl_threads[:] = [t for t in _erl_threads if t.is_alive()]
