@@ -127,10 +127,11 @@ curl -X POST http://localhost:8000/api/scan/us
 
 See [STATUS.md](STATUS.md) for the full To Do list. Priority items:
 
-1. **Sector correlation matrix** — a per-sector position *count* cap is enforced; the true 0.7 max-correlation rule is not
-2. **Hurst on returns** — `regime.py` runs R/S analysis on price *levels*, which biases toward "trending"; should use the return series (changes live classification, so needs care)
-3. **Backtester realism** — no slippage/commissions, stops checked on daily closes only (no intraday high/low), open positions valued at entry price, no trailing stop
-4. **Counterfactual path realism** — forward return ignores stop/target paths; a stop-first simulation would label some "missed winners" as losses
+1. **Flip `hurst_on_returns`** — the returns-based R/S estimator is implemented behind a settings flag (default off, because it reclassifies drifting walks as neutral and makes the screener stricter); enable deliberately and observe candidate volume
+2. **Sector correlation matrix** — a per-sector position *count* cap is enforced; the true 0.7 max-correlation rule is not
+3. **Dead DB tables** — `Trade`, `Position`, `PortfolioSnapshot`, `Heuristic` are never written; wire up as an audit log or drop
+
+The backtester now mirrors live execution (slippage/commissions, intraday High/Low exits, ATR trailing stop, mark-to-market equity); counterfactual labels simulate the stop/target path when ATR is available.
 
 ---
 

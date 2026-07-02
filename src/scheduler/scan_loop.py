@@ -128,6 +128,7 @@ def _persist_decisions(market: str, decisions: list[dict]) -> None:
                     reasoning=d.get("reasoning"),
                     block_reason=d.get("reason"),
                     price=d.get("price"),
+                    atr=d.get("atr"),
                     entry_inputs=inputs,
                 ))
                 if inputs:
@@ -310,6 +311,7 @@ def _run_scan(market: MarketType) -> dict:
                 # label passed-on setups from subsequent price data (counterfactuals).
                 if decision and decision["action"] == "PASS":
                     entry["price"] = candidate.signals.current_price
+                    entry["atr"] = candidate.signals.atr_14
                     entry["entry_inputs"] = decision.get("entry_inputs")
                 decisions_log.append(entry)
                 continue

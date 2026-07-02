@@ -46,6 +46,48 @@ class TestHurstExponent:
         assert h == 0.5
 
 
+class TestHurstOnReturns:
+    """Opt-in returns-based estimator (settings.hurst_on_returns=True).
+    Measures return persistence: AR(1)-persistent returns → high H,
+    anti-persistent → low H, and a plain drifting random walk is NOT
+    'trending' (the levels-based estimator's known bias)."""
+
+    @pytest.fixture(autouse=True)
+    def _enable(self, monkeypatch):
+        from config.settings import settings
+        monkeypatch.setattr(settings, "hurst_on_returns", True)
+
+    @staticmethod
+    def _ar1_prices(phi: float, n: int = 400, seed: int = 7) -> np.ndarray:
+        rng = np.random.default_rng(seed)
+        noise = rng.normal(0, 0.01, n)
+        r = np.zeros(n)
+        for i in range(1, n):
+            r[i] = phi * r[i - 1] + noise[i]
+        return 100 * np.exp(np.cumsum(r))
+
+    def test_persistent_returns_high_hurst(self):
+        h = _hurst_exponent(self._ar1_prices(phi=0.85))
+        assert h > 0.55, f"Expected H > 0.55 for persistent returns, got {h:.3f}"
+
+    def test_anti_persistent_returns_low_hurst(self):
+        h = _hurst_exponent(self._ar1_prices(phi=-0.85))
+        assert h < 0.45, f"Expected H < 0.45 for anti-persistent returns, got {h:.3f}"
+
+    def test_drifting_random_walk_is_not_trending(self):
+        rng = np.random.default_rng(3)
+        prices = 100 * np.exp(np.cumsum(rng.normal(0.002, 0.01, 400)))
+        h = _hurst_exponent(prices)
+        assert h < 0.65, f"Drifting walk should not read strongly trending, got {h:.3f}"
+
+    def test_too_short_series_returns_half(self):
+        assert _hurst_exponent(np.linspace(100, 110, 10)) == 0.5
+
+    def test_result_clipped_to_0_1(self):
+        h = _hurst_exponent(self._ar1_prices(phi=0.95, seed=1))
+        assert 0.0 <= h <= 1.0
+
+
 class TestAutocorrelation:
     def test_positively_correlated_returns(self):
         # Trending series has positive lag-1 autocorrelation of log returns

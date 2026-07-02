@@ -30,14 +30,14 @@ def tmp_heuristics(tmp_path, monkeypatch):
 
 
 def _seed_decision(ticker: str, price: float, days_ago: int, entry_inputs=None,
-                   track: str = "claude", action: str = "PASS"):
+                   track: str = "claude", action: str = "PASS", atr=None):
     from src.db import Decision, get_session
     session = get_session()
     try:
         session.add(Decision(
             market="us", track=track, ticker=ticker, action=action,
             confidence=0.5, regime="trending", reasoning="test",
-            price=price, entry_inputs=entry_inputs,
+            price=price, atr=atr, entry_inputs=entry_inputs,
             timestamp=datetime.utcnow() - timedelta(days=days_ago),
         ))
         session.commit()
@@ -48,6 +48,19 @@ def _seed_decision(ticker: str, price: float, days_ago: int, entry_inputs=None,
 def _price_df(start: datetime, days: int, close: float) -> pd.DataFrame:
     idx = pd.date_range(start=start.date(), periods=days, freq="D")
     return pd.DataFrame({"Close": [close] * days}, index=idx)
+
+
+def _ohlc_df(start: datetime, bars: list[tuple[float, float, float]]) -> pd.DataFrame:
+    """DataFrame from (high, low, close) tuples, one bar per day."""
+    idx = pd.date_range(start=start.date(), periods=len(bars), freq="D")
+    return pd.DataFrame(
+        {
+            "High": [b[0] for b in bars],
+            "Low": [b[1] for b in bars],
+            "Close": [b[2] for b in bars],
+        },
+        index=idx,
+    )
 
 
 _INPUTS = {"technicals": "RSI=55", "regime": "trending", "news_summary": "n",
@@ -118,6 +131,50 @@ class TestCounterfactualExamples:
         _seed_decision("AAPL", price=100.0, days_ago=30, entry_inputs=_INPUTS)
         with patch("src.data.market_data.fetch_ohlcv", return_value=None):
             assert self._build() == []
+
+
+class TestCounterfactualPathSimulation:
+    """With ATR persisted, the label comes from the simulated stop/target path,
+    not the horizon close — a rally that traded through its stop first is a
+    correct PASS, not a missed BUY. ATR=2 → stop 97, target 106 (RRR 2.0)."""
+
+    def _build(self):
+        from src.scheduler.optimizer import _build_counterfactual_examples
+        with patch("src.scheduler.optimizer._make_example",
+                   side_effect=lambda inputs, action, pnl: {"action": action, "pnl": pnl}):
+            return _build_counterfactual_examples("claude", 30)
+
+    def _run(self, bars: list[tuple[float, float, float]]):
+        _seed_decision("AAPL", price=100.0, days_ago=30, entry_inputs=_INPUTS, atr=2.0)
+        df = _ohlc_df(datetime.utcnow() - timedelta(days=29), bars)
+        with patch("src.data.market_data.fetch_ohlcv", return_value=df):
+            return self._build()
+
+    def test_target_hit_labels_missed_buy(self, tmp_db):
+        examples = self._run([(101, 99, 100), (103, 100, 102), (107, 102, 106), (110, 106, 109)])
+        assert len(examples) == 1
+        assert examples[0]["action"] == "BUY"
+        assert examples[0]["pnl"] == pytest.approx(0.06)  # target return, not final close
+
+    def test_stop_first_rally_is_correct_pass(self, tmp_db):
+        # Dips through the stop (97) before rallying to 115 — horizon-close
+        # labeling would call this a missed +15% winner; the path says stop-out.
+        examples = self._run([(100, 96, 98), (105, 98, 104), (116, 104, 115), (116, 114, 115)])
+        assert len(examples) == 1
+        assert examples[0]["action"] == "PASS"
+        assert examples[0]["pnl"] == pytest.approx(-0.03)  # stop return
+
+    def test_both_hit_same_bar_stop_wins(self, tmp_db):
+        examples = self._run([(107, 96, 105), (108, 104, 107), (108, 105, 107)])
+        assert len(examples) == 1
+        assert examples[0]["action"] == "PASS"
+
+    def test_no_exit_hit_falls_back_to_close_label(self, tmp_db):
+        # Never touches 97 or 106; drifts up 4% → BUY via the threshold fallback
+        examples = self._run([(102, 99, 101), (103, 100, 102), (105, 102, 104), (105, 103, 104)])
+        assert len(examples) == 1
+        assert examples[0]["action"] == "BUY"
+        assert examples[0]["pnl"] == pytest.approx(0.04)
 
 
 class TestDecisionPersistenceDedupe:

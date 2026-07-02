@@ -4,10 +4,13 @@ import json
 import logging
 import math
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal, Optional
 
 import dspy
 from dspy.teleprompt import MIPROv2
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 from config.settings import settings
 from src.agent.decision import TradeDecision, build_lm
@@ -57,12 +60,44 @@ def _make_example(inputs: dict, action: str, pnl_pct: float) -> "dspy.Example":
     ).with_inputs("technicals", "regime", "news_summary", "macro_context", "heuristics")
 
 
+def _label_forward_path(
+    window: "pd.DataFrame", price: float, atr: Optional[float]
+) -> Optional[tuple[str, float]]:
+    """
+    Label a PASS decision from the forward OHLC window, simulating the trade
+    the system would have taken (ATR stop, min-RRR target, stop-first on a
+    both-hit bar). A "missed winner" that would have traded through its stop
+    first is a correct PASS, not a missed BUY. Falls back to the horizon-close
+    return when ATR wasn't persisted or High/Low aren't available.
+    Returns (action, pnl_pct) or None to skip (ambiguous drift).
+    """
+    has_path = (
+        atr is not None and atr > 0
+        and "High" in window.columns and "Low" in window.columns
+    )
+    if has_path:
+        stop = price - settings.atr_stop_multiplier * atr
+        target = price + settings.min_rrr * (price - stop)
+        for _, row in window.iterrows():
+            if row["Low"] <= stop:
+                return "PASS", stop / price - 1.0     # would have stopped out
+            if row["High"] >= target:
+                return "BUY", target / price - 1.0    # missed winner
+
+    # No exit hit (or no path data): label from where the horizon closed
+    fwd_return = float(window["Close"].dropna().iloc[-1]) / price - 1.0
+    if fwd_return >= settings.counterfactual_buy_threshold:
+        return "BUY", fwd_return
+    if fwd_return <= 0.0:
+        return "PASS", fwd_return
+    return None  # ambiguous drift — noisy labels help nobody
+
+
 def _build_counterfactual_examples(track: TrackType, max_examples: int) -> list:
     """
     Label persisted PASS decisions from what the price actually did afterwards.
-    A PASS whose forward return cleared counterfactual_buy_threshold was a missed
-    BUY; one that went nowhere or down was a correct PASS. Ambiguous moves
-    (between 0 and the threshold) are skipped — noisy labels help nobody.
+    A PASS whose simulated forward path hit its target was a missed BUY; one
+    that stopped out or went nowhere was a correct PASS.
     Without these, the trainset only contains taken trades (survivorship bias)
     and the metric can never penalize passing on winners.
     """
@@ -94,6 +129,7 @@ def _build_counterfactual_examples(track: TrackType, max_examples: int) -> list:
                 "ticker": r.ticker,
                 "market": r.market,
                 "price": r.price,
+                "atr": r.atr,
                 "timestamp": r.timestamp,
                 "entry_inputs": r.entry_inputs,
             }
@@ -118,22 +154,18 @@ def _build_counterfactual_examples(track: TrackType, max_examples: int) -> list:
         if df is None or df.empty:
             continue
 
-        # Forward window: closes strictly after the decision, up to the horizon.
-        # Price and closes are both native currency, so the return is FX-free.
+        # Forward window: bars strictly after the decision, up to the horizon.
+        # Prices are all native currency, so the return is FX-free.
         start = d["timestamp"].date()
         end = (d["timestamp"] + horizon).date()
-        window = df[(df.index.date > start) & (df.index.date <= end)]["Close"].dropna()
-        if len(window) < 3:
+        window = df[(df.index.date > start) & (df.index.date <= end)]
+        if len(window) < 3 or window["Close"].dropna().empty:
             continue
-        fwd_return = float(window.iloc[-1]) / d["price"] - 1.0
 
-        if fwd_return >= settings.counterfactual_buy_threshold:
-            label = "BUY"    # a missed winner
-        elif fwd_return <= 0.0:
-            label = "PASS"   # correctly declined
-        else:
-            continue         # ambiguous drift — skip
-
+        labeled = _label_forward_path(window, d["price"], d.get("atr"))
+        if labeled is None:
+            continue
+        label, fwd_return = labeled
         examples.append(_make_example(d["entry_inputs"], label, fwd_return))
 
     logger.info("MIPRO [%s]: %d counterfactual examples from %d PASS decisions",

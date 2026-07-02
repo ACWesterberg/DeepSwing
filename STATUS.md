@@ -86,16 +86,20 @@ Last updated: 2026-07-02
 - [x] **Nordic news prefilter** — `_prefilter` now matches the company name from `universe.csv` ("Volvo" for VOLV-B.ST, share-class suffix stripped), not just the ticker base that never appears in headlines
 - [x] **Tests** — 250 passing: counterfactual labeling/horizon/cap/track isolation, decision-persistence dedupe, in-place DB migration, outcome scoring bounds, close-hook wiring, prefilter name matching
 
+### Backtester realism + counterfactual paths + Hurst flag (2026-07-02)
+- [x] **Backtester mirrors live execution** — slippage + commissions from settings (FX fee on US), ATR-scaled trailing stop with `trailing_stop` exit labeling, intraday High/Low stop/target checks (stop-first when both trade in one bar, gaps fill at the open), mark-to-market equity so drawdown mode sees open losses; Sharpe annualized by actual holding period; metrics report net-of-commission P&L + `total_commission`. No look-ahead: the trailing stop is raised from a bar's close only *after* that bar's exit checks
+- [x] **Counterfactual path simulation** — PASS decisions also persist decision-time ATR; the counterfactual builder simulates the trade the system would have taken (1.5×ATR stop, RRR-2.0 target, stop-first) through the forward OHLC window, so a rally that would have traded through its stop first labels as a correct PASS, not a missed BUY. Falls back to horizon-close labeling when ATR/High/Low are unavailable
+- [x] **Hurst on returns (opt-in)** — proper windowed R/S on log returns behind `hurst_on_returns` (default **off**). The returns estimator measures persistence correctly, but a plain drifting random walk then reads ~0.5 (neutral) and the screener gets much stricter — flip deliberately on the Pi and observe candidate volume before committing
+- [x] **Tests** — 271 passing: intraday exits/gap fills, backtest trailing + no-look-ahead, cost arithmetic, mark-to-market drawdown, path-simulation labels (stop-first rally case), AR(1) persistent/anti-persistent Hurst on returns
+
 ---
 
 ## To Do 🔲
 
 ### Improvements
-- [ ] **Hurst on returns** — `regime.py` runs R/S analysis on price *levels*, biasing H upward ("trending" over-classified); should use the return series. Changes live classification — do deliberately. Lag-1 autocorrelation is computed but unused in classification
-- [ ] **Backtester realism** — no slippage/commissions, stops checked against daily closes only (no intraday high/low), open positions valued at entry price, no trailing stop; results can't validate live behavior until these match
+- [ ] **Flip `hurst_on_returns`** — the returns-based estimator is implemented and tested but defaults off; enable on the Pi, watch screener candidate volume for a week, then commit or revert
 - [ ] **Dead DB tables** — `Trade`, `Position`, `PortfolioSnapshot`, `Heuristic` are never written (state lives in `portfolio_state` JSON + heuristic files); wire them up as an audit log or drop them
 - [ ] **Sector correlation matrix** — a per-sector position *count* cap is enforced; the true 0.7 max-correlation rule (yfinance sector tags → correlation matrix) is not yet implemented
-- [ ] **Counterfactual holding-period realism** — forward return is measured to the horizon's last close with no stop/target path simulation; a stop-first path would label some "missed winners" as losses
 - [ ] **`_fix_rrr` masks target discipline** — auto-stretching targets in the 1.0–2.0 RRR band means MIPRO never learns to place good targets, only to avoid broken stops; consider learning target placement instead
 - [ ] **News model on reasoning tier** — `gpt-5-mini` may spend budget on reasoning; monitor Swedish news summary quality, bump model or tune `max_completion_tokens` if weak
 

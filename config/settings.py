@@ -76,6 +76,12 @@ class Settings(BaseSettings):
     # Screener thresholds — loosened to widen the funnel (more at-bats for MIPRO
     # to learn from). The AI decision + RRR>=2 risk validation remain the quality
     # gate downstream, so this raises trade volume without lowering standards.
+    # Hurst estimation basis. R/S on price *levels* (legacy default) biases H
+    # upward — a plain drifting random walk reads "trending". On *returns* H
+    # measures persistence properly, but drifting walks then read ~0.5 (neutral)
+    # and the screener gets much stricter. Flip deliberately and observe.
+    hurst_on_returns: bool = False
+
     rsi_min: float = 35.0                  # was 40.0
     rsi_max: float = 70.0                  # was 65.0
     volume_spike_multiplier: float = 1.2   # was 1.5 (20% above avg vol, not 50%)

@@ -67,7 +67,21 @@ def _hurst_exponent(ts: np.ndarray) -> float:
     """
     Estimate Hurst Exponent via Rescaled Range (R/S) analysis.
     H ≈ 0.5 = random walk; H > 0.5 = trending; H < 0.5 = mean-reverting.
+
+    Dispatches on settings.hurst_on_returns: the legacy estimator runs R/S on
+    price levels (biases H upward — a drifting random walk reads "trending");
+    the returns estimator measures persistence properly but classifies plain
+    drift as neutral, so flipping it makes the screener much stricter.
     """
+    from config.settings import settings
+
+    if settings.hurst_on_returns:
+        return _hurst_rs_returns(ts)
+    return _hurst_rs_levels(ts)
+
+
+def _hurst_rs_levels(ts: np.ndarray) -> float:
+    """Legacy anchored R/S on price levels."""
     n = len(ts)
     lags = []
     rs_values = []
@@ -86,6 +100,37 @@ def _hurst_exponent(ts: np.ndarray) -> float:
         return 0.5
 
     coeffs = np.polyfit(lags, rs_values, 1)
+    return float(np.clip(coeffs[0], 0.0, 1.0))
+
+
+def _hurst_rs_returns(ts: np.ndarray) -> float:
+    """R/S on log returns, averaged over non-overlapping windows per size —
+    the textbook estimator: measures return persistence, not price drift."""
+    returns = np.diff(np.log(np.asarray(ts, dtype=float) + 1e-10))
+    n = len(returns)
+    if n < 20:
+        return 0.5
+
+    sizes = []
+    rs_values = []
+    for size in range(10, n // 2 + 1, max(1, n // 20)):
+        rs_list = []
+        for start in range(0, n - size + 1, size):
+            sub = returns[start:start + size]
+            mean = np.mean(sub)
+            deviations = np.cumsum(sub - mean)
+            r = np.max(deviations) - np.min(deviations)
+            s = np.std(sub, ddof=1)
+            if s > 0:
+                rs_list.append(r / s)
+        if rs_list:
+            sizes.append(np.log(size))
+            rs_values.append(np.log(np.mean(rs_list)))
+
+    if len(sizes) < 2:
+        return 0.5
+
+    coeffs = np.polyfit(sizes, rs_values, 1)
     return float(np.clip(coeffs[0], 0.0, 1.0))
 
 
