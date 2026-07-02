@@ -119,6 +119,23 @@ class TestCounterfactualExamples:
         with patch("src.data.market_data.fetch_ohlcv", return_value=df):
             assert self._build() == []  # building for "claude"
 
+    def test_risk_blocked_buy_included(self, tmp_db):
+        # A BUY the risk engine rejected (e.g. weak target, now that stretching
+        # is gone) was never executed — it labels counterfactually like a PASS
+        _seed_decision("AAPL", price=100.0, days_ago=30, entry_inputs=_INPUTS, action="BLOCKED")
+        df = _price_df(datetime.utcnow() - timedelta(days=29), 40, close=110.0)
+        with patch("src.data.market_data.fetch_ohlcv", return_value=df):
+            examples = self._build()
+        assert len(examples) == 1
+        assert examples[0]["action"] == "BUY"
+
+    def test_executed_buy_not_counterfactually_labeled(self, tmp_db):
+        # Executed BUYs have real outcomes — they must not be double-counted
+        _seed_decision("AAPL", price=100.0, days_ago=30, entry_inputs=_INPUTS, action="BUY")
+        df = _price_df(datetime.utcnow() - timedelta(days=29), 40, close=110.0)
+        with patch("src.data.market_data.fetch_ohlcv", return_value=df):
+            assert self._build() == []
+
     def test_cap_respected(self, tmp_db):
         for i in range(5):
             _seed_decision(f"TICK{i}", price=100.0, days_ago=30 + i, entry_inputs=_INPUTS)

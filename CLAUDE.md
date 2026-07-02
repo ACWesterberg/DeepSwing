@@ -129,8 +129,9 @@ curl -X POST http://localhost:8000/api/scan/us
 See [STATUS.md](STATUS.md) for the full To Do list. Priority items:
 
 1. **Flip `hurst_on_returns`** — the returns-based R/S estimator is implemented behind a settings flag (default off, because it reclassifies drifting walks as neutral and makes the screener stricter); enable deliberately and observe candidate volume
-2. **`_fix_rrr` masks target discipline** — auto-stretching targets in the 1.0–2.0 RRR band means MIPRO never learns target placement
-3. **News summary quality** — monitor whether `gpt-5-mini` spends its budget on reasoning at the expense of the Swedish summaries
+2. **News summary quality** — monitor whether `gpt-5-mini` spends its budget on reasoning at the expense of the Swedish summaries
+
+There is **no target auto-stretching**: a BUY whose own target gives RRR < 2.0 is rejected at risk validation and learned from counterfactually (blocked BUYs persist inputs like PASSes). Don't reintroduce `_fix_rrr`.
 
 The backtester now mirrors live execution (slippage/commissions, intraday High/Low exits, ATR trailing stop, mark-to-market equity, correlation cap); counterfactual labels simulate the stop/target path when ATR is available.
 

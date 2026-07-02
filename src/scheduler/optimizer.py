@@ -95,9 +95,9 @@ def _label_forward_path(
 
 def _build_counterfactual_examples(track: TrackType, max_examples: int) -> list:
     """
-    Label persisted PASS decisions from what the price actually did afterwards.
-    A PASS whose simulated forward path hit its target was a missed BUY; one
-    that stopped out or went nowhere was a correct PASS.
+    Label persisted PASS / risk-BLOCKED decisions from what the price actually
+    did afterwards. A setup whose simulated forward path hit its target was a
+    missed BUY; one that stopped out or went nowhere was a correct skip.
     Without these, the trainset only contains taken trades (survivorship bias)
     and the metric can never penalize passing on winners.
     """
@@ -115,7 +115,9 @@ def _build_counterfactual_examples(track: TrackType, max_examples: int) -> list:
             session.query(Decision)
             .filter(
                 Decision.track == track,
-                Decision.action == "PASS",
+                # BLOCKED = a BUY the risk engine rejected (weak target, cap,
+                # correlation…) — never executed, so it labels the same way
+                Decision.action.in_(("PASS", "BLOCKED")),
                 Decision.entry_inputs.isnot(None),
                 Decision.price.isnot(None),
                 Decision.timestamp <= cutoff,

@@ -359,6 +359,9 @@ def _run_scan(market: MarketType) -> dict:
 
             if not risk.approved:
                 logger.info("[%s] %s risk rejected: %s", track, candidate.ticker, risk.rejection_reason)
+                # Blocked BUYs (e.g. weak targets, now that they're rejected
+                # instead of stretched) carry inputs + price/ATR too, so the
+                # counterfactual pipeline still learns from setups never taken.
                 decisions_log.append({
                     "track": track,
                     "ticker": candidate.ticker,
@@ -368,6 +371,9 @@ def _run_scan(market: MarketType) -> dict:
                     "rrr": round(risk.rrr, 2) if risk.rrr else None,
                     "regime": candidate.regime.regime,
                     "reason": risk.rejection_reason,
+                    "price": candidate.signals.current_price,
+                    "atr": candidate.signals.atr_14,
+                    "entry_inputs": decision.get("entry_inputs"),
                 })
                 continue
 

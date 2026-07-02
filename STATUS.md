@@ -106,13 +106,15 @@ Last updated: 2026-07-02
 - [x] **ARCHITECTURE.md de-staled** — current model IDs, BUY/PASS signature, real screener thresholds, ATR trailing stop, US hours in ET, correlation cap
 - [x] **Tests** — 289 passing: retention pruning, snapshot creation/rotation/validity, disabled modes
 
+### Target discipline (2026-07-02)
+- [x] **`_fix_rrr` removed** — weak-target BUYs (RRR < 2.0) are rejected by risk validation instead of silently stretched, so the optimizer sees the model's real target placement. Risk-BLOCKED BUYs persist their price/ATR/inputs and feed the counterfactual pipeline like PASSes, so the learning volume that stretching used to provide is preserved without taking the trades
+
 ---
 
 ## To Do 🔲
 
 ### Improvements
 - [ ] **Flip `hurst_on_returns`** — the returns-based estimator is implemented and tested but defaults off; enable on the Pi, watch screener candidate volume for a week, then commit or revert
-- [ ] **`_fix_rrr` masks target discipline** — auto-stretching targets in the 1.0–2.0 RRR band means MIPRO never learns to place good targets, only to avoid broken stops; consider learning target placement instead
 - [ ] **News model on reasoning tier** — `gpt-5-mini` may spend budget on reasoning; monitor Swedish news summary quality, bump model or tune `max_completion_tokens` if weak
 
 ### Pi Deployment / Ops
