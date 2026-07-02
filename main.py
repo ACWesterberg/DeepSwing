@@ -38,6 +38,19 @@ def weekly_maintenance():
             run_mipro_optimization(track)
         except Exception as exc:
             logger.error("Weekly maintenance error for %s: %s", track, exc, exc_info=True)
+    try:
+        from src.db import prune_old_decisions
+        pruned = prune_old_decisions(settings.decisions_retention_days)
+        if pruned:
+            logger.info("Pruned %d decision rows older than %d days", pruned, settings.decisions_retention_days)
+    except Exception as exc:
+        logger.error("Decision retention pruning error: %s", exc)
+
+
+def daily_db_backup():
+    """Nightly on-disk SQLite snapshot with rotation."""
+    from src.scheduler.backup import backup_database
+    backup_database()
 
 
 def start_scheduler() -> BackgroundScheduler:
@@ -61,6 +74,16 @@ def start_scheduler() -> BackgroundScheduler:
         hour=2,
         minute=0,
         id="weekly_maintenance",
+        max_instances=1,
+    )
+
+    # Nightly 23:45 CET — SQLite snapshot (after both markets close)
+    scheduler.add_job(
+        daily_db_backup,
+        "cron",
+        hour=23,
+        minute=45,
+        id="db_backup",
         max_instances=1,
     )
 

@@ -118,6 +118,14 @@ class Settings(BaseSettings):
     counterfactual_buy_threshold: float = 0.03   # fwd return >= 3% labels the PASS as a missed BUY
     counterfactual_max_examples: int = 30        # cap so counterfactuals can't swamp real trades
 
+    # Housekeeping: decisions accumulate ~1k rows/day at 15-min scans; prune rows
+    # older than this during weekly maintenance (0 disables). Counterfactual
+    # training only reads recent PASSes, so 90 days is generous.
+    decisions_retention_days: int = 90
+    # Daily on-disk SQLite snapshot (data/backups/), keep the newest N (0 disables).
+    # MIPRO programs are backed up offsite; this protects the portfolio DB itself.
+    db_backup_keep: int = 7
+
     # MIPRO artifact backup — path to a local git working copy of a standalone
     # backups repo (e.g. ~/Github/deepswing-mipro-backups). Set via env
     # MIPRO_BACKUP_REPO_DIR. Empty disables backup. The Pi must have push

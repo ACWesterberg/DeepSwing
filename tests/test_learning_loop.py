@@ -313,6 +313,65 @@ class TestHeuristicOutcomeFeedback:
         assert data["quality_score"] == pytest.approx(5.4)
 
 
+class TestHousekeeping:
+    def test_prune_old_decisions(self, tmp_db):
+        from src.db import Decision, get_session, prune_old_decisions
+        _seed_decision("OLD", price=100.0, days_ago=120)
+        _seed_decision("FRESH", price=100.0, days_ago=5)
+
+        deleted = prune_old_decisions(retention_days=90)
+
+        assert deleted == 1
+        session = get_session()
+        try:
+            remaining = [r.ticker for r in session.query(Decision).all()]
+        finally:
+            session.close()
+        assert remaining == ["FRESH"]
+
+    def test_prune_disabled_with_zero_retention(self, tmp_db):
+        from src.db import Decision, get_session, prune_old_decisions
+        _seed_decision("OLD", price=100.0, days_ago=999)
+
+        assert prune_old_decisions(retention_days=0) == 0
+        session = get_session()
+        try:
+            assert session.query(Decision).count() == 1
+        finally:
+            session.close()
+
+    def test_db_backup_creates_snapshot_and_rotates(self, tmp_db, monkeypatch):
+        import sqlite3
+        from src.scheduler.backup import backup_database
+
+        _seed_decision("AAPL", price=100.0, days_ago=1)
+        monkeypatch.setattr(settings, "db_backup_keep", 2)
+
+        backup_dir = tmp_db.parent / "backups"
+        # Pre-existing older snapshots to rotate out
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        for stamp in ("20200101", "20200102"):
+            (backup_dir / f"{tmp_db.stem}-{stamp}.db").write_bytes(b"old")
+
+        dest = backup_database()
+
+        assert dest is not None and dest.exists()
+        # Snapshot is a valid SQLite DB containing the decisions
+        conn = sqlite3.connect(dest)
+        count = conn.execute("SELECT COUNT(*) FROM decisions").fetchone()[0]
+        conn.close()
+        assert count == 1
+        # Rotation keeps only the newest 2
+        snapshots = sorted(backup_dir.glob(f"{tmp_db.stem}-*.db"))
+        assert len(snapshots) == 2
+        assert dest in snapshots
+
+    def test_db_backup_disabled_with_zero_keep(self, tmp_db, monkeypatch):
+        from src.scheduler.backup import backup_database
+        monkeypatch.setattr(settings, "db_backup_keep", 0)
+        assert backup_database() is None
+
+
 class TestNewsPrefilterCompanyName:
     def test_nordic_headline_matches_company_name(self):
         from src.agent.news_analyzer import _prefilter

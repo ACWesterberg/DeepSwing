@@ -98,6 +98,14 @@ Last updated: 2026-07-02
 - [x] **systemd service paths fixed** — `/home/pi/DeepSwing` → `/home/alexander/Documents/DeepSwing`, `User=alexander`
 - [x] **Tests** — 285 passing: correlation math (identical/inverse/independent series, overlap minimum, never-raises guard), risk-cap rejection/allowance/worst-pair selection
 
+### Pre-deploy ops hardening (2026-07-02)
+- [x] **Nightly SQLite snapshot** — 23:45 CET, SQLite online-backup API (torn-write-safe) into `data/backups/`, newest `db_backup_keep` (7) kept; the portfolio DB previously had no backup at all on the SD card
+- [x] **Decisions retention** — weekly maintenance prunes decision rows older than `decisions_retention_days` (90); the table otherwise grows ~1k rows/day forever
+- [x] **`.env.example` synced** — documents all knobs added this cycle (position cap, trailing multiplier, `hurst_on_returns`, counterfactual tuning, retention/backup)
+- [x] **Dashboard heuristic cards** show outcome feedback (trades used + cumulative P&L) next to quality/usage
+- [x] **ARCHITECTURE.md de-staled** — current model IDs, BUY/PASS signature, real screener thresholds, ATR trailing stop, US hours in ET, correlation cap
+- [x] **Tests** — 289 passing: retention pruning, snapshot creation/rotation/validity, disabled modes
+
 ---
 
 ## To Do 🔲

@@ -27,19 +27,22 @@ REGIME CLASSIFIER — shared
 SCREENER → 5-10 candidates — shared output
   ├── Price above 50 SMA (bullish structure)
   ├── RSI 40–65 (not extended on entry)
-  ├── Volume ≥ 1.5× 20-period avg on signal candle
+  ├── Volume ≥ 1.2× 20-day avg (measured on the last *completed* daily bar)
   └── Regime-appropriate setup (skip neutral regime)
   ↓
 FOR EACH CANDIDATE × EACH TRACK ("claude", "gpt"):
   1. HeuristicStore retrieves top-5 track-specific rules by relevance score
-  2. Claude Haiku / GPT-4o-mini analyzes news via DSPy TradeDecision program
-  3. Risk Engine validates: ATR stop, RRR ≥ 2.0, 1% position size, no duplicate ticker
+  2. claude-sonnet-5 / gpt-5 decide via DSPy TradeDecision (shared gpt-5-mini news analysis)
+  3. Risk Engine validates: ATR stop (currency-safe), RRR ≥ 2.0, 1% risk size,
+     position value ≤ 25% equity & ≤ cash, no duplicate ticker, sector cap,
+     pairwise return correlation ≤ 0.7 vs open positions
   4. Portfolio Simulator records fill with 0.05% simulated slippage
   ↓
 POSITION MONITOR (every 15 min, per track)
   ├── Stop-loss hit → close + trigger ERL
   ├── Take-profit hit → close + trigger ERL
-  └── Trailing stop update (2% step ratchet from Parabolic SAR)
+  ├── Trailing stop update (2×ATR trail once in profit → exit_reason="trailing_stop")
+  └── News-exit review when a holding moves ≥5% since its last news check
   ↓
 DASHBOARD WebSocket push (both tracks)
 ```
@@ -54,10 +57,10 @@ SHARED DATA                    SHARED SCREENER
 ┌────────────────┐         ┌────────────────┐
 │  CLAUDE TRACK  │         │   GPT TRACK    │
 │                │         │                │
-│ claude-haiku   │         │ gpt-4o-mini    │
+│ claude-sonnet-5│         │ gpt-5          │
 │ (decisions)    │         │ (decisions)    │
 │                │         │                │
-│ claude-sonnet  │         │ gpt-4o         │
+│ claude-opus-4-8│         │ gpt-5.5        │
 │ + ext.thinking │         │ (ERL)          │
 │ (ERL)          │         │                │
 │                │         │                │
@@ -81,14 +84,14 @@ Both tracks start with 100,000 SEK simulated capital. All records in the DB are 
 
 ```python
 class TradeDecision(dspy.Signature):
-    """Analyze a stock setup and decide whether to buy, sell, or hold."""
+    """Evaluate a potential LONG ENTRY — BUY only on a high-conviction setup."""
     technicals: str     = dspy.InputField()   # all TA indicators
     regime: str         = dspy.InputField()   # Hurst + tactic recommendation
-    news_summary: str   = dspy.InputField()   # Claude's per-ticker analysis
+    news_summary: str   = dspy.InputField()   # shared gpt-5-mini per-ticker analysis
     macro_context: str  = dspy.InputField()   # FRED / Riksbank rates
     heuristics: str     = dspy.InputField()   # top-5 ERL rules for this context
 
-    action: Literal["BUY", "SELL", "HOLD"] = dspy.OutputField()
+    action: Literal["BUY", "PASS"] = dspy.OutputField()
     confidence: float   = dspy.OutputField()   # 0.0 – 1.0
     stop_loss: float    = dspy.OutputField()   # must be below entry for BUY
     target: float       = dspy.OutputField()   # must give RRR ≥ 2.0
@@ -147,7 +150,9 @@ Heuristic example:
 | Max risk per trade | 1% of portfolio |
 | Hard cap per trade | 2% of portfolio |
 | Minimum RRR | 2.0 |
-| Stop-loss | 1.5 × ATR below support |
+| Stop-loss | 1.5 × ATR below entry (validated as fraction of price) |
+| Position value cap | 25% of equity, and ≤ available cash |
+| Trailing stop | 2 × ATR once in profit (closes as `trailing_stop`) |
 | Slippage (simulated) | 0.05% |
 | Drawdown pause | >10% → halve position size + audit |
 | Max sector correlation | 0.7 |
@@ -159,10 +164,12 @@ Heuristic example:
 | Session | Open (CET) | Close (CET) | Scan window |
 |---|---|---|---|
 | Nordic (Stockholm) | 09:00 | 17:30 | 08:45 – 17:45 |
-| US (NYSE/NASDAQ) | 15:30 | 22:00 | 15:15 – 22:15 |
+| US (NYSE/NASDAQ) | 15:30* | 22:00* | 09:15 – 16:15 ET |
 | Overlap | 15:30 | 17:30 | both active |
 
-Scheduler: APScheduler, 15-min interval, `Europe/Stockholm` timezone.
+*US hours are evaluated in **US Eastern Time** (9:30–16:00 ET); the CET equivalents shift during the ~3 weeks/year when US and EU DST are out of sync.
+
+Scheduler: APScheduler, 15-min interval, `Europe/Stockholm` timezone; nightly SQLite snapshot 23:45, weekly MIPRO + housekeeping Sunday 02:00.
 
 ---
 

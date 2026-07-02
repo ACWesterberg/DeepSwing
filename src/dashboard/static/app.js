@@ -235,6 +235,7 @@ async function refreshTrack(track) {
           <div class="heuristic-meta">
             <span>Quality: ${h.quality_score?.toFixed(1)}</span>
             <span>Used: ${h.access_count}×</span>
+            ${h.outcome_count ? `<span>Trades: ${h.outcome_count} (${((h.cumulative_pnl_pct || 0) * 100).toFixed(1)}% P&L)</span>` : ""}
             <span>${h.market} | ${h.regime}</span>
             ${h.is_core ? '<span class="core-badge">CORE</span>' : ""}
           </div>

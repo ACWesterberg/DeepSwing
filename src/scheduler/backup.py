@@ -88,6 +88,48 @@ def _git_commit_and_push(repo: Path, track: str, ts: str) -> bool:
         return False
 
 
+def backup_database() -> Optional[Path]:
+    """
+    Daily on-disk snapshot of the SQLite DB into data/backups/, keeping the
+    newest settings.db_backup_keep files. Uses SQLite's online backup API so a
+    mid-write copy can't be torn. Best-effort — never raises into the scheduler.
+    Returns the snapshot path, or None if skipped/failed.
+    """
+    keep = settings.db_backup_keep
+    if keep <= 0:
+        return None
+    db_path = settings.db_path
+    if not db_path.exists():
+        logger.debug("DB backup: no database at %s — skipping", db_path)
+        return None
+
+    import sqlite3
+
+    backup_dir = db_path.parent / "backups"
+    dest = backup_dir / f"{db_path.stem}-{datetime.utcnow().strftime('%Y%m%d')}.db"
+    try:
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        src_conn = sqlite3.connect(str(db_path))
+        try:
+            dst_conn = sqlite3.connect(str(dest))
+            try:
+                src_conn.backup(dst_conn)
+            finally:
+                dst_conn.close()
+        finally:
+            src_conn.close()
+
+        # Rotate: newest `keep` snapshots survive
+        snapshots = sorted(backup_dir.glob(f"{db_path.stem}-*.db"), reverse=True)
+        for old in snapshots[keep:]:
+            old.unlink()
+        logger.info("DB backup: snapshot written to %s (%d kept)", dest.name, min(len(snapshots), keep))
+        return dest
+    except Exception as exc:
+        logger.error("DB backup failed: %s", exc)
+        return None
+
+
 def _run_git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["git", "-C", str(repo), *args],

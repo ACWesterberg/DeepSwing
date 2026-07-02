@@ -119,3 +119,23 @@ def get_session() -> Session:
     engine = get_engine()
     SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     return SessionLocal()
+
+
+def prune_old_decisions(retention_days: int) -> int:
+    """Delete decision rows older than retention_days (0 disables). Returns count."""
+    if retention_days <= 0:
+        return 0
+    from datetime import timedelta
+
+    cutoff = datetime.utcnow() - timedelta(days=retention_days)
+    session = get_session()
+    try:
+        deleted = (
+            session.query(Decision)
+            .filter(Decision.timestamp < cutoff)
+            .delete(synchronize_session=False)
+        )
+        session.commit()
+        return deleted
+    finally:
+        session.close()
