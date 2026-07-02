@@ -92,14 +92,18 @@ Last updated: 2026-07-02
 - [x] **Hurst on returns (opt-in)** — proper windowed R/S on log returns behind `hurst_on_returns` (default **off**). The returns estimator measures persistence correctly, but a plain drifting random walk then reads ~0.5 (neutral) and the screener gets much stricter — flip deliberately on the Pi and observe candidate volume before committing
 - [x] **Tests** — 271 passing: intraday exits/gap fills, backtest trailing + no-look-ahead, cost arithmetic, mark-to-market drawdown, path-simulation labels (stop-first rally case), AR(1) persistent/anti-persistent Hurst on returns
 
+### Correlation cap + schema cleanup (2026-07-02)
+- [x] **Pairwise return-correlation cap** — the 0.7 max-correlation rule is now enforced: at risk validation, the candidate's 60-day daily returns are correlated against each same-market open position using the batch OHLCV already fetched (no extra network); any pair above `max_sector_correlation` (0.7) rejects the entry with the offending ticker named. Applied identically in the backtester (on the no-look-ahead slices). Cross-market pairs are skipped — bars don't align and different sessions mute correlation anyway
+- [x] **Dead DB tables dropped** — `Trade`, `Position`, `PortfolioSnapshot`, `Heuristic` model classes removed (never written; live state is `portfolio_state`, heuristics are file-backed, `decisions` is the audit trail). Empty tables in existing Pi DBs are harmless leftovers
+- [x] **systemd service paths fixed** — `/home/pi/DeepSwing` → `/home/alexander/Documents/DeepSwing`, `User=alexander`
+- [x] **Tests** — 285 passing: correlation math (identical/inverse/independent series, overlap minimum, never-raises guard), risk-cap rejection/allowance/worst-pair selection
+
 ---
 
 ## To Do 🔲
 
 ### Improvements
 - [ ] **Flip `hurst_on_returns`** — the returns-based estimator is implemented and tested but defaults off; enable on the Pi, watch screener candidate volume for a week, then commit or revert
-- [ ] **Dead DB tables** — `Trade`, `Position`, `PortfolioSnapshot`, `Heuristic` are never written (state lives in `portfolio_state` JSON + heuristic files); wire them up as an audit log or drop them
-- [ ] **Sector correlation matrix** — a per-sector position *count* cap is enforced; the true 0.7 max-correlation rule (yfinance sector tags → correlation matrix) is not yet implemented
 - [ ] **`_fix_rrr` masks target discipline** — auto-stretching targets in the 1.0–2.0 RRR band means MIPRO never learns to place good targets, only to avoid broken stops; consider learning target placement instead
 - [ ] **News model on reasoning tier** — `gpt-5-mini` may spend budget on reasoning; monitor Swedish news summary quality, bump model or tune `max_completion_tokens` if weak
 
@@ -107,7 +111,7 @@ Last updated: 2026-07-02
 - [ ] Verify APScheduler fires correctly across DST changes (Stockholm CET↔CEST)
 - [ ] Monitor memory usage during the first weekly MIPRO run (Pi 5, 1G cap)
 - [ ] Complete the MIPRO backup repo setup on the Pi (`MIPRO_BACKUP_REPO_DIR`) before the first MIPRO run
-- [ ] Fix the committed `systemd/deepswing.service` paths (still `/home/pi/DeepSwing`; actual Pi path is `/home/alexander/Documents/DeepSwing`)
+- [ ] Reinstall `systemd/deepswing.service` on the Pi (paths now corrected in-repo: `cp systemd/deepswing.service /etc/systemd/system/ && systemctl daemon-reload`)
 
 ### After First 30+ Closed Trades
 - [ ] Verify the first MIPRO run produces a valid compiled JSON (and that the backup fires)

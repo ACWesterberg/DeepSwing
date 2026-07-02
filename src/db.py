@@ -4,7 +4,6 @@ from datetime import datetime
 
 from sqlalchemy import (
     JSON,
-    Boolean,
     Column,
     DateTime,
     Float,
@@ -23,72 +22,11 @@ class Base(DeclarativeBase):
     pass
 
 
-class Trade(Base):
-    __tablename__ = "trades"
-
-    id = Column(Integer, primary_key=True)
-    track = Column(String(10), nullable=False)  # "claude" | "gpt"
-    ticker = Column(String(20), nullable=False)
-    market = Column(String(10), nullable=False)  # "nordic" | "us"
-    action = Column(String(4), nullable=False)   # "BUY" | "SELL"
-    entry_price = Column(Float, nullable=False)
-    exit_price = Column(Float)
-    quantity = Column(Float, nullable=False)
-    stop_loss = Column(Float, nullable=False)
-    target = Column(Float, nullable=False)
-    entry_time = Column(DateTime, default=datetime.utcnow)
-    exit_time = Column(DateTime)
-    regime = Column(String(20))
-    reasoning = Column(Text)
-    confidence = Column(Float)
-    pnl = Column(Float)
-    pnl_pct = Column(Float)
-    rrr_achieved = Column(Float)
-    is_open = Column(Boolean, default=True)
-    signals = Column(JSON)
-
-    __table_args__ = (
-        Index("ix_trades_track_open", "track", "is_open"),
-        Index("ix_trades_ticker", "ticker"),
-    )
-
-
-class Position(Base):
-    __tablename__ = "positions"
-
-    id = Column(Integer, primary_key=True)
-    trade_id = Column(Integer, nullable=False)
-    track = Column(String(10), nullable=False)
-    ticker = Column(String(20), nullable=False)
-    market = Column(String(10), nullable=False)
-    quantity = Column(Float, nullable=False)
-    entry_price = Column(Float, nullable=False)
-    current_price = Column(Float)
-    stop_loss = Column(Float, nullable=False)
-    target = Column(Float, nullable=False)
-    trailing_stop = Column(Float)
-    entry_time = Column(DateTime, default=datetime.utcnow)
-    last_updated = Column(DateTime, default=datetime.utcnow)
-
-    __table_args__ = (Index("ix_positions_track", "track"),)
-
-
-class PortfolioSnapshot(Base):
-    __tablename__ = "portfolio_snapshots"
-
-    id = Column(Integer, primary_key=True)
-    track = Column(String(10), nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    equity = Column(Float, nullable=False)
-    cash = Column(Float, nullable=False)
-    open_positions_value = Column(Float, nullable=False)
-    total_trades = Column(Integer, default=0)
-    win_rate = Column(Float)
-    sharpe_ratio = Column(Float)
-    max_drawdown = Column(Float)
-    avg_rrr = Column(Float)
-
-    __table_args__ = (Index("ix_snapshots_track_time", "track", "timestamp"),)
+# NOTE: earlier schema revisions defined Trade, Position, PortfolioSnapshot and
+# Heuristic tables here — none were ever written. Live state is the
+# portfolio_state row per track; heuristics are file-backed; decisions are the
+# audit trail. The model classes are gone; empty tables in existing DBs on the
+# Pi are harmless leftovers.
 
 
 class PortfolioState(Base):
@@ -105,27 +43,6 @@ class PortfolioState(Base):
     next_trade_id = Column(Integer, default=1)
     open_positions = Column(JSON, default=list)   # list of serialized OpenPosition
     closed_trades = Column(JSON, default=list)     # list of serialized ClosedTrade
-
-
-class Heuristic(Base):
-    __tablename__ = "heuristics"
-
-    id = Column(String(36), primary_key=True)  # UUID
-    track = Column(String(10), nullable=False)
-    trigger = Column(Text, nullable=False)
-    action = Column(Text, nullable=False)
-    market = Column(String(10), default="both")
-    regime = Column(String(20), default="any")
-    quality_score = Column(Float, default=5.0)
-    access_count = Column(Integer, default=0)
-    is_core = Column(Boolean, default=False)
-    created = Column(DateTime, default=datetime.utcnow)
-    last_accessed = Column(DateTime)
-    source_trade_id = Column(Integer)
-
-    __table_args__ = (
-        Index("ix_heuristics_track_quality", "track", "quality_score"),
-    )
 
 
 class Decision(Base):

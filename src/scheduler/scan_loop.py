@@ -11,7 +11,7 @@ from src.agent.decision import get_decision, get_exit_decision
 from src.agent.erl import run_erl
 from src.agent.memory import get_store
 from src.agent.news_analyzer import analyze_news
-from src.agent.risk import validate_trade
+from src.agent.risk import compute_return_correlations, validate_trade
 from src.analysis.regime import classify_regime
 from src.analysis.screener import screen_candidates
 from src.analysis.technical import compute_signals
@@ -332,11 +332,17 @@ def _run_scan(market: MarketType) -> dict:
                 })
                 continue
 
-            # Risk validation
+            # Risk validation — correlations vs same-market open positions come
+            # from the batch OHLCV already fetched this scan (no extra network)
             open_pos_info = [
                 {"ticker": p.ticker, "sector": p.sector}
                 for p in portfolio.open_positions
             ]
+            correlations = compute_return_correlations(
+                ohlcv_map.get(candidate.ticker),
+                [p.ticker for p in portfolio.open_positions if p.market == market],
+                ohlcv_map,
+            )
             risk = validate_trade(
                 action="BUY",
                 entry_price=entry_sek,
@@ -348,6 +354,7 @@ def _run_scan(market: MarketType) -> dict:
                 is_drawdown_mode=portfolio.is_drawdown_mode,
                 candidate_sector=sector,
                 available_cash=portfolio.cash,
+                position_correlations=correlations,
             )
 
             if not risk.approved:

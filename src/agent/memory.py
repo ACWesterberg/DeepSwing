@@ -26,8 +26,7 @@ def _hours_since(iso_ts: Optional[str], now: datetime) -> float:
 
 class HeuristicStore:
     """
-    File-backed heuristic store with SQLite mirroring.
-    Heuristics are stored as JSON files in heuristics/{track}/ and indexed in DB.
+    File-backed heuristic store — JSON files in heuristics/{track}/, no DB.
     """
 
     def __init__(self, track: TrackType):

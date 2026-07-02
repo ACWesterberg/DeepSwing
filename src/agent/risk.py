@@ -1,12 +1,56 @@
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional
 
 from config.settings import settings
 from src.analysis.technical import TechnicalSignals
 
+if TYPE_CHECKING:
+    import pandas as pd
+
 logger = logging.getLogger(__name__)
+
+
+def compute_return_correlations(
+    candidate_df: "pd.DataFrame",
+    open_tickers: list[str],
+    ohlcv_map: dict,
+    window: int = 60,
+) -> dict[str, float]:
+    """
+    Pairwise daily-return correlation between the candidate and each open
+    position whose OHLCV is in ohlcv_map (the same-market batch, so no extra
+    network). Cross-market positions are skipped — their bars don't align and
+    the different sessions mute correlation anyway. Never raises into a scan.
+    """
+    correlations: dict[str, float] = {}
+    if candidate_df is None or not open_tickers:
+        return correlations
+    try:
+        candidate_returns = (
+            candidate_df["Close"].dropna().tail(window + 1).pct_change().dropna()
+        )
+    except Exception:
+        return correlations
+
+    for ticker in open_tickers:
+        df = ohlcv_map.get(ticker)
+        if df is None:
+            continue
+        try:
+            other_returns = df["Close"].dropna().tail(window + 1).pct_change().dropna()
+            a, b = candidate_returns.align(other_returns, join="inner")
+            if len(a) < 20:
+                continue  # too little overlap for a meaningful estimate
+            corr = float(a.corr(b))
+            if not math.isnan(corr):
+                correlations[ticker] = corr
+        except Exception as exc:
+            logger.debug("Correlation computation failed for %s: %s", ticker, exc)
+    return correlations
 
 
 @dataclass
@@ -38,6 +82,7 @@ def validate_trade(
     is_drawdown_mode: bool = False,
     candidate_sector: str = "",
     available_cash: float | None = None,
+    position_correlations: Optional[dict[str, float]] = None,
 ) -> RiskValidation:
     """
     Validate a proposed trade against all risk rules.
@@ -123,6 +168,19 @@ def validate_trade(
             approved=False, quantity=0.0, risk_amount=0.0, rrr=rrr,
             rejection_reason=f"Position already open for {signals.ticker}",
         )
+
+    # Pairwise return-correlation cap — a "diversified" book of positions that
+    # all move together is one big position with extra commission
+    if position_correlations:
+        worst_ticker, worst = max(position_correlations.items(), key=lambda kv: kv[1])
+        if worst > settings.max_sector_correlation:
+            return RiskValidation(
+                approved=False, quantity=0.0, risk_amount=0.0, rrr=rrr,
+                rejection_reason=(
+                    f"Return correlation {worst:.2f} with open position {worst_ticker} "
+                    f"exceeds max {settings.max_sector_correlation}"
+                ),
+            )
 
     # Sector concentration check
     if candidate_sector and candidate_sector != "Unknown":

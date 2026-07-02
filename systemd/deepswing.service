@@ -5,9 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/DeepSwing
-ExecStart=/home/pi/DeepSwing/venv/bin/python main.py
+User=alexander
+WorkingDirectory=/home/alexander/Documents/DeepSwing
+ExecStart=/home/alexander/Documents/DeepSwing/venv/bin/python main.py
 Restart=on-failure
 RestartSec=30
 StandardOutput=journal

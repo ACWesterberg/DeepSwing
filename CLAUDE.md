@@ -60,6 +60,7 @@ All model IDs are env-overridable (see `.env.example`). Scan/ERL models were upg
 - Position value capped at `max_position_pct` (25%) of equity **and** at available cash — risk-based sizing alone is unbounded when stops are tight
 - >10% portfolio drawdown → halve all position sizes
 - No duplicate tickers across open positions; max 2 positions per sector
+- Pairwise return-correlation cap: candidate vs each same-market open position (60-day daily returns from the scan's batch OHLCV); any pair > `max_sector_correlation` (0.7) rejects the entry — same rule in the backtester
 - Trailing stop trails at `trailing_stop_atr_multiplier` (2×) ATR once in profit (`simulator.py`); trailed exits close as `exit_reason="trailing_stop"`, not `"stop_loss"` — ERL depends on this distinction
 - VIX ≥ 35 halts **new entries only** — open holdings still get the stop/target sweep and news-exit review (`scan_loop.py` falls through to the holdings monitor)
 - Non-SEK prices are never booked without FX conversion — `_to_sek_price` returns `None` on failure and callers skip; never fall back to raw native prices
@@ -71,7 +72,7 @@ All model IDs are env-overridable (see `.env.example`). Scan/ERL models were upg
 
 ```
 config/settings.py          All config — API keys, risk params, model names, watchlists
-src/db.py                   SQLAlchemy models (Trade, Position, PortfolioSnapshot, PortfolioState, Heuristic, Decision)
+src/db.py                   SQLAlchemy models (PortfolioState, Decision) + in-place SQLite migrations
 src/portfolio/persistence.py  DB save/restore of live portfolio state (survives restarts)
 src/data/market_data.py     OHLCV fetch — yfinance + Alpha Vantage
 src/data/news_fetcher.py    NewsAPI + Swedish RSS; yfinance/Finnhub fallback + rate-limit breaker
@@ -128,10 +129,10 @@ curl -X POST http://localhost:8000/api/scan/us
 See [STATUS.md](STATUS.md) for the full To Do list. Priority items:
 
 1. **Flip `hurst_on_returns`** — the returns-based R/S estimator is implemented behind a settings flag (default off, because it reclassifies drifting walks as neutral and makes the screener stricter); enable deliberately and observe candidate volume
-2. **Sector correlation matrix** — a per-sector position *count* cap is enforced; the true 0.7 max-correlation rule is not
-3. **Dead DB tables** — `Trade`, `Position`, `PortfolioSnapshot`, `Heuristic` are never written; wire up as an audit log or drop
+2. **`_fix_rrr` masks target discipline** — auto-stretching targets in the 1.0–2.0 RRR band means MIPRO never learns target placement
+3. **News summary quality** — monitor whether `gpt-5-mini` spends its budget on reasoning at the expense of the Swedish summaries
 
-The backtester now mirrors live execution (slippage/commissions, intraday High/Low exits, ATR trailing stop, mark-to-market equity); counterfactual labels simulate the stop/target path when ATR is available.
+The backtester now mirrors live execution (slippage/commissions, intraday High/Low exits, ATR trailing stop, mark-to-market equity, correlation cap); counterfactual labels simulate the stop/target path when ATR is available.
 
 ---
 

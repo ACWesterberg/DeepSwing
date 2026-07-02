@@ -10,7 +10,7 @@ import pandas as pd
 import yfinance as yf
 
 from config.settings import settings
-from src.agent.risk import validate_trade
+from src.agent.risk import compute_return_correlations, validate_trade
 from src.analysis.regime import classify_regime
 from src.analysis.screener import screen_candidates
 from src.analysis.technical import TechnicalSignals, compute_signals
@@ -401,10 +401,12 @@ class BacktestEngine:
         for day in trading_days:
             # Build analysis_map using only data up to this day (no look-ahead)
             analysis_map: dict = {}
+            slices: dict[str, pd.DataFrame] = {}
             for ticker, df in ohlcv_map.items():
                 df_slice = df[df.index.date <= day]
                 if len(df_slice) < _WARMUP_DAYS:
                     continue
+                slices[ticker] = df_slice
                 signals = compute_signals(ticker, df_slice)
                 if signals is None:
                     continue
@@ -423,6 +425,9 @@ class BacktestEngine:
                 target = entry + 2.5 * (entry - stop)
 
                 open_pos_info = [{"ticker": t, "sector": ""} for t in portfolio.open_tickers]
+                correlations = compute_return_correlations(
+                    slices.get(candidate.ticker), portfolio.open_tickers, slices,
+                )
                 risk = validate_trade(
                     action="BUY",
                     entry_price=entry,
@@ -433,6 +438,7 @@ class BacktestEngine:
                     signals=candidate.signals,
                     is_drawdown_mode=portfolio.is_drawdown_mode,
                     available_cash=portfolio.cash,
+                    position_correlations=correlations,
                 )
 
                 if risk.approved:
