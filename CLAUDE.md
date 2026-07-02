@@ -115,15 +115,22 @@ curl -X POST http://localhost:8000/api/scan/us
 
 ---
 
+## Learning loop (how the system improves)
+
+- **MIPRO trainset** = real closed trades (labeled by realized P&L) **plus counterfactuals**: PASS decisions persist their DSPy inputs + decision-time price (one blob per track/ticker/day); at MIPRO time they're labeled from the forward return over `counterfactual_horizon_days` (≥3% → missed BUY, ≤0 → correct PASS, middle skipped). Counterfactuals are capped at the real-trade count.
+- **Heuristic feedback**: positions carry `heuristic_ids` in `entry_inputs` (added in `scan_loop`, *never* passed into the DSPy program call); on close `record_outcome` moves quality by up to ±1 pnl-scaled, clamped 0–10. Access counts increment at most once/hour; prune has a 7-day grace period.
+- **News prefilter** matches the company name from `universe.csv` (headlines say "Volvo", never "VOLV-B").
+
+---
+
 ## What's left to build
 
 See [STATUS.md](STATUS.md) for the full To Do list. Priority items:
 
-1. **MIPRO counterfactual training data** — the trainset only contains trades that were *taken* (survivorship bias); PASS decisions are persisted in the `decisions` table and could be labeled from subsequent price data
-2. **Heuristic outcome feedback** — `quality_score` is fixed at creation (model self-assessment); it should be re-scored against the results of trades that used the heuristic
-3. **Sector correlation matrix** — a per-sector position *count* cap is enforced; the true 0.7 max-correlation rule is not
-4. **Hurst on returns** — `regime.py` runs R/S analysis on price *levels*, which biases toward "trending"; should use the return series (changes live classification, so needs care)
-5. **Backtester realism** — no slippage/commissions, stops checked on daily closes only (no intraday high/low), open positions valued at entry price, no trailing stop
+1. **Sector correlation matrix** — a per-sector position *count* cap is enforced; the true 0.7 max-correlation rule is not
+2. **Hurst on returns** — `regime.py` runs R/S analysis on price *levels*, which biases toward "trending"; should use the return series (changes live classification, so needs care)
+3. **Backtester realism** — no slippage/commissions, stops checked on daily closes only (no intraday high/low), open positions valued at entry price, no trailing stop
+4. **Counterfactual path realism** — forward return ignores stop/target paths; a stop-first simulation would label some "missed winners" as losses
 
 ---
 

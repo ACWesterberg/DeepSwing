@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Optional
 
 import openai
@@ -8,6 +9,9 @@ import openai
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
+
+# Share-class / listing suffixes that appear in universe names but not headlines
+_NAME_SUFFIX_RE = re.compile(r"\s+(a|b|c|sdb|ser\.?\s*[abc])$", re.IGNORECASE)
 
 # Keywords for pre-filtering — only send articles that mention the ticker or these terms
 _RELEVANT_KEYWORDS = [
@@ -77,14 +81,30 @@ def analyze_news(
         return "News analysis unavailable."
 
 
+def _company_name_term(ticker: str) -> str:
+    """Lowercased company name to match in headlines ('' when unknown).
+    Headlines say 'Volvo', never 'VOLV-B' — the ticker base alone almost never
+    matches for Nordic stocks, so relevance needs the universe name."""
+    try:
+        from src.data.universe import get_name_from_universe
+        name = get_name_from_universe(ticker.replace(".STO", ".ST"))
+    except Exception:
+        return ""
+    if not name:
+        return ""
+    term = _NAME_SUFFIX_RE.sub("", name.strip()).lower()
+    return term if len(term) >= 3 else ""
+
+
 def _prefilter(ticker: str, articles: list[dict]) -> list[dict]:
-    """Keep only articles that mention the ticker symbol or key financial terms."""
+    """Keep only articles that mention the company/ticker or key financial terms."""
     ticker_base = ticker.split(".")[0].lower()
+    name_term = _company_name_term(ticker)
     relevant = []
     for article in articles:
         text = (article.get("headline") or "").lower()
 
-        if ticker_base in text:
+        if ticker_base in text or (name_term and name_term in text):
             relevant.append(article)
             continue
         if any(kw in text for kw in _RELEVANT_KEYWORDS):

@@ -45,6 +45,102 @@ def _pnl_weighted_metric(example, prediction, trace=None) -> float:
     return 0.5 + 0.5 * math.tanh(realized * _PNL_METRIC_SCALE)
 
 
+def _make_example(inputs: dict, action: str, pnl_pct: float) -> "dspy.Example":
+    return dspy.Example(
+        technicals=inputs.get("technicals", ""),
+        regime=inputs.get("regime", ""),
+        news_summary=inputs.get("news_summary", ""),
+        macro_context=inputs.get("macro_context", ""),
+        heuristics=inputs.get("heuristics", ""),
+        action=action,                # matches BUY/PASS signature
+        pnl_pct=float(pnl_pct),       # carried for the P&L-weighted metric
+    ).with_inputs("technicals", "regime", "news_summary", "macro_context", "heuristics")
+
+
+def _build_counterfactual_examples(track: TrackType, max_examples: int) -> list:
+    """
+    Label persisted PASS decisions from what the price actually did afterwards.
+    A PASS whose forward return cleared counterfactual_buy_threshold was a missed
+    BUY; one that went nowhere or down was a correct PASS. Ambiguous moves
+    (between 0 and the threshold) are skipped — noisy labels help nobody.
+    Without these, the trainset only contains taken trades (survivorship bias)
+    and the metric can never penalize passing on winners.
+    """
+    from datetime import datetime, timedelta
+
+    from src.data.market_data import fetch_ohlcv
+    from src.db import Decision, get_session
+
+    horizon = timedelta(days=settings.counterfactual_horizon_days)
+    cutoff = datetime.utcnow() - horizon
+
+    session = get_session()
+    try:
+        rows = (
+            session.query(Decision)
+            .filter(
+                Decision.track == track,
+                Decision.action == "PASS",
+                Decision.entry_inputs.isnot(None),
+                Decision.price.isnot(None),
+                Decision.timestamp <= cutoff,
+            )
+            .order_by(Decision.timestamp.desc())
+            .limit(max_examples * 3)  # headroom: some get skipped as ambiguous
+            .all()
+        )
+        decisions = [
+            {
+                "ticker": r.ticker,
+                "market": r.market,
+                "price": r.price,
+                "timestamp": r.timestamp,
+                "entry_inputs": r.entry_inputs,
+            }
+            for r in rows
+        ]
+    finally:
+        session.close()
+
+    examples: list = []
+    ohlcv_cache: dict[str, object] = {}
+    for d in decisions:
+        if len(examples) >= max_examples:
+            break
+        ticker = d["ticker"]
+        if ticker not in ohlcv_cache:
+            try:
+                ohlcv_cache[ticker] = fetch_ohlcv(ticker, d["market"], period="6mo")
+            except Exception as exc:
+                logger.debug("Counterfactual price fetch failed for %s: %s", ticker, exc)
+                ohlcv_cache[ticker] = None
+        df = ohlcv_cache[ticker]
+        if df is None or df.empty:
+            continue
+
+        # Forward window: closes strictly after the decision, up to the horizon.
+        # Price and closes are both native currency, so the return is FX-free.
+        start = d["timestamp"].date()
+        end = (d["timestamp"] + horizon).date()
+        window = df[(df.index.date > start) & (df.index.date <= end)]["Close"].dropna()
+        if len(window) < 3:
+            continue
+        fwd_return = float(window.iloc[-1]) / d["price"] - 1.0
+
+        if fwd_return >= settings.counterfactual_buy_threshold:
+            label = "BUY"    # a missed winner
+        elif fwd_return <= 0.0:
+            label = "PASS"   # correctly declined
+        else:
+            continue         # ambiguous drift — skip
+
+        examples.append(_make_example(d["entry_inputs"], label, fwd_return))
+
+    logger.info("MIPRO [%s]: %d counterfactual examples from %d PASS decisions",
+                track, len(examples), len(decisions))
+    return examples
+
+
 def run_mipro_optimization(track: TrackType) -> bool:
     """
     Run MIPROv2 optimization for a track's DSPy TradeDecision program.
@@ -69,22 +165,27 @@ def run_mipro_optimization(track: TrackType) -> bool:
         inputs = getattr(t, "entry_inputs", None)
         if not inputs:
             continue  # Only trades that stored their DSPy inputs can be used
-        example = dspy.Example(
-            technicals=inputs.get("technicals", ""),
-            regime=inputs.get("regime", ""),
-            news_summary=inputs.get("news_summary", ""),
-            macro_context=inputs.get("macro_context", ""),
-            heuristics=inputs.get("heuristics", ""),
-            action="BUY" if t.pnl_pct > 0 else "PASS",  # matches BUY/PASS signature
-            pnl_pct=float(t.pnl_pct),  # carried for the P&L-weighted metric
-        ).with_inputs("technicals", "regime", "news_summary", "macro_context", "heuristics")
-        trainset.append(example)
+        trainset.append(_make_example(inputs, "BUY" if t.pnl_pct > 0 else "PASS", t.pnl_pct))
 
     if len(trainset) < 10:
         logger.info("MIPRO [%s]: insufficient labeled examples (%d) — skipping", track, len(trainset))
         return False
 
-    # Split 80/20
+    # Augment with counterfactually-labeled PASS decisions, capped at the number
+    # of real-trade examples so hindsight labels can't dominate lived outcomes.
+    try:
+        counterfactuals = _build_counterfactual_examples(
+            track, min(settings.counterfactual_max_examples, len(trainset))
+        )
+        trainset = trainset + counterfactuals
+    except Exception as exc:
+        logger.warning("MIPRO [%s]: counterfactual build failed (continuing without): %s", track, exc)
+
+    # Split 80/20 — shuffled (fixed seed) so real trades and counterfactuals
+    # land in both slices; appending counterfactuals last would otherwise make
+    # the val set purely hindsight-labeled.
+    import random
+    random.Random(42).shuffle(trainset)
     split = int(len(trainset) * 0.8)
     train, val = trainset[:split], trainset[split:]
 

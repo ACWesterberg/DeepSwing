@@ -102,7 +102,21 @@ def _persist_decisions(market: str, decisions: list[dict]) -> None:
     try:
         session = get_session()
         try:
+            # One entry_inputs blob per (track, ticker) per day is enough for
+            # counterfactual training — a ticker gets re-decided every 15 min,
+            # and persisting every copy would bloat the DB fast on the Pi.
+            day_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            stored_today = {
+                (row.track, row.ticker)
+                for row in session.query(Decision.track, Decision.ticker)
+                .filter(Decision.timestamp >= day_start, Decision.entry_inputs.isnot(None))
+                .all()
+            }
             for d in decisions:
+                inputs = d.get("entry_inputs")
+                key = (d.get("track", ""), d.get("ticker", ""))
+                if inputs and key in stored_today:
+                    inputs = None
                 session.add(Decision(
                     market=market,
                     track=d.get("track", ""),
@@ -113,7 +127,11 @@ def _persist_decisions(market: str, decisions: list[dict]) -> None:
                     regime=d.get("regime"),
                     reasoning=d.get("reasoning"),
                     block_reason=d.get("reason"),
+                    price=d.get("price"),
+                    entry_inputs=inputs,
                 ))
+                if inputs:
+                    stored_today.add(key)
             session.commit()
         finally:
             session.close()
@@ -280,14 +298,20 @@ def _run_scan(market: MarketType) -> dict:
 
             if decision is None or decision["action"] != "BUY":
                 logger.debug("[%s] %s → %s", track, candidate.ticker, decision.get("action") if decision else "None")
-                decisions_log.append({
+                entry = {
                     "track": track,
                     "ticker": candidate.ticker,
                     "action": decision.get("action", "PASS") if decision else "ERROR",
                     "confidence": round(decision.get("confidence", 0.0), 2) if decision else 0.0,
                     "reasoning": decision.get("reasoning", "") if decision else "",
                     "regime": candidate.regime.regime,
-                })
+                }
+                # PASS decisions carry their price + DSPy inputs so MIPRO can later
+                # label passed-on setups from subsequent price data (counterfactuals).
+                if decision and decision["action"] == "PASS":
+                    entry["price"] = candidate.signals.current_price
+                    entry["entry_inputs"] = decision.get("entry_inputs")
+                decisions_log.append(entry)
                 continue
 
             # Convert prices to SEK from the ticker's native currency
@@ -356,7 +380,12 @@ def _run_scan(market: MarketType) -> dict:
                 confidence=decision["confidence"],
                 technical_snapshot=tech_snapshot,
                 sector=sector,
-                entry_inputs=decision.get("entry_inputs", {}),
+                # heuristic_ids ride along (outside the DSPy signature) so the
+                # heuristics used at entry can be re-scored against the outcome.
+                entry_inputs={
+                    **decision.get("entry_inputs", {}),
+                    "heuristic_ids": [h["id"] for h in heuristics_list],
+                },
                 trail_distance=trail_distance,
             )
 
@@ -433,16 +462,21 @@ def _run_scan(market: MarketType) -> dict:
     logger.info("=== Scan complete: %s | %d candidates | %d decisions ===",
                 market, len(candidates), len(decisions_log))
 
+    # Dashboard/WebSocket payloads don't need the multi-KB DSPy input blobs —
+    # those only exist for the counterfactual trainset and go to the DB.
+    display_log = [
+        {k: v for k, v in d.items() if k != "entry_inputs"} for d in decisions_log
+    ]
     _recent_decisions[market] = {
         "timestamp": datetime.utcnow().isoformat(),
-        "decisions": decisions_log,
+        "decisions": display_log,
     }
     _persist_decisions(market, decisions_log)
 
     return {
         "market": market,
         "candidates": [c.to_dict() for c in candidates],
-        "decisions": decisions_log,
+        "decisions": display_log,
     }
 
 
@@ -610,7 +644,20 @@ def _emit_close(track: str, closed) -> None:
             "exit_price": closed.exit_price,
         },
     })
+    _record_heuristic_outcome(track, closed)
     _trigger_erl(track, closed)
+
+
+def _record_heuristic_outcome(track: str, closed) -> None:
+    """Re-score the heuristics that informed this trade's entry by its outcome."""
+    try:
+        entry_inputs = getattr(closed, "entry_inputs", {}) or {}
+        heuristic_ids = entry_inputs.get("heuristic_ids") or []
+        if heuristic_ids:
+            get_store(track).record_outcome(heuristic_ids, closed.pnl_pct)
+    except Exception as exc:
+        logger.warning("Heuristic outcome update failed for %s trade %s: %s",
+                       track, closed.trade_id, exc)
 
 
 def _filter_earnings(candidates: list) -> list:

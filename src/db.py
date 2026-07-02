@@ -142,6 +142,13 @@ class Decision(Base):
     regime = Column(String(20))
     reasoning = Column(Text)
     block_reason = Column(Text)
+    # Counterfactual training support: decision-time price (native currency) and
+    # the exact DSPy inputs. Only populated for the first PASS per track/ticker/day
+    # so the optimizer can label passed-on setups from subsequent price data.
+    price = Column(Float)
+    # none_as_null: Python None must become SQL NULL (not the JSON string 'null')
+    # or the isnot(None) filters in the counterfactual builder match empty rows
+    entry_inputs = Column(JSON(none_as_null=True))
 
     __table_args__ = (
         Index("ix_decisions_time", "timestamp"),
@@ -173,6 +180,20 @@ def init_db() -> None:
     settings.db_path.parent.mkdir(parents=True, exist_ok=True)
     engine = get_engine()
     Base.metadata.create_all(engine)
+    _migrate_decisions(engine)
+
+
+def _migrate_decisions(engine) -> None:
+    """create_all never alters existing tables — add columns introduced after
+    the decisions table first shipped (SQLite supports ADD COLUMN)."""
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        existing = {row[1] for row in conn.execute(text("PRAGMA table_info(decisions)"))}
+        for name, ddl in (("price", "FLOAT"), ("entry_inputs", "JSON")):
+            if name not in existing:
+                conn.execute(text(f"ALTER TABLE decisions ADD COLUMN {name} {ddl}"))
+        conn.commit()
 
 
 def get_session() -> Session:

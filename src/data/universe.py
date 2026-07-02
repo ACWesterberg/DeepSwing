@@ -54,6 +54,16 @@ def get_us_tickers() -> list[str]:
     ]
 
 
+def get_name_from_universe(yahoo_ticker: str) -> str | None:
+    """Company name for a ticker (e.g. 'Volvo B' for VOLV-B.ST), or None."""
+    for rows in (_load_rows(), _load_global_rows()):
+        for row in rows:
+            if row["yahoo_ticker"] == yahoo_ticker:
+                name = row.get("name", "").strip()
+                return name if name else None
+    return None
+
+
 def get_sector_from_universe(yahoo_ticker: str) -> str | None:
     """Sector string for a ticker, or None if not found."""
     for rows in (_load_rows(), _load_global_rows()):

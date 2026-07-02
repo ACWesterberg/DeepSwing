@@ -80,18 +80,22 @@ Last updated: 2026-07-02
 - [x] **Peak equity ratchet** — `peak_equity` now updates on mark-to-market, not only on closes, so drawdown mode sees peaks reached while positions were open
 - [x] **Tests** — 229 passing (was 206): trailing-stop labeling, position/cash caps, currency-safe ATR check, VIX-halt holdings sweep, FX-guard semantics, US DST market hours, heuristic rate-limiting/grace period
 
+### Learning-loop completion (2026-07-02)
+- [x] **MIPRO counterfactual training data** — PASS decisions now persist their decision-time price + exact DSPy inputs (one blob per track/ticker/day to keep the Pi DB small; `decisions` table migrated in-place via `ALTER TABLE`). At MIPRO time, `_build_counterfactual_examples` labels mature PASSes from what the price actually did over `counterfactual_horizon_days` (14d): forward return ≥ 3% → missed BUY, ≤ 0 → correct PASS, ambiguous middle skipped. Counterfactuals are capped at the number of real-trade examples and the 80/20 split is seeded-shuffled so the val set isn't purely hindsight-labeled. This removes the survivorship bias where the optimizer only ever saw taken trades
+- [x] **Heuristic outcome feedback** — positions carry the `heuristic_ids` used at entry (outside the DSPy signature); on close, `HeuristicStore.record_outcome` moves each heuristic's `quality_score` by up to ±1 (pnl-scaled, clamped 0–10) and tracks `outcome_count`/`cumulative_pnl_pct`, so validated rules rise and repeatedly harmful ones drift into prune range regardless of the model's initial self-assessment
+- [x] **Nordic news prefilter** — `_prefilter` now matches the company name from `universe.csv` ("Volvo" for VOLV-B.ST, share-class suffix stripped), not just the ticker base that never appears in headlines
+- [x] **Tests** — 250 passing: counterfactual labeling/horizon/cap/track isolation, decision-persistence dedupe, in-place DB migration, outcome scoring bounds, close-hook wiring, prefilter name matching
+
 ---
 
 ## To Do 🔲
 
 ### Improvements
-- [ ] **MIPRO counterfactual training data** — the trainset only contains trades that were *taken* (survivorship bias; a PASS always scores 0.5 in the metric). PASS decisions are already persisted in the `decisions` table and could be labeled from subsequent price history
-- [ ] **Heuristic outcome feedback** — `quality_score` is fixed at creation from the ERL model's self-assessment and never re-scored against the results of trades that used the heuristic
 - [ ] **Hurst on returns** — `regime.py` runs R/S analysis on price *levels*, biasing H upward ("trending" over-classified); should use the return series. Changes live classification — do deliberately. Lag-1 autocorrelation is computed but unused in classification
 - [ ] **Backtester realism** — no slippage/commissions, stops checked against daily closes only (no intraday high/low), open positions valued at entry price, no trailing stop; results can't validate live behavior until these match
 - [ ] **Dead DB tables** — `Trade`, `Position`, `PortfolioSnapshot`, `Heuristic` are never written (state lives in `portfolio_state` JSON + heuristic files); wire them up as an audit log or drop them
-- [ ] **Nordic news prefilter** — `_prefilter` matches on the ticker base ("VOLV-B"), which never appears in headlines ("Volvo"); relevance rests on generic keywords
 - [ ] **Sector correlation matrix** — a per-sector position *count* cap is enforced; the true 0.7 max-correlation rule (yfinance sector tags → correlation matrix) is not yet implemented
+- [ ] **Counterfactual holding-period realism** — forward return is measured to the horizon's last close with no stop/target path simulation; a stop-first path would label some "missed winners" as losses
 - [ ] **`_fix_rrr` masks target discipline** — auto-stretching targets in the 1.0–2.0 RRR band means MIPRO never learns to place good targets, only to avoid broken stops; consider learning target placement instead
 - [ ] **News model on reasoning tier** — `gpt-5-mini` may spend budget on reasoning; monitor Swedish news summary quality, bump model or tune `max_completion_tokens` if weak
 

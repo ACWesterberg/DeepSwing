@@ -104,6 +104,14 @@ class Settings(BaseSettings):
     # last news check — a "large jump". Set to 0.0 to review every scan.
     holdings_news_jump_pct: float = 0.05
 
+    # Counterfactual MIPRO training: PASS decisions (persisted with their DSPy
+    # inputs + decision-time price) are labeled from what the price actually did
+    # over the horizon, so the optimizer also learns from setups it declined —
+    # without this the trainset only contains taken trades (survivorship bias).
+    counterfactual_horizon_days: int = 14        # calendar days of forward price data
+    counterfactual_buy_threshold: float = 0.03   # fwd return >= 3% labels the PASS as a missed BUY
+    counterfactual_max_examples: int = 30        # cap so counterfactuals can't swamp real trades
+
     # MIPRO artifact backup — path to a local git working copy of a standalone
     # backups repo (e.g. ~/Github/deepswing-mipro-backups). Set via env
     # MIPRO_BACKUP_REPO_DIR. Empty disables backup. The Pi must have push

@@ -113,6 +113,33 @@ class HeuristicStore:
 
         return top
 
+    def record_outcome(self, heuristic_ids: list[str], pnl_pct: float) -> int:
+        """Re-score heuristics against the result of a trade that used them.
+        quality_score moves by up to ±1 per trade (pnl-scaled), clamped to 0–10,
+        so validated rules rise and repeatedly harmful ones drift into prune
+        range regardless of the model's initial self-assessment."""
+        delta = max(-1.0, min(1.0, pnl_pct * 10.0))
+        updated = 0
+        for heuristic_id in heuristic_ids:
+            path = self._dir / f"{heuristic_id}.json"
+            if not path.exists():
+                continue
+            try:
+                h = json.loads(path.read_text())
+                h["quality_score"] = max(0.0, min(10.0, h.get("quality_score", 5.0) + delta))
+                h["outcome_count"] = h.get("outcome_count", 0) + 1
+                h["cumulative_pnl_pct"] = round(h.get("cumulative_pnl_pct", 0.0) + pnl_pct, 6)
+                path.write_text(json.dumps(h, indent=2))
+                updated += 1
+            except Exception as exc:
+                logger.warning("Failed to record outcome on heuristic %s: %s", heuristic_id[:8], exc)
+        if updated:
+            logger.info(
+                "Outcome %+.2f%% applied to %d heuristic(s) in %s track (Δquality %+.2f)",
+                pnl_pct * 100, updated, self.track, delta,
+            )
+        return updated
+
     def to_prompt_text(self, heuristics: list[dict]) -> str:
         if not heuristics:
             return "No relevant heuristics yet."
