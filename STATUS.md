@@ -1,6 +1,6 @@
 # DeepSwing — Implementation Status
 
-Last updated: 2026-07-01
+Last updated: 2026-07-02
 
 ---
 
@@ -32,7 +32,7 @@ Last updated: 2026-07-01
 
 ### Phase 4 — Scheduler + Data Ingestion
 - [x] `src/scheduler/market_hours.py` — `is_market_open()` (scan window), `is_exchange_open()` (badge, true exchange hours), `active_markets()`, CET-aware
-- [x] `src/scheduler/scan_loop.py` — full scan cycle; VIX circuit-breaker; per-position-market FX conversion to SEK; capacity-aware scanning (skips the candidate/news/decision pipeline for tracks with no free cash, drops to a holdings-only monitor when all tracks are fully allocated); jump-triggered news exits (news + AI exit review only fire once a holding moves ≥ `holdings_news_jump_pct`); WebSocket trade events; decision persistence
+- [x] `src/scheduler/scan_loop.py` — full scan cycle; VIX circuit-breaker; per-position-market FX conversion to SEK; capacity-aware scanning (skips the candidate/news/decision pipeline for tracks with no free cash, drops to a holdings-only monitor when all tracks are fully allocated); jump-triggered news exits (news + AI exit review only fire once a holding moves ≥ `holdings_news_jump_pct`); non-blocking manual scans (`/api/scan` offloaded via `run_in_executor`) serialized by a `_scan_lock` so manual + scheduled can't overlap/double-open; WebSocket trade events; decision persistence
 - [x] `src/data/` — now thin wrappers over the shared **`financedata`** package: `market_data`, `news_fetcher`, `insider_fetcher`, `macro_data`; `universe.py` + `config/universe.csv` drive the Nordic watchlist (OMXS/OSLO/OMXH/OMXC)
 - [x] FX / currency handling — `_to_sek_price` + suffix→currency map (.ST/SEK, .OL/NOK, .HE/EUR, .CO/DKK, US/USD); per-position-market conversion
 
@@ -53,7 +53,12 @@ Last updated: 2026-07-01
 - [x] **Market-wide news environment** — `fetch_market_headlines` pulls the full RSS feed (not ticker-filtered) once per scan; folded into `macro_context`, so geopolitics/sector/risk themes reach decisions, ERL, and MIPRO
 - [x] **Earnings-proximity filter** — candidates within `earnings_buffer_days` (default 2) of earnings are dropped before decisions (financedata fundamentals + `ts_to_days`)
 - [x] **Bug fixes** — cross-market FX contamination; Nordic currency mis-mapping; market-status badge (exchange hours vs scan window); DSPy thread error (`dspy.context()`); GPT-5 `dspy.LM` crash
-- [x] **Tests** — technical, regime, screener, risk, scan_loop (integration), e2e lifecycle, backtesting, backup, optimizer, preflight, decision_lm, watchlist, insider, reset (196 passing)
+- [x] **Durable portfolio state** — live portfolios mirrored to `portfolio_state` and restored on startup, so tracks survive a redeploy (previously reset to starting capital on every `systemctl restart`)
+- [x] **Non-blocking scans** — `/api/scan` runs `run_scan` in a worker thread so a scan no longer freezes the dashboard event loop; `_scan_lock` serializes scans so manual + scheduled can't overlap
+- [x] **NewsAPI resilience** — per-ticker cache + a 429 breaker (skip NewsAPI → RSS for a cooldown), plus a free per-ticker fallback (yfinance/Yahoo, Finnhub-preferred for US when keyed) so US tickers still get news
+- [x] **Volume screened on the completed daily bar** — fixes the screener passing 0 candidates every morning (partial forming bar read ~0.1× and failed the `volume_spike_multiplier` gate)
+- [x] **Universe hygiene** — disabled 3 delisted Nordic tickers (TFBANK.ST, SKAKO.CO, ILKKA2.HE) that logged a yfinance ERROR on every scan
+- [x] **Tests** — technical, regime, screener, risk, scan_loop (integration), e2e lifecycle, backtesting, backup, optimizer, preflight, decision_lm, watchlist, insider, reset (196 passing). Note: this cycle's ops features (persistence, scan lock, news breaker/fallback, volume fix) are verified manually but not yet in the suite.
 
 ### Documentation & Deployment
 - [x] `SETUP.md`, `README.md`, `ARCHITECTURE.md`, `STATUS.md`, `CLAUDE.md`

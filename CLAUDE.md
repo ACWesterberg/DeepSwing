@@ -22,6 +22,8 @@ An AI-powered **swing trading simulator** running on a Raspberry Pi 5. Paper-tra
 - **Portfolio state is durable** — the live `Portfolio` (cash, open positions, closed trades, peak equity) is an in-memory object mirrored to the `portfolio_state` DB table on every open/close and at end of scan, and rehydrated on startup (`persistence.restore_portfolios()`), so tracks survive a redeploy/restart. `main.py` restores *before* arming the persistence handler; `/api/reset` deletes the persisted rows so a restart doesn't resurrect cleared tracks. Heuristics stay file-backed; MIPRO programs stay git-backed.
 - **Scans never block the event loop** — `run_scan` is long/blocking (network + LLM), so `/api/scan` offloads it via `run_in_executor`; a module-level `_scan_lock` serializes scans so a manual trigger can't overlap the scheduled one and double-open. The scheduler already runs scans in its own thread.
 - **NewsAPI is rate-limit-guarded** — per-ticker news is cached for `news_refresh_interval_minutes`; if a fetch stalls beyond `newsapi_slow_threshold_seconds` (429 backoff) a breaker skips NewsAPI (RSS only) for `newsapi_cooldown_minutes`, so one throttled ticker doesn't cost ~1 min each. The jump-triggered exit review passes `force_refresh=True` for freshness.
+- **Per-ticker news has a free fallback** — when NewsAPI/RSS returns nothing (common for US, which has no RSS), `fetch_news_for_ticker` falls back to a free source so US tickers still get news: yfinance/Yahoo (no key, universal backstop), with Finnhub preferred for US when `finnhub_api_key` is set (dormant drop-in until then).
+- **Volume is screened on the last *completed* daily bar** — intraday the latest bar is still forming, so `volume_ratio` from it reads ~0.1× and the `volume_spike_multiplier` gate would reject everything until near the close. `technical.py` computes the ratio from the previous full day vs its trailing 20-day average; `current_volume` still reports the live bar for display.
 
 ---
 
@@ -67,7 +69,7 @@ config/settings.py          All config — API keys, risk params, model names, w
 src/db.py                   SQLAlchemy models (Trade, Position, PortfolioSnapshot, PortfolioState, Heuristic, Decision)
 src/portfolio/persistence.py  DB save/restore of live portfolio state (survives restarts)
 src/data/market_data.py     OHLCV fetch — yfinance + Alpha Vantage
-src/data/news_fetcher.py    NewsAPI + Swedish RSS
+src/data/news_fetcher.py    NewsAPI + Swedish RSS; yfinance/Finnhub fallback + rate-limit breaker
 src/data/insider_fetcher.py SEC EDGAR + FI Insynsregistret
 src/data/macro_data.py      FRED + Riksbank + ECB
 src/analysis/technical.py   11 indicators via `ta` library
