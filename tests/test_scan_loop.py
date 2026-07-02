@@ -76,6 +76,9 @@ SCAN_PATCHES = [
     "src.scheduler.scan_loop.compute_signals",
     "src.scheduler.scan_loop.classify_regime",
     "src.scheduler.scan_loop._to_sek_price",
+    "src.scheduler.scan_loop.fetch_market_headlines",
+    "src.scheduler.scan_loop.format_market_environment",
+    "src.scheduler.scan_loop.get_days_to_earnings",
 ]
 
 
@@ -101,8 +104,11 @@ def _apply_patches(patches: list, **overrides):
     started["compute_signals"].return_value = _make_signals("AAPL")
     started["classify_regime"].return_value = _make_regime()
     started["get_decision"].return_value = _buy_decision(100.0)
+    started["fetch_market_headlines"].return_value = []
+    started["format_market_environment"].return_value = "No market-wide news available."
+    started["get_days_to_earnings"].return_value = {}  # no earnings info → nothing filtered
     # Pass prices through unchanged — FX conversion tested separately in TestToSekPrice
-    started["_to_sek_price"].side_effect = lambda price, market: price
+    started["_to_sek_price"].side_effect = lambda price, ticker, market: price
     # Use the mocked get_current_price value so tests can control stop-hit behaviour
     started["_get_current_prices"].side_effect = (
         lambda tickers, market: {t: started["get_current_price"].return_value for t in tickers}
@@ -252,32 +258,76 @@ class TestRunScanStopHitAndERL:
             assert len(technicals_str) > 10
 
 
+class TestCurrencyForTicker:
+    def test_us_market_is_always_usd(self):
+        from src.scheduler.scan_loop import _currency_for_ticker
+        assert _currency_for_ticker("AAPL", "us") == "USD"
+
+    def test_swedish_suffix_is_sek(self):
+        from src.scheduler.scan_loop import _currency_for_ticker
+        assert _currency_for_ticker("ERIC-B.ST", "nordic") == "SEK"
+
+    def test_norwegian_suffix_is_nok(self):
+        from src.scheduler.scan_loop import _currency_for_ticker
+        assert _currency_for_ticker("EQNR.OL", "nordic") == "NOK"
+
+    def test_finnish_suffix_is_eur(self):
+        from src.scheduler.scan_loop import _currency_for_ticker
+        assert _currency_for_ticker("DIGIA.HE", "nordic") == "EUR"
+
+    def test_danish_suffix_is_dkk(self):
+        from src.scheduler.scan_loop import _currency_for_ticker
+        assert _currency_for_ticker("NOVO-B.CO", "nordic") == "DKK"
+
+    def test_legacy_sto_suffix_defaults_to_sek(self):
+        from src.scheduler.scan_loop import _currency_for_ticker
+        assert _currency_for_ticker("ERIC-B.STO", "nordic") == "SEK"
+
+
 class TestToSekPrice:
     def teardown_method(self):
         import src.scheduler.scan_loop as sl
         sl._HAS_FX = False
         sl._to_sek_fn = None
 
-    def test_nordic_price_passes_through_unchanged(self):
+    def test_swedish_price_passes_through_unchanged(self):
         from src.scheduler.scan_loop import _to_sek_price
-        assert _to_sek_price(150.0, "nordic") == 150.0
+        assert _to_sek_price(150.0, "ERIC-B.ST", "nordic") == 150.0
 
     def test_us_price_without_fx_passes_through(self):
         import src.scheduler.scan_loop as sl
         sl._HAS_FX = False
-        assert sl._to_sek_price(100.0, "us") == 100.0
+        assert sl._to_sek_price(100.0, "AAPL", "us") == 100.0
 
     def test_us_price_converted_via_fx(self):
         import src.scheduler.scan_loop as sl
         sl._HAS_FX = True
         sl._to_sek_fn = lambda price, currency: price * 10.5
-        assert sl._to_sek_price(100.0, "us") == pytest.approx(1050.0)
+        assert sl._to_sek_price(100.0, "AAPL", "us") == pytest.approx(1050.0)
 
     def test_us_price_falls_back_when_fx_returns_none(self):
         import src.scheduler.scan_loop as sl
         sl._HAS_FX = True
         sl._to_sek_fn = lambda price, currency: None
-        assert sl._to_sek_price(100.0, "us") == 100.0
+        assert sl._to_sek_price(100.0, "AAPL", "us") == 100.0
+
+    def test_norwegian_price_converted_via_nok(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_FX = True
+        sl._to_sek_fn = lambda price, currency: price * 1.0 if currency == "NOK" else None
+        assert sl._to_sek_price(100.0, "EQNR.OL", "nordic") == pytest.approx(100.0)
+
+    def test_finnish_price_converted_via_eur(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_FX = True
+        sl._to_sek_fn = lambda price, currency: price * 11.0 if currency == "EUR" else None
+        assert sl._to_sek_price(46.0, "DIGIA.HE", "nordic") == pytest.approx(506.0)
+
+    def test_danish_price_converted_via_dkk(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_FX = True
+        sl._to_sek_fn = lambda price, currency: price * 1.5 if currency == "DKK" else None
+        assert sl._to_sek_price(100.0, "NOVO-B.CO", "nordic") == pytest.approx(150.0)
 
 
 class TestGetCurrentPrices:
@@ -338,6 +388,15 @@ class TestGetCurrentPrices:
         sl._get_live_prices = lambda tickers: {t: 100.0 for t in tickers}
         result = sl._get_current_prices(["AAPL"], "us")
         assert result == {"AAPL": pytest.approx(1000.0)}
+
+    def test_live_path_converts_eur_nordic_ticker_not_skipped_as_sek(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_LIVE = True
+        sl._HAS_FX = True
+        sl._to_sek_fn = lambda price, currency: price * 11.0 if currency == "EUR" else price
+        sl._get_live_prices = lambda tickers: {t: 46.0 for t in tickers}
+        result = sl._get_current_prices(["DIGIA.HE"], "nordic")
+        assert result == {"DIGIA.HE": pytest.approx(506.0)}
 
 
 class TestRunScanEventCallback:

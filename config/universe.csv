@@ -422,7 +422,7 @@ Sobi,SOBI.ST,,SE,OMXS,Health Care,true
 Storskogen Group B,STOR-B.ST,,SE,OMXS,Industrials,true
 Storytel B,STORY-B.ST,,SE,OMXS,Communication Services,true
 Systemair,SYSR.ST,,SE,OMXS,Industrials,true
-TF Bank,TFBANK.ST,,SE,OMXS,Financials,False
+TF Bank,TFBANK.ST,,SE,OMXS,Financials,false
 Tobii Dynavox,TDVOX.ST,,SE,OMXS,Technology,false
 VNV Global,VNV.ST,,SE,OMXS,Financials,true
 Volati,VOLO.ST,,SE,OMXS,Industrials,true
@@ -790,7 +790,7 @@ Scandinavian Brake Systems,SBS.CO,,DK,OMXC,Unknown,false
 Scape Technologies,SCAPE.CO,,DK,OMXC,Unknown,false
 Shape Robotics,SHAPE.CO,,DK,OMXC,Unknown,true
 Silkeborg IF Invest,SILKE.CO,,DK,OMXC,Unknown,false
-SKAKO,SKAKO.CO,,DK,OMXC,Unknown,true
+SKAKO,SKAKO.CO,,DK,OMXC,Unknown,false
 SP Group,SPG.CO,,DK,OMXC,Unknown,true
 Totalbanken,TOTAL.CO,,DK,OMXC,Unknown,false
 Trifork Group,TRIFOR.CO,,DK,OMXC,Unknown,true
@@ -1045,7 +1045,7 @@ Etteplan,ETTE.HE,,FI,OMXH,Unknown,true
 Fondia,FONDIA.HE,,FI,OMXH,Unknown,true
 Gofore,GOFORE.HE,,FI,OMXH,Unknown,true
 Honkarakenne B,HONBS.HE,,FI,OMXH,Unknown,true
-Ilkka,ILKKA2.HE,,FI,OMXH,Unknown,true
+Ilkka,ILKKA2.HE,,FI,OMXH,Unknown,false
 Investors House,INVEST.HE,,FI,OMXH,Unknown,true
 Lemonsoft,LEMON.HE,,FI,OMXH,Unknown,true
 Loihde,LOIHDE.HE,,FI,OMXH,Unknown,true

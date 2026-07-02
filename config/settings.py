@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     alpha_vantage_api_key: str = ""
     news_api_key: str = ""
+    finnhub_api_key: str = ""   # optional — preferred US per-ticker news when set
     fred_api_key: str = ""
 
     # Dashboard
@@ -34,13 +35,17 @@ class Settings(BaseSettings):
     starting_capital_sek: float = 100_000.0
 
     # Claude models
-    claude_decision_model: str = "claude-haiku-4-5"
-    claude_erl_model: str = "claude-sonnet-4-6"
+    claude_decision_model: str = "claude-sonnet-5"          # scan decisions (up from Haiku)
+    claude_erl_model: str = "claude-opus-4-8"               # heavy post-trade reasoning
     claude_erl_extended_thinking: bool = True
+    claude_prompt_model: str = "claude-opus-4-8"            # MIPRO instruction proposer
 
     # GPT models
-    gpt_decision_model: str = "gpt-4o-mini"
-    gpt_erl_model: str = "gpt-4o"
+    gpt_decision_model: str = "gpt-5"                        # scan decisions (up from 4o-mini)
+    gpt_news_model: str = "gpt-5-mini"                       # shared news analysis (light task)
+    gpt_erl_model: str = "gpt-5.5"                           # heavy post-trade reasoning
+    gpt_erl_reasoning_effort: str = "high"                   # GPT "thinking" for ERL; "" disables
+    gpt_prompt_model: str = "gpt-5.5"                        # MIPRO instruction proposer
 
     # Risk parameters
     max_risk_per_trade: float = 0.01       # 1% of portfolio
@@ -61,15 +66,47 @@ class Settings(BaseSettings):
     dashboard_user: str = "deepswing"
     dashboard_password: str = ""   # leave empty to disable auth
 
-    # Screener thresholds
-    rsi_min: float = 40.0
-    rsi_max: float = 65.0
-    volume_spike_multiplier: float = 1.5
-    max_candidates_per_session: int = 10
+    # Screener thresholds — loosened to widen the funnel (more at-bats for MIPRO
+    # to learn from). The AI decision + RRR>=2 risk validation remain the quality
+    # gate downstream, so this raises trade volume without lowering standards.
+    rsi_min: float = 35.0                  # was 40.0
+    rsi_max: float = 70.0                  # was 65.0
+    volume_spike_multiplier: float = 1.2   # was 1.5 (20% above avg vol, not 50%)
+    max_candidates_per_session: int = 15   # was 10
+    earnings_buffer_days: int = 2          # exclude candidates within N days of earnings
+    market_news_max_headlines: int = 20    # market-wide headlines injected into macro context
 
     # Scheduler intervals (minutes)
     scan_interval_minutes: int = 15
-    news_refresh_interval_minutes: int = 60
+    news_refresh_interval_minutes: int = 60  # also the per-ticker news cache TTL
+
+    # NewsAPI rate-limit resilience: if a per-ticker fetch stalls longer than
+    # this (retry/backoff = throttled), trip a breaker that skips NewsAPI for
+    # newsapi_cooldown_minutes so the rest of the scan uses RSS only and doesn't
+    # stall ~1 min per ticker. Set the threshold to 0 to disable the breaker.
+    newsapi_slow_threshold_seconds: float = 8.0
+    newsapi_cooldown_minutes: int = 20
+
+    # Fully-allocated behaviour: once a track's free cash falls below this fraction
+    # of its equity it can't meaningfully open a new position, so the scan skips the
+    # candidate/news/decision pipeline for it. When no track is funded the whole scan
+    # drops to a lightweight holdings-only monitor.
+    min_cash_for_new_position_pct: float = 0.05
+    # Holdings are monitored on price alone; a news pull + AI exit review only fires
+    # for a position once it has moved at least this fraction (up or down) since its
+    # last news check — a "large jump". Set to 0.0 to review every scan.
+    holdings_news_jump_pct: float = 0.05
+
+    # MIPRO artifact backup — path to a local git working copy of a standalone
+    # backups repo (e.g. ~/Github/deepswing-mipro-backups). Set via env
+    # MIPRO_BACKUP_REPO_DIR. Empty disables backup. The Pi must have push
+    # credentials configured on that working copy's remote.
+    mipro_backup_repo_dir: str = ""
+    mipro_backup_push: bool = True  # commit locally always; push to remote if True
+
+    # Boot-time preflight: ping each configured model once so a bad ID/credential
+    # surfaces immediately in the logs instead of at the next scan/ERL/MIPRO run.
+    preflight_check_models: bool = True
 
     # Watchlists (configurable)
     # Emergency fallback only — universe.csv is the live source for Nordic tickers.

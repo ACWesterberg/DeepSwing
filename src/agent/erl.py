@@ -24,6 +24,12 @@ Technical signals at entry:
 
 Market regime at entry: {regime}
 
+News & sentiment at entry:
+{news}
+
+Macro backdrop at entry:
+{macro}
+
 Outcome: {outcome}
 
 Your task:
@@ -45,6 +51,8 @@ def run_erl(
     trade: dict,
     technicals_str: str,
     regime_str: str,
+    news_str: str = "",
+    macro_str: str = "",
 ) -> Optional[str]:
     """
     Run Experiential Reflective Learning on a closed trade.
@@ -63,6 +71,8 @@ def run_erl(
         trade_summary=trade_summary,
         technicals=technicals_str,
         regime=regime_str,
+        news=news_str or "No news/sentiment captured at entry.",
+        macro=macro_str or "No macro context captured at entry.",
         outcome=outcome,
     )
 
@@ -113,11 +123,18 @@ def _call_model(track: TrackType, prompt: str) -> Optional[str]:
 
         else:  # gpt
             client = openai.OpenAI(api_key=settings.openai_api_key)
-            resp = client.chat.completions.create(
-                model=settings.gpt_erl_model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=1024,
-            )
+            kwargs: dict = {
+                "model": settings.gpt_erl_model,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+            if settings.gpt_erl_reasoning_effort:
+                # Reasoning models require max_completion_tokens (not max_tokens)
+                # and need headroom for the thinking budget on top of the answer.
+                kwargs["reasoning_effort"] = settings.gpt_erl_reasoning_effort
+                kwargs["max_completion_tokens"] = 8000
+            else:
+                kwargs["max_tokens"] = 1024
+            resp = client.chat.completions.create(**kwargs)
             return resp.choices[0].message.content
 
     except Exception as exc:
@@ -153,12 +170,19 @@ def _parse_heuristic(text: str) -> Optional[dict]:
     return result
 
 
+_EXIT_LABELS = {
+    "stop_loss": "stop-loss hit",
+    "take_profit": "target reached",
+    "trailing_stop": "trailing stop",
+    "news_exit": "news-driven exit on a large price move",
+    "ai_exit": "AI exit review",
+}
+
+
 def _describe_outcome(trade: dict) -> str:
     pnl_pct = trade.get("pnl_pct", 0) * 100
     rrr = trade.get("rrr_achieved", 0)
+    reason = _EXIT_LABELS.get(trade.get("exit_reason", ""), "manual/target exit")
     if pnl_pct > 0:
-        return f"PROFITABLE trade: +{pnl_pct:.2f}%, RRR achieved {rrr:.2f}"
-    else:
-        stop_hit = trade.get("stop_hit", False)
-        reason = "stop-loss hit" if stop_hit else "manual/target exit"
-        return f"LOSS: {pnl_pct:.2f}% via {reason}, RRR achieved {rrr:.2f}"
+        return f"PROFITABLE trade: +{pnl_pct:.2f}%, RRR achieved {rrr:.2f} (exit: {reason})"
+    return f"LOSS: {pnl_pct:.2f}% via {reason}, RRR achieved {rrr:.2f}"

@@ -18,6 +18,12 @@ An AI-powered **swing trading simulator** running on a Raspberry Pi 5. Paper-tra
 - **DSPy 2.6 uses `dspy.configure(lm=...)`** — not `with dspy.settings.context(lm=...)` (deprecated in 2.6+)
 - **All DB records have a `track` column** — "claude" | "gpt"; heuristics stored in `heuristics/{track}/`
 - **MIPRO runs weekly, Sunday 02:00 CET** — requires 30+ closed trades to run; archives previous compiled JSON
+- **Capacity-aware scanning** — a track with free cash below `min_cash_for_new_position_pct` (5%) of its equity is treated as fully allocated and gets no entry decisions; when *no* track is funded the scan skips the whole candidate/news/decision pipeline and runs a holdings-only monitor. Holdings are tracked on price alone — a news pull + AI exit review only fires once a position moves ≥ `holdings_news_jump_pct` (5%) since its last check (closes as `exit_reason="news_exit"`). Set either knob to 0 to restore always-on behaviour.
+- **Portfolio state is durable** — the live `Portfolio` (cash, open positions, closed trades, peak equity) is an in-memory object mirrored to the `portfolio_state` DB table on every open/close and at end of scan, and rehydrated on startup (`persistence.restore_portfolios()`), so tracks survive a redeploy/restart. `main.py` restores *before* arming the persistence handler; `/api/reset` deletes the persisted rows so a restart doesn't resurrect cleared tracks. Heuristics stay file-backed; MIPRO programs stay git-backed.
+- **Scans never block the event loop** — `run_scan` is long/blocking (network + LLM), so `/api/scan` offloads it via `run_in_executor`; a module-level `_scan_lock` serializes scans so a manual trigger can't overlap the scheduled one and double-open. The scheduler already runs scans in its own thread.
+- **NewsAPI is rate-limit-guarded** — per-ticker news is cached for `news_refresh_interval_minutes`; if a fetch stalls beyond `newsapi_slow_threshold_seconds` (429 backoff) a breaker skips NewsAPI (RSS only) for `newsapi_cooldown_minutes`, so one throttled ticker doesn't cost ~1 min each. The jump-triggered exit review passes `force_refresh=True` for freshness.
+- **Per-ticker news has a free fallback** — when NewsAPI/RSS returns nothing (common for US, which has no RSS), `fetch_news_for_ticker` falls back to a free source so US tickers still get news: yfinance/Yahoo (no key, universal backstop), with Finnhub preferred for US when `finnhub_api_key` is set (dormant drop-in until then).
+- **Volume is screened on the last *completed* daily bar** — intraday the latest bar is still forming, so `volume_ratio` from it reads ~0.1× and the `volume_spike_multiplier` gate would reject everything until near the close. `technical.py` computes the ratio from the previous full day vs its trailing 20-day average; `current_volume` still reports the live bar for display.
 
 ---
 
@@ -36,10 +42,13 @@ Both configurable in `config/settings.py` (`nordic_watchlist`, `us_watchlist`).
 
 | Task | Claude track | GPT track |
 |---|---|---|
-| Scan decisions (15-min) | `claude-haiku-4-5` | `gpt-4o-mini` |
-| ERL causal analysis | `claude-sonnet-4-6` + extended thinking | `gpt-4o` |
-| News analysis | `claude-haiku-4-5` (shared) | — |
-| MIPRO optimization | Each track compiled against its own model | — |
+| Scan decisions (15-min) | `claude-sonnet-5` | `gpt-5` |
+| ERL causal analysis | `claude-opus-4-8` + extended thinking | `gpt-5.5` + `reasoning_effort=high` |
+| News analysis | `gpt-5-mini` (shared by both tracks) | `gpt-5-mini` |
+| MIPRO — task model (evaluates candidates) | `claude-sonnet-5` | `gpt-5` |
+| MIPRO — prompt model (writes instructions) | `claude-opus-4-8` | `gpt-5.5` |
+
+All model IDs are env-overridable (see `.env.example`). Scan/ERL models were upgraded from the original Haiku/4o-mini/Sonnet-4-6/4o tier. News analysis is a single shared GPT call (`gpt-5-mini`) fed identically to both tracks — kept on a light model, and on GPT to use the free-token quota. MIPRO uses a heavy proposer (`prompt_model`) to write candidate instructions while the cheaper decision model evaluates them.
 
 ---
 
@@ -57,9 +66,10 @@ Both configurable in `config/settings.py` (`nordic_watchlist`, `us_watchlist`).
 
 ```
 config/settings.py          All config — API keys, risk params, model names, watchlists
-src/db.py                   SQLAlchemy models (Trade, Position, PortfolioSnapshot, Heuristic)
+src/db.py                   SQLAlchemy models (Trade, Position, PortfolioSnapshot, PortfolioState, Heuristic, Decision)
+src/portfolio/persistence.py  DB save/restore of live portfolio state (survives restarts)
 src/data/market_data.py     OHLCV fetch — yfinance + Alpha Vantage
-src/data/news_fetcher.py    NewsAPI + Swedish RSS
+src/data/news_fetcher.py    NewsAPI + Swedish RSS; yfinance/Finnhub fallback + rate-limit breaker
 src/data/insider_fetcher.py SEC EDGAR + FI Insynsregistret
 src/data/macro_data.py      FRED + Riksbank + ECB
 src/analysis/technical.py   11 indicators via `ta` library

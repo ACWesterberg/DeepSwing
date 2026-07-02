@@ -3,13 +3,43 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Callable, Literal, Optional
 
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 TrackType = Literal["claude", "gpt"]
+
+
+def _iso(dt: Optional[datetime]) -> Optional[str]:
+    return dt.isoformat() if dt is not None else None
+
+
+def _parse_dt(value) -> Optional[datetime]:
+    if value is None:
+        return None
+    return value if isinstance(value, datetime) else datetime.fromisoformat(value)
+
+
+# Optional persistence hook — set by main.py to mirror state to the DB on every
+# open/close. Defaults to off, so simulator has no DB dependency in tests.
+_persist_handler: Optional[Callable[["Portfolio"], None]] = None
+
+
+def set_persistence_handler(fn: Optional[Callable[["Portfolio"], None]]) -> None:
+    global _persist_handler
+    _persist_handler = fn
+
+
+def persist_portfolio(portfolio: "Portfolio") -> None:
+    """Best-effort persist of a portfolio's state; never raises into a scan."""
+    if _persist_handler is None:
+        return
+    try:
+        _persist_handler(portfolio)
+    except Exception as exc:
+        logger.warning("Portfolio persistence error [%s]: %s", portfolio.track, exc)
 
 
 @dataclass
@@ -29,6 +59,8 @@ class OpenPosition:
     confidence: float = 0.0
     technical_snapshot: str = ""
     sector: str = ""
+    entry_inputs: dict = field(default_factory=dict)
+    last_news_price: float = 0.0  # price (SEK) at the last news check; drives jump detection
 
     @property
     def unrealised_pnl(self) -> float:
@@ -61,6 +93,50 @@ class OpenPosition:
             "market_value": round(self.market_value, 2),
         }
 
+    def to_state(self) -> dict:
+        """Full, lossless serialization for persistence."""
+        return {
+            "trade_id": self.trade_id,
+            "ticker": self.ticker,
+            "market": self.market,
+            "quantity": self.quantity,
+            "entry_price": self.entry_price,
+            "stop_loss": self.stop_loss,
+            "target": self.target,
+            "entry_time": _iso(self.entry_time),
+            "trailing_stop": self.trailing_stop,
+            "current_price": self.current_price,
+            "regime": self.regime,
+            "reasoning": self.reasoning,
+            "confidence": self.confidence,
+            "technical_snapshot": self.technical_snapshot,
+            "sector": self.sector,
+            "entry_inputs": self.entry_inputs,
+            "last_news_price": self.last_news_price,
+        }
+
+    @classmethod
+    def from_state(cls, d: dict) -> "OpenPosition":
+        return cls(
+            trade_id=d["trade_id"],
+            ticker=d["ticker"],
+            market=d["market"],
+            quantity=d["quantity"],
+            entry_price=d["entry_price"],
+            stop_loss=d["stop_loss"],
+            target=d["target"],
+            entry_time=_parse_dt(d.get("entry_time")) or datetime.utcnow(),
+            trailing_stop=d.get("trailing_stop"),
+            current_price=d.get("current_price", 0.0),
+            regime=d.get("regime", ""),
+            reasoning=d.get("reasoning", ""),
+            confidence=d.get("confidence", 0.0),
+            technical_snapshot=d.get("technical_snapshot", ""),
+            sector=d.get("sector", ""),
+            entry_inputs=d.get("entry_inputs") or {},
+            last_news_price=d.get("last_news_price", 0.0),
+        )
+
 
 @dataclass
 class ClosedTrade:
@@ -79,6 +155,7 @@ class ClosedTrade:
     confidence: float
     exit_reason: str  # "stop_loss" | "take_profit" | "trailing_stop" | "manual"
     technical_snapshot: str = ""
+    entry_inputs: dict = field(default_factory=dict)
 
     @property
     def pnl(self) -> float:
@@ -117,6 +194,48 @@ class ClosedTrade:
             "confidence": self.confidence,
         }
 
+    def to_state(self) -> dict:
+        """Full, lossless serialization for persistence."""
+        return {
+            "trade_id": self.trade_id,
+            "ticker": self.ticker,
+            "market": self.market,
+            "quantity": self.quantity,
+            "entry_price": self.entry_price,
+            "exit_price": self.exit_price,
+            "stop_loss": self.stop_loss,
+            "target": self.target,
+            "entry_time": _iso(self.entry_time),
+            "exit_time": _iso(self.exit_time),
+            "regime": self.regime,
+            "reasoning": self.reasoning,
+            "confidence": self.confidence,
+            "exit_reason": self.exit_reason,
+            "technical_snapshot": self.technical_snapshot,
+            "entry_inputs": self.entry_inputs,
+        }
+
+    @classmethod
+    def from_state(cls, d: dict) -> "ClosedTrade":
+        return cls(
+            trade_id=d["trade_id"],
+            ticker=d["ticker"],
+            market=d["market"],
+            quantity=d["quantity"],
+            entry_price=d["entry_price"],
+            exit_price=d["exit_price"],
+            stop_loss=d["stop_loss"],
+            target=d["target"],
+            entry_time=_parse_dt(d.get("entry_time")) or datetime.utcnow(),
+            exit_time=_parse_dt(d.get("exit_time")) or datetime.utcnow(),
+            regime=d.get("regime", ""),
+            reasoning=d.get("reasoning", ""),
+            confidence=d.get("confidence", 0.0),
+            exit_reason=d.get("exit_reason", ""),
+            technical_snapshot=d.get("technical_snapshot", ""),
+            entry_inputs=d.get("entry_inputs") or {},
+        )
+
 
 class Portfolio:
     """
@@ -149,6 +268,11 @@ class Portfolio:
     def is_drawdown_mode(self) -> bool:
         return self.drawdown >= settings.drawdown_pause_threshold
 
+    @property
+    def can_open_new_position(self) -> bool:
+        """False once free cash is too small to fund a new position — treated as fully allocated."""
+        return self.cash >= settings.min_cash_for_new_position_pct * self.equity
+
     def open_trade(
         self,
         ticker: str,
@@ -162,6 +286,7 @@ class Portfolio:
         confidence: float,
         technical_snapshot: str = "",
         sector: str = "",
+        entry_inputs: Optional[dict] = None,
     ) -> Optional[OpenPosition]:
         # Apply simulated slippage (adverse, so price moves against us)
         filled_price = entry_price * (1 + settings.simulated_slippage)
@@ -194,6 +319,8 @@ class Portfolio:
             confidence=confidence,
             technical_snapshot=technical_snapshot,
             sector=sector,
+            entry_inputs=entry_inputs or {},
+            last_news_price=filled_price,
         )
         self.open_positions.append(position)
         self._next_trade_id += 1
@@ -202,6 +329,7 @@ class Portfolio:
             "[%s] OPENED %s @ %.4f (qty=%.2f, stop=%.4f, target=%.4f)",
             self.track, ticker, filled_price, quantity, stop_loss, target,
         )
+        persist_portfolio(self)
         return position
 
     def close_trade(
@@ -244,6 +372,7 @@ class Portfolio:
             confidence=confidence or position.confidence,
             exit_reason=exit_reason,
             technical_snapshot=position.technical_snapshot,
+            entry_inputs=position.entry_inputs,
         )
         self.closed_trades.append(closed)
 
@@ -256,6 +385,7 @@ class Portfolio:
             self.track, position.ticker, filled_price,
             closed.pnl_pct * 100, exit_reason,
         )
+        persist_portfolio(self)
         return closed
 
     def update_prices(self, prices: dict[str, float]) -> list[ClosedTrade]:
@@ -308,6 +438,28 @@ class Portfolio:
     def get_open_tickers(self) -> list[str]:
         return [p.ticker for p in self.open_positions]
 
+    def export_state(self) -> dict:
+        """Full live state for persistence."""
+        return {
+            "cash": self.cash,
+            "starting_equity": self.starting_equity,
+            "peak_equity": self.peak_equity,
+            "total_commission": self.total_commission,
+            "next_trade_id": self._next_trade_id,
+            "open_positions": [p.to_state() for p in self.open_positions],
+            "closed_trades": [c.to_state() for c in self.closed_trades],
+        }
+
+    def import_state(self, state: dict) -> None:
+        """Rehydrate live state from a persisted export_state() dict."""
+        self.cash = state.get("cash", self.cash)
+        self.starting_equity = state.get("starting_equity", self.starting_equity)
+        self.peak_equity = state.get("peak_equity", self.peak_equity)
+        self.total_commission = state.get("total_commission", 0.0)
+        self._next_trade_id = state.get("next_trade_id", 1)
+        self.open_positions = [OpenPosition.from_state(d) for d in state.get("open_positions", [])]
+        self.closed_trades = [ClosedTrade.from_state(d) for d in state.get("closed_trades", [])]
+
 
 _portfolios: dict[str, Portfolio] = {}
 
@@ -318,6 +470,11 @@ def get_portfolio(track: TrackType) -> Portfolio:
     return _portfolios[track]
 
 
-def reset_portfolios() -> None:
-    """Clear all portfolio state. Used in tests."""
-    _portfolios.clear()
+def reset_portfolios(tracks: Optional[list[str]] = None) -> None:
+    """Drop in-memory portfolio state. Clears the given tracks, or all if None.
+    Next get_portfolio() rebuilds a cleared track fresh at starting capital."""
+    if tracks is None:
+        _portfolios.clear()
+    else:
+        for track in tracks:
+            _portfolios.pop(track, None)

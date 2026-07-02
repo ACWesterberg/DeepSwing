@@ -6,6 +6,7 @@ document.querySelectorAll(".tab").forEach(btn => {
     btn.classList.add("active");
     document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
     if (btn.dataset.tab === "decisions") refreshHistory();
+    if (btn.dataset.tab === "prompts") refreshPrompts();
   });
 });
 
@@ -346,6 +347,59 @@ document.getElementById("reset-btn").addEventListener("click", async () => {
     alert(data.error || "Reset failed — check server logs.");
   }
 });
+
+async function refreshPrompts() {
+  const data = await fetchJSON("/api/prompts");
+  for (const track of ["claude", "gpt"]) {
+    const el = document.getElementById(`prompts-${track}`);
+    if (!el) continue;
+    const td = data?.[track];
+    if (!td) { el.innerHTML = "<p class='neutral'>Failed to load.</p>"; continue; }
+
+    const current = td.current;
+    const history = td.history || [];
+    let html = "";
+
+    if (current) {
+      const demosNote = current.demos_count > 0
+        ? ` · ${current.demos_count} few-shot demo${current.demos_count !== 1 ? "s" : ""}` : "";
+      html += `<div class="prompt-version-header">
+        <span class="prompt-version-label">Current · ${current.timestamp}${demosNote}</span>
+        <span class="prompt-version-meta">${history.length} prior version${history.length !== 1 ? "s" : ""}</span>
+      </div>
+      <pre class="prompt-text">${esc(current.instructions || "(instructions not found in compiled file)")}</pre>`;
+    } else {
+      html += `<div class="prompt-version-header">
+        <span class="prompt-version-label baseline">Baseline — not yet optimized by MIPRO</span>
+        <span class="prompt-version-meta">Needs 30+ closed trades to run</span>
+      </div>
+      <pre class="prompt-text">${esc(td.baseline || "")}</pre>`;
+    }
+
+    if (history.length > 0) {
+      html += `<div class="prompt-history-label">Version History</div>`;
+      for (const v of history) {
+        const demosNote = v.demos_count > 0 ? ` · ${v.demos_count} demo${v.demos_count !== 1 ? "s" : ""}` : "";
+        html += `<details class="prompt-history-item">
+          <summary>
+            <span>${v.timestamp}${demosNote}</span>
+            <span class="prompt-demos-badge">${v.filename}</span>
+          </summary>
+          <pre class="prompt-text prompt-text-history">${esc(v.instructions || "(no instructions)")}</pre>
+        </details>`;
+      }
+    }
+
+    el.innerHTML = html;
+  }
+}
+
+function esc(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
 
 // Decision history filters
 document.getElementById("hist-apply")?.addEventListener("click", refreshHistory);

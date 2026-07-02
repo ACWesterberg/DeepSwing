@@ -141,9 +141,17 @@ def compute_signals(ticker: str, df: pd.DataFrame) -> Optional[TechnicalSignals]
             psar_val = price
             sar_bearish = False
 
-        # Volume ratio
-        vol_avg_20 = float(volume.iloc[-20:].mean())
-        vol_ratio = vol / vol_avg_20 if vol_avg_20 > 0 else 1.0
+        # Volume ratio — measured on the last *completed* daily bar. Intraday, the
+        # latest bar is still forming (partial volume), so vol/avg would read
+        # ~0.1x every morning and the volume filter would reject everything until
+        # near the close. Compare the previous full day to its trailing 20-day avg.
+        if len(volume) >= 21:
+            ref_vol = float(volume.iloc[-2])
+            vol_avg_20 = float(volume.iloc[-21:-1].mean())
+        else:
+            ref_vol = vol
+            vol_avg_20 = float(volume.iloc[-20:].mean())
+        vol_ratio = ref_vol / vol_avg_20 if vol_avg_20 > 0 else 1.0
 
         # Fibonacci (swing high/low over last 50 bars)
         recent = df.iloc[-50:]

@@ -14,7 +14,13 @@ MarketType = Literal["nordic", "us"]
 _TZ_CET = pytz.timezone("Europe/Stockholm")
 _TZ_ET = pytz.timezone("America/New_York")
 
-# Scan windows in CET (with buffer before/after official open/close)
+# Actual exchange hours in CET
+_NORDIC_EXCHANGE_OPEN = time(9, 0)
+_NORDIC_EXCHANGE_CLOSE = time(17, 30)
+_US_EXCHANGE_OPEN_CET = time(15, 30)
+_US_EXCHANGE_CLOSE_CET = time(22, 0)
+
+# Scan windows include a 15-min buffer before open and after close
 _NORDIC_OPEN = time(8, 45)
 _NORDIC_CLOSE = time(17, 45)
 _US_OPEN_CET = time(15, 15)
@@ -46,6 +52,23 @@ def is_market_open(market: MarketType, dt: datetime | None = None) -> bool:
             return False
         return _US_OPEN_CET <= now_cet.time() <= _US_CLOSE_CET
 
+    return False
+
+
+def is_exchange_open(market: MarketType, dt: datetime | None = None) -> bool:
+    """True only during official exchange hours — used for display, not scheduling."""
+    now_cet = _now_cet(dt)
+    if now_cet.weekday() not in _WEEKDAYS:
+        return False
+    session_date = now_cet.date().isoformat()
+    if market == "nordic":
+        if not _CAL_NORDIC.is_session(session_date):
+            return False
+        return _NORDIC_EXCHANGE_OPEN <= now_cet.time() <= _NORDIC_EXCHANGE_CLOSE
+    if market == "us":
+        if not _CAL_US.is_session(session_date):
+            return False
+        return _US_EXCHANGE_OPEN_CET <= now_cet.time() <= _US_EXCHANGE_CLOSE_CET
     return False
 
 

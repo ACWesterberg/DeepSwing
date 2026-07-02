@@ -33,6 +33,7 @@
     <button class="tab" data-tab="decisions">Decisions</button>
     <button class="tab" data-tab="heuristics-claude">Heuristics (Claude)</button>
     <button class="tab" data-tab="heuristics-gpt">Heuristics (GPT)</button>
+    <button class="tab" data-tab="prompts">Prompts</button>
   </nav>
 
   <!-- Comparison Tab -->
@@ -153,6 +154,20 @@
     <div class="panel">
       <h2>Heuristic Library — GPT Track</h2>
       <div id="heuristics-gpt-list"></div>
+    </div>
+  </div>
+
+  <!-- Prompts tab -->
+  <div id="tab-prompts" class="tab-content">
+    <div class="prompts-grid">
+      <div class="panel">
+        <h2>Claude Track <span class="track-pill track-claude">claude</span></h2>
+        <div id="prompts-claude"><p class="neutral">Loading…</p></div>
+      </div>
+      <div class="panel">
+        <h2>GPT Track <span class="track-pill track-gpt">gpt</span></h2>
+        <div id="prompts-gpt"><p class="neutral">Loading…</p></div>
+      </div>
     </div>
   </div>
 

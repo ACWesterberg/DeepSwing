@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from pathlib import Path
 from typing import Literal
 
@@ -9,7 +10,7 @@ import dspy
 from dspy.teleprompt import MIPROv2
 
 from config.settings import settings
-from src.agent.decision import TradeDecision
+from src.agent.decision import TradeDecision, build_lm
 from src.portfolio.metrics import compute_metrics
 from src.portfolio.simulator import get_portfolio
 
@@ -18,6 +19,30 @@ logger = logging.getLogger(__name__)
 TrackType = Literal["claude", "gpt"]
 
 MIN_TRADES_FOR_OPTIMIZATION = 30
+
+# Scales realized return before the tanh squash. At k=10 a ±10% move lands
+# near the (0,1) extremes, which matches typical swing-trade magnitudes.
+_PNL_METRIC_SCALE = 10.0
+
+
+def _pnl_weighted_metric(example, prediction, trace=None) -> float:
+    """
+    Reward a decision by the money it would have made, not just action-match.
+
+    Each training example carries the realized `pnl_pct` (a fraction) of a trade
+    that was actually taken. If the model would BUY, it "earns" that return; if it
+    passes, it earns nothing. The result is squashed to (0, 1):
+
+        take a +5% winner  → ~0.73     take a −5% loser → ~0.27
+        pass on anything   →  0.50     take a +15% winner → ~0.95
+
+    So passing beats taking a loser but loses to taking a winner, and the *size*
+    of each win/loss drives the optimization — which binary action-match ignored.
+    """
+    pred_action = str(getattr(prediction, "action", "")).upper()
+    pnl = float(getattr(example, "pnl_pct", 0.0) or 0.0)
+    realized = pnl if pred_action == "BUY" else 0.0
+    return 0.5 + 0.5 * math.tanh(realized * _PNL_METRIC_SCALE)
 
 
 def run_mipro_optimization(track: TrackType) -> bool:
@@ -38,18 +63,20 @@ def run_mipro_optimization(track: TrackType) -> bool:
 
     logger.info("MIPRO [%s]: starting optimization with %d trades", track, len(trades))
 
-    # Build training examples from closed trades
+    # Build training examples from closed trades that captured their DSPy inputs
     trainset = []
     for t in trades:
-        if not hasattr(t, "_entry_inputs"):
+        inputs = getattr(t, "entry_inputs", None)
+        if not inputs:
             continue  # Only trades that stored their DSPy inputs can be used
         example = dspy.Example(
-            technicals=t._entry_inputs.get("technicals", ""),
-            regime=t._entry_inputs.get("regime", ""),
-            news_summary=t._entry_inputs.get("news_summary", ""),
-            macro_context=t._entry_inputs.get("macro_context", ""),
-            heuristics=t._entry_inputs.get("heuristics", ""),
-            action="BUY" if t.pnl_pct > 0 else "HOLD",
+            technicals=inputs.get("technicals", ""),
+            regime=inputs.get("regime", ""),
+            news_summary=inputs.get("news_summary", ""),
+            macro_context=inputs.get("macro_context", ""),
+            heuristics=inputs.get("heuristics", ""),
+            action="BUY" if t.pnl_pct > 0 else "PASS",  # matches BUY/PASS signature
+            pnl_pct=float(t.pnl_pct),  # carried for the P&L-weighted metric
         ).with_inputs("technicals", "regime", "news_summary", "macro_context", "heuristics")
         trainset.append(example)
 
@@ -61,34 +88,25 @@ def run_mipro_optimization(track: TrackType) -> bool:
     split = int(len(trainset) * 0.8)
     train, val = trainset[:split], trainset[split:]
 
-    # Configure DSPy LM for this track
+    # Two roles: the task model runs the program against trades (many calls, so
+    # kept on the cheaper decision tier); the prompt model *writes* the candidate
+    # instructions (few calls, so given the heaviest reasoner for best prompts).
+    # build_lm applies the temperature/max_tokens that GPT-5-class models require.
     if track == "claude":
-        lm = dspy.LM(
-            model=f"anthropic/{settings.claude_decision_model}",
-            api_key=settings.anthropic_api_key,
-            max_tokens=1024,
-        )
+        task_lm = build_lm(track, settings.claude_decision_model, settings.anthropic_api_key)
+        prompt_lm = build_lm(track, settings.claude_prompt_model, settings.anthropic_api_key, max_tokens=4096)
     else:
-        lm = dspy.LM(
-            model=f"openai/{settings.gpt_decision_model}",
-            api_key=settings.openai_api_key,
-            max_tokens=1024,
-        )
+        task_lm = build_lm(track, settings.gpt_decision_model, settings.openai_api_key)
+        prompt_lm = build_lm(track, settings.gpt_prompt_model, settings.openai_api_key, max_tokens=4096)
 
     program = dspy.Predict(TradeDecision)
 
-    def metric(example, prediction, trace=None):
-        """MIPRO metric: reward correct BUY decisions, penalize false BUYs."""
-        pred_action = str(getattr(prediction, "action", "HOLD")).upper()
-        true_action = str(example.action).upper()
-        if pred_action == true_action:
-            return 1.0
-        return 0.0
-
     try:
-        dspy.configure(lm=lm)
+        dspy.configure(lm=task_lm)
         optimizer = MIPROv2(
-            metric=metric,
+            metric=_pnl_weighted_metric,
+            prompt_model=prompt_lm,  # heavy reasoner writes the instructions
+            task_model=task_lm,      # decision-tier model evaluates candidates
             auto="light",  # lighter optimization for Pi resources
             num_threads=1,  # single-threaded for Pi 5
         )
@@ -124,6 +142,10 @@ def run_mipro_optimization(track: TrackType) -> bool:
             track, metrics.optimization_metric,
             metrics.win_rate * 100, metrics.avg_rrr,
         )
+
+        # Offsite backup of the new program (best-effort, never fails the run)
+        from src.scheduler.backup import backup_compiled_program
+        backup_compiled_program(track, metrics.to_dict())
 
         return True
 

@@ -4,9 +4,12 @@ import asyncio
 import base64
 import json
 import logging
+import os
+import re
 import secrets
 import time
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any
 
 _STATIC_VERSION = str(int(time.time()))
@@ -22,7 +25,7 @@ from starlette.requests import Request
 from config.settings import settings
 from src.portfolio.metrics import compute_metrics
 from src.portfolio.simulator import get_portfolio, reset_portfolios
-from src.scheduler.market_hours import active_markets, is_market_open
+from src.scheduler.market_hours import active_markets, is_exchange_open
 from src.scheduler.scan_loop import clear_recent_decisions, get_recent_decisions, run_scan, set_trade_event_handler
 
 logger = logging.getLogger(__name__)
@@ -136,8 +139,8 @@ async def status():
     return {
         "timestamp": datetime.utcnow().isoformat(),
         "active_markets": active_markets(),
-        "nordic_open": is_market_open("nordic"),
-        "us_open": is_market_open("us"),
+        "nordic_open": is_exchange_open("nordic"),
+        "us_open": is_exchange_open("us"),
         "tracks": settings.tracks,
         "claude_configured": bool(settings.anthropic_api_key),
         "gpt_configured": bool(settings.openai_api_key),
@@ -322,8 +325,11 @@ async def reset_simulation(body: _ResetRequest):
 
         cleared[track] = {"heuristics_deleted": heuristic_count, "decisions_deleted": decision_count}
 
-    # Reset all in-memory portfolios and the latest-decisions cache
-    reset_portfolios()
+    # Reset in-memory portfolios, drop their persisted state (so a restart
+    # doesn't resurrect them), and clear the latest-decisions cache.
+    from src.portfolio.persistence import delete_portfolio_state
+    reset_portfolios(target_tracks)
+    delete_portfolio_state(target_tracks)
     clear_recent_decisions()
 
     await _broadcast({"event": "simulation_reset", "data": {"tracks": target_tracks}})
@@ -333,10 +339,13 @@ async def reset_simulation(body: _ResetRequest):
 
 @app.post("/api/scan/{market}")
 async def trigger_scan(market: str):
-    """Manually trigger a scan (for testing)."""
+    """Manually trigger a scan. run_scan is a long blocking call, so it runs in a
+    worker thread — otherwise it would freeze the whole event loop (every page and
+    API refresh) for the duration of the scan."""
     if market not in ("nordic", "us"):
         return {"error": "market must be 'nordic' or 'us'"}
-    result = run_scan(market)
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, run_scan, market)
     await _broadcast({"event": "scan_complete", "data": result})
     return result
 
@@ -423,6 +432,75 @@ async def _broadcast(data: Any) -> None:
             dead.append(ws)
     for ws in dead:
         _ws_clients.remove(ws)
+
+
+@app.get("/api/prompts")
+async def prompts():
+    """Current and historical DSPy instructions for each track, as saved by MIPRO."""
+    try:
+        from src.agent.decision import TradeDecision
+        baseline = (TradeDecision.__doc__ or "").strip()
+    except Exception:
+        baseline = "Baseline instructions unavailable."
+
+    result = {}
+    for track in settings.tracks:
+        compiled_dir = settings.compiled_dir
+        current_path = compiled_dir / f"{track}_trade_decision.json"
+
+        current = None
+        if current_path.exists():
+            state = _parse_dspy_json(current_path)
+            mtime = datetime.utcfromtimestamp(os.path.getmtime(current_path))
+            current = {
+                "instructions": state.get("instructions", ""),
+                "demos_count": len(state.get("demos", [])),
+                "timestamp": mtime.strftime("%Y-%m-%d %H:%M UTC"),
+            }
+
+        history = []
+        if compiled_dir.exists():
+            for p in sorted(compiled_dir.glob(f"{track}_trade_decision_*.json"), reverse=True):
+                state = _parse_dspy_json(p)
+                history.append({
+                    "instructions": state.get("instructions", ""),
+                    "demos_count": len(state.get("demos", [])),
+                    "timestamp": _ts_from_archive_name(p.name),
+                    "filename": p.name,
+                })
+
+        result[track] = {"baseline": baseline, "current": current, "history": history}
+
+    return result
+
+
+def _parse_dspy_json(path: Path) -> dict:
+    try:
+        raw = json.loads(path.read_text())
+    except Exception:
+        return {}
+    instructions = raw.get("signature_instructions") or _find_json_key(raw, "instructions") or ""
+    demos = raw.get("demos") or _find_json_key(raw, "demos") or []
+    return {"instructions": str(instructions), "demos": demos if isinstance(demos, list) else []}
+
+
+def _find_json_key(data, key):
+    if isinstance(data, dict):
+        if key in data:
+            return data[key]
+        for v in data.values():
+            found = _find_json_key(v, key)
+            if found is not None:
+                return found
+    return None
+
+
+def _ts_from_archive_name(name: str) -> str:
+    m = re.search(r"_(\d{8})_(\d{6})\.json$", name)
+    if not m:
+        return "Unknown"
+    d, t = m.group(1), m.group(2)
+    return f"{d[:4]}-{d[4:6]}-{d[6:]} {t[:2]}:{t[2:4]}:{t[4:]} UTC"
 
 
 def _build_equity_curve_data(portfolio) -> list[dict]:
