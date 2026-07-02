@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     alpha_vantage_api_key: str = ""
     news_api_key: str = ""
+    finnhub_api_key: str = ""   # optional — preferred US per-ticker news when set
     fred_api_key: str = ""
 
     # Dashboard

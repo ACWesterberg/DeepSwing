@@ -82,8 +82,114 @@ def fetch_news_for_ticker(ticker: str, market: str, force_refresh: bool = False)
             elapsed, ticker, settings.newsapi_cooldown_minutes,
         )
 
+    # When the primary (NewsAPI/RSS) yields nothing — common for US, which has no
+    # RSS feeds, and while the breaker is tripped — fall back to a free per-ticker
+    # source so US tickers still get news.
+    if not articles:
+        fallback = _fetch_fallback_news(ticker, market)
+        if fallback:
+            logger.info("News fallback for %s: %d article(s)", ticker, len(fallback))
+            articles = fallback
+
     _ticker_cache[key] = (now, articles)
     return articles
+
+
+def _fetch_fallback_news(ticker: str, market: str) -> list[dict]:
+    """Free per-ticker news when the primary source is empty. Finnhub is preferred
+    for US when a key is configured; yfinance (Yahoo) is the universal free
+    backstop for both markets."""
+    if market == "us" and settings.finnhub_api_key:
+        articles = _fetch_finnhub_news(ticker)
+        if articles:
+            return articles
+    return _fetch_yfinance_news(ticker)
+
+
+def _fetch_yfinance_news(ticker: str, limit: int = 10) -> list[dict]:
+    """Per-ticker news via yfinance (Yahoo). No API key. Handles both the newer
+    ('content' envelope) and older (flat) yfinance news schemas."""
+    try:
+        import yfinance as yf
+        raw = yf.Ticker(ticker).news or []
+    except Exception as exc:
+        logger.debug("yfinance news failed for %s: %s", ticker, exc)
+        return []
+
+    items: list[dict] = []
+    for entry in raw[:limit]:
+        if not isinstance(entry, dict):
+            continue
+        content = entry.get("content")
+        if isinstance(content, dict):  # newer schema (yfinance >= ~0.2.40)
+            title = (content.get("title") or "").strip()
+            source = (content.get("provider") or {}).get("displayName") or "Yahoo Finance"
+            url = ((content.get("canonicalUrl") or {}).get("url")
+                   or (content.get("clickThroughUrl") or {}).get("url") or "")
+            published = str(content.get("pubDate") or content.get("displayTime") or "")
+            published = published.replace("T", " ").rstrip("Z")[:16]
+        else:  # older flat schema
+            title = (entry.get("title") or "").strip()
+            source = entry.get("publisher") or "Yahoo Finance"
+            url = entry.get("link") or ""
+            ts = entry.get("providerPublishTime")
+            published = ""
+            if ts:
+                try:
+                    published = datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
+                except (ValueError, OSError, TypeError):
+                    published = ""
+        if not title:
+            continue
+        items.append({
+            "headline": title[:300],
+            "source_url": url,
+            "published_at": published,
+            "source": source,
+        })
+    return items
+
+
+def _fetch_finnhub_news(ticker: str, limit: int = 10) -> list[dict]:
+    """Per-ticker company news via Finnhub (needs finnhub_api_key). Dormant until
+    a key is set, so this is the drop-in 'preferred US source' for later."""
+    if not settings.finnhub_api_key:
+        return []
+    try:
+        import httpx
+        today = datetime.now(timezone.utc).date()
+        params = {
+            "symbol": ticker,
+            "from": (today - timedelta(days=7)).isoformat(),
+            "to": today.isoformat(),
+            "token": settings.finnhub_api_key,
+        }
+        resp = httpx.get("https://finnhub.io/api/v1/company-news", params=params, timeout=10.0)
+        resp.raise_for_status()
+        raw = resp.json() or []
+    except Exception as exc:
+        logger.debug("Finnhub news failed for %s: %s", ticker, exc)
+        return []
+
+    items: list[dict] = []
+    for a in raw[:limit]:
+        title = (a.get("headline") or "").strip()
+        if not title:
+            continue
+        published = ""
+        ts = a.get("datetime")
+        if ts:
+            try:
+                published = datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
+            except (ValueError, OSError, TypeError):
+                published = ""
+        items.append({
+            "headline": title[:300],
+            "source_url": a.get("url") or "",
+            "published_at": published,
+            "source": a.get("source") or "Finnhub",
+        })
+    return items
 
 
 def fetch_market_headlines(market: str = "nordic", max_age_hours: int = 24, limit: int = 20) -> list[dict]:
