@@ -1,0 +1,14 @@
+[Unit]
+Description=DeepSwing offsite backup to cloud (rclone)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=alexander
+WorkingDirectory=/home/alexander/Documents/DeepSwing
+# Set RCLONE_REMOTE (and optionally BACKUP_KEEP, BACKUP_INCLUDE_ENV) here:
+EnvironmentFile=/etc/default/deepswing-backup
+ExecStart=/home/alexander/Documents/DeepSwing/deploy/backup_to_gdrive.sh
+StandardOutput=journal
+StandardError=journal

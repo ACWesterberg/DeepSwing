@@ -117,6 +117,69 @@ journalctl -u deepswing -f       # follow live logs
 
 ---
 
+## 4b. Offsite Backup to Google Drive (rclone)
+
+**Do this before you rely on the sim.** The app writes a nightly local snapshot
+to `data/backups/`, but that lives on the same SD card — it protects against a
+bad DB write, *not* against card failure. This step copies the portfolio DB,
+heuristics, compiled MIPRO programs, and (optionally) `.env` to Google Drive
+every night, independently of the app.
+
+Install rclone + sqlite3 and create a Google Drive remote named `gdrive`:
+
+```bash
+sudo apt install -y rclone sqlite3
+rclone config
+#   n) new remote  →  name: gdrive  →  storage: drive (Google Drive)
+#   Accept defaults; for a headless Pi choose "N" at the auto-config prompt
+#   and run the printed `rclone authorize` command on a machine with a browser,
+#   then paste the token back.
+rclone mkdir gdrive:DeepSwingBackups
+```
+
+Point the backup at that remote via an environment file:
+
+```bash
+sudo tee /etc/default/deepswing-backup >/dev/null <<'EOF'
+RCLONE_REMOTE=gdrive:DeepSwingBackups
+BACKUP_KEEP=14
+BACKUP_INCLUDE_ENV=true
+EOF
+```
+
+Install and enable the nightly timer:
+
+```bash
+sudo cp ~/Documents/DeepSwing/systemd/deepswing-backup.service /etc/systemd/system/
+sudo cp ~/Documents/DeepSwing/systemd/deepswing-backup.timer   /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now deepswing-backup.timer
+```
+
+Verify it works right now (don't wait for midnight):
+
+```bash
+sudo systemctl start deepswing-backup.service   # run once immediately
+journalctl -u deepswing-backup -n 20            # see the upload line
+rclone ls gdrive:DeepSwingBackups               # confirm the archive landed
+systemctl list-timers deepswing-backup.timer    # confirm next run is scheduled
+```
+
+**Restoring on a fresh Pi** (after cloning the repo + creating the venv, before
+first start):
+
+```bash
+export RCLONE_REMOTE=gdrive:DeepSwingBackups
+./deploy/restore_from_gdrive.sh                 # newest archive
+# or: ./deploy/restore_from_gdrive.sh deepswing_backup_20260702_233000.tar.gz
+sudo systemctl start deepswing
+```
+
+> The rclone config lives in the service user's home (`~/.config/rclone/`), so
+> run `rclone config` as the same user the timer runs as (`alexander`), not root.
+
+---
+
 ## 5. Custom Domain via Cloudflare Tunnel
 
 Cloudflare Tunnel lets you expose DeepSwing on your own domain (`trading.yourdomain.com`) without:

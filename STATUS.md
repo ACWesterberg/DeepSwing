@@ -109,6 +109,11 @@ Last updated: 2026-07-02
 ### Target discipline (2026-07-02)
 - [x] **`_fix_rrr` removed** — weak-target BUYs (RRR < 2.0) are rejected by risk validation instead of silently stretched, so the optimizer sees the model's real target placement. Risk-BLOCKED BUYs persist their price/ATR/inputs and feed the counterfactual pipeline like PASSes, so the learning volume that stretching used to provide is preserved without taking the trades
 
+### Offsite backup (2026-07-02) — after an SD-card corruption wiped the Pi
+- [x] **rclone → Google Drive nightly backup** — `deploy/backup_to_gdrive.sh` snapshots the DB (SQLite online-backup API), heuristics, compiled programs, and optionally `.env` into one archive and pushes it to a cloud remote, keeping the newest `BACKUP_KEEP` (14). Runs as an **independent** systemd timer (`deepswing-backup.{service,timer}`, nightly 23:50) so it survives an app crash — the app's own `data/backups/` snapshots live on the same card and did NOT protect against card death
+- [x] **One-command restore** — `deploy/restore_from_gdrive.sh` pulls the newest (or a named) archive and drops the DB/heuristics/compiled/.env back into place on a fresh Pi
+- [x] **Docs** — SETUP.md §4b walks through rclone setup (incl. headless auth), the `/etc/default/deepswing-backup` env file, timer install, an immediate verification run, and the restore procedure
+
 ---
 
 ## To Do 🔲

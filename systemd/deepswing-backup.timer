@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly DeepSwing offsite backup
+
+[Timer]
+# 23:50 CET — after both markets close and the app's local snapshot (23:45).
+OnCalendar=*-*-* 23:50:00
+# Catch up a missed run (Pi was off) at next boot rather than skipping it.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
