@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -119,3 +120,23 @@ def _max_drawdown(equity_curve: list[float]) -> float:
     rolling_max = np.maximum.accumulate(arr)
     drawdowns = (rolling_max - arr) / rolling_max
     return float(np.max(drawdowns))
+
+
+def _portfolio_start_time(portfolio: "Portfolio") -> datetime:
+    times = [t.entry_time for t in portfolio.closed_trades]
+    times.extend(p.entry_time for p in portfolio.open_positions)
+    return min(times) if times else datetime.utcnow()
+
+
+def build_equity_curve_chart_data(portfolio: "Portfolio") -> list[dict]:
+    """[{date: ISO8601, equity}] for the comparison chart time scale."""
+    equity = portfolio.starting_equity
+    points = [{"date": _portfolio_start_time(portfolio).isoformat(), "equity": equity}]
+    for trade in sorted(portfolio.closed_trades, key=lambda t: t.exit_time):
+        equity += trade.pnl
+        points.append({
+            "date": trade.exit_time.isoformat(),
+            "equity": round(equity, 2),
+        })
+    points.append({"date": datetime.utcnow().isoformat(), "equity": round(portfolio.equity, 2)})
+    return points

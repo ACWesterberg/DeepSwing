@@ -78,10 +78,13 @@ class OpenPosition:
         return self.current_price * self.quantity
 
     def to_dict(self) -> dict:
+        from src.data.universe import get_exchange_for_ticker
+
         return {
             "trade_id": self.trade_id,
             "ticker": self.ticker,
             "market": self.market,
+            "exchange": get_exchange_for_ticker(self.ticker, self.market),
             "quantity": self.quantity,
             "entry_price": self.entry_price,
             "current_price": self.current_price,

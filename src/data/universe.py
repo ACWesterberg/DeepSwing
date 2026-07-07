@@ -74,6 +74,39 @@ def get_sector_from_universe(yahoo_ticker: str) -> str | None:
     return None
 
 
+_SUFFIX_EXCHANGE: dict[str, str] = {
+    ".ST": "OMXS",
+    ".OL": "OSLO",
+    ".HE": "OMXH",
+    ".CO": "OMXC",
+}
+
+
+def get_exchange_from_universe(yahoo_ticker: str) -> str | None:
+    """Exchange code for a ticker (e.g. OMXS, NASDAQ), or None if not in universe."""
+    for rows in (_load_rows(), _load_global_rows()):
+        for row in rows:
+            if row["yahoo_ticker"] == yahoo_ticker:
+                ex = row.get("exchange", "").strip()
+                return ex if ex else None
+    for suffix, exchange in _SUFFIX_EXCHANGE.items():
+        if yahoo_ticker.endswith(suffix):
+            return exchange
+    return None
+
+
+def get_exchange_for_ticker(yahoo_ticker: str, market: str = "") -> str:
+    """Exchange label for dashboard display; falls back to market or suffix."""
+    exchange = get_exchange_from_universe(yahoo_ticker)
+    if exchange:
+        return exchange
+    if market == "us":
+        return "US"
+    if market == "nordic":
+        return "Nordic"
+    return "—"
+
+
 def build_sector_map() -> dict[str, str]:
     """Full yahoo_ticker → sector map for all enabled universe stocks."""
     result = {}

@@ -23,7 +23,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 from config.settings import settings
-from src.portfolio.metrics import compute_metrics
+from src.portfolio.metrics import build_equity_curve_chart_data, compute_metrics
 from src.portfolio.simulator import get_portfolio, reset_portfolios
 from src.scheduler.market_hours import active_markets, is_exchange_open
 from src.scheduler.scan_loop import clear_recent_decisions, get_recent_decisions, run_scan, set_trade_event_handler
@@ -196,7 +196,7 @@ async def comparison():
         result[track] = {
             "metrics": metrics.to_dict(),
             "snapshot": portfolio.snapshot(),
-            "equity_curve": _build_equity_curve_data(portfolio),
+            "equity_curve": build_equity_curve_chart_data(portfolio),
         }
     return result
 
@@ -532,19 +532,3 @@ def _ts_from_archive_name(name: str) -> str:
     d, t = m.group(1), m.group(2)
     return f"{d[:4]}-{d[4:6]}-{d[6:]} {t[:2]}:{t[2:4]}:{t[4:]} UTC"
 
-
-def _build_equity_curve_data(portfolio) -> list[dict]:
-    """Build equity curve as [{date, equity}] list for Chart.js."""
-    equity = portfolio.starting_equity
-    points = [{"date": "start", "equity": equity}]
-    for trade in sorted(portfolio.closed_trades, key=lambda t: t.exit_time):
-        equity += trade.pnl
-        points.append({
-            "date": trade.exit_time.strftime("%Y-%m-%d %H:%M"),
-            "equity": round(equity, 2),
-        })
-    # Live mark-to-market point so unrealized P&L on open positions is visible —
-    # otherwise a track sitting on open losses looks better than it is.
-    if portfolio.open_positions:
-        points.append({"date": "now", "equity": round(portfolio.equity, 2)})
-    return points

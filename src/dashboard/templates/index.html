@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DeepSwing Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <link rel="stylesheet" href="/static/style.css?v={{ v }}" />
 </head>
 <body>
@@ -73,7 +74,7 @@
       <h2>Open Positions</h2>
       <div class="table-scroll">
         <table class="data-table">
-          <thead><tr><th>Ticker</th><th>Entry</th><th>Current</th><th>Qty</th><th>Value</th><th>P&L%</th><th>Stop</th><th>Target</th><th>Days</th></tr></thead>
+          <thead><tr><th>Ticker</th><th>Exchange</th><th>Entry</th><th>Current</th><th>Qty</th><th>Value</th><th>P&L%</th><th>Stop</th><th>Target</th><th>Days</th></tr></thead>
           <tbody id="claude-positions"></tbody>
         </table>
       </div>
@@ -102,7 +103,7 @@
       <h2>Open Positions</h2>
       <div class="table-scroll">
         <table class="data-table">
-          <thead><tr><th>Ticker</th><th>Entry</th><th>Current</th><th>Qty</th><th>Value</th><th>P&L%</th><th>Stop</th><th>Target</th><th>Days</th></tr></thead>
+          <thead><tr><th>Ticker</th><th>Exchange</th><th>Entry</th><th>Current</th><th>Qty</th><th>Value</th><th>P&L%</th><th>Stop</th><th>Target</th><th>Days</th></tr></thead>
           <tbody id="gpt-positions"></tbody>
         </table>
       </div>

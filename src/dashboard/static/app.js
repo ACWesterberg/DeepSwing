@@ -35,7 +35,15 @@ try {
     responsive: true,
     plugins: { legend: { labels: { color: "#8b949e" } } },
     scales: {
-      x: { ticks: { color: "#8b949e" }, grid: { color: "#21262d" } },
+      x: {
+        type: "time",
+        ticks: { color: "#8b949e", maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+        grid: { color: "#21262d" },
+        time: {
+          tooltipFormat: "MMM d, HH:mm",
+          displayFormats: { hour: "MMM d HH:mm", day: "MMM d", week: "MMM d" },
+        },
+      },
       y: { ticks: { color: "#8b949e" }, grid: { color: "#21262d" } },
     },
   },
@@ -88,8 +96,9 @@ async function refreshComparison() {
   if (!data) return;
 
   // Equity curves
-  const claudeData = (data.claude?.equity_curve || []).map((p, i) => ({ x: p.date || i, y: p.equity }));
-  const gptData    = (data.gpt?.equity_curve || []).map((p, i) => ({ x: p.date || i, y: p.equity }));
+  const toPoint = (p) => ({ x: p.date, y: p.equity });
+  const claudeData = (data.claude?.equity_curve || []).map(toPoint);
+  const gptData    = (data.gpt?.equity_curve || []).map(toPoint);
   if (compChart) {
     compChart.data.datasets[0].data = claudeData;
     compChart.data.datasets[1].data = gptData;
@@ -200,6 +209,7 @@ async function refreshTrack(track) {
       const qty = p.quantity % 1 === 0 ? p.quantity : p.quantity.toFixed(2);
       return `<tr>
         <td><strong>${p.ticker}</strong></td>
+        <td>${p.exchange || "—"}</td>
         <td>${fmt(p.entry_price)}</td>
         <td>${fmt(p.current_price)}</td>
         <td>${qty}</td>
@@ -209,7 +219,7 @@ async function refreshTrack(track) {
         <td class="pos">${fmt(p.target)}</td>
         <td class="neutral">${days}d</td>
       </tr>`;
-    }).join("") || `<tr><td colspan="9" class="neutral">No open positions</td></tr>`;
+    }).join("") || `<tr><td colspan="10" class="neutral">No open positions</td></tr>`;
   }
 
   if (tData) {
