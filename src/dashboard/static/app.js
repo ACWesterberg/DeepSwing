@@ -27,8 +27,8 @@ try {
   type: "line",
   data: {
     datasets: [
-      { label: "Claude", borderColor: "#7c3aed", backgroundColor: "rgba(124,58,237,0.08)", data: [], tension: 0.3, pointRadius: 2 },
-      { label: "GPT",    borderColor: "#0ea5e9", backgroundColor: "rgba(14,165,233,0.08)",  data: [], tension: 0.3, pointRadius: 2 },
+      { label: "Claude", borderColor: "#7c3aed", backgroundColor: "rgba(124,58,237,0.08)", data: [], cubicInterpolationMode: "monotone", pointRadius: 2 },
+      { label: "GPT",    borderColor: "#0ea5e9", backgroundColor: "rgba(14,165,233,0.08)",  data: [], cubicInterpolationMode: "monotone", pointRadius: 2 },
     ],
   },
   options: {
