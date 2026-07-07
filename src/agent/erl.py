@@ -106,20 +106,7 @@ def _call_model(track: TrackType, prompt: str) -> Optional[str]:
     try:
         if track == "claude":
             client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-            kwargs: dict = {
-                "model": settings.claude_erl_model,
-                "max_tokens": 1024,
-                "messages": [{"role": "user", "content": prompt}],
-            }
-            if settings.claude_erl_extended_thinking:
-                kwargs["thinking"] = {"type": "enabled", "budget_tokens": 8000}
-                kwargs["max_tokens"] = 10000
-            resp = client.messages.create(**kwargs)
-            # With extended thinking, text content is in last text block
-            for block in reversed(resp.content):
-                if block.type == "text":
-                    return block.text
-            return None
+            return _call_claude(client, prompt)
 
         else:  # gpt
             client = openai.OpenAI(api_key=settings.openai_api_key)
@@ -140,6 +127,38 @@ def _call_model(track: TrackType, prompt: str) -> Optional[str]:
     except Exception as exc:
         logger.error("ERL model call error for %s track: %s", track, exc)
         return None
+
+
+def _call_claude(client, prompt: str) -> Optional[str]:
+    """Claude ERL call. Opus 4.8 uses *adaptive* thinking + output_config.effort —
+    the old {"type":"enabled","budget_tokens":N} shape returns a 400. If the
+    thinking request is rejected for any reason (API drift, SDK too old), fall
+    back to a plain call so a param change can't silently zero out heuristics."""
+    kwargs: dict = {
+        "model": settings.claude_erl_model,
+        "max_tokens": 16000,  # cap only; adaptive thinking + short answer fit easily
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    if settings.claude_erl_extended_thinking:
+        kwargs["thinking"] = {"type": "adaptive"}
+        kwargs["output_config"] = {"effort": settings.claude_erl_effort}
+
+    try:
+        resp = client.messages.create(**kwargs)
+    except Exception as exc:
+        if "thinking" not in kwargs:
+            raise
+        logger.warning("ERL claude thinking call failed (%s) — retrying without thinking", exc)
+        kwargs.pop("thinking", None)
+        kwargs.pop("output_config", None)
+        kwargs["max_tokens"] = 1024
+        resp = client.messages.create(**kwargs)
+
+    # The heuristic is the final text block; thinking blocks carry no text by default.
+    for block in reversed(resp.content):
+        if getattr(block, "type", None) == "text" and getattr(block, "text", ""):
+            return block.text
+    return None
 
 
 def _parse_heuristic(text: str) -> Optional[dict]:

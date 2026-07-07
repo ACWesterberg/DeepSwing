@@ -37,7 +37,8 @@ class Settings(BaseSettings):
     # Claude models
     claude_decision_model: str = "claude-sonnet-5"          # scan decisions (up from Haiku)
     claude_erl_model: str = "claude-opus-4-8"               # heavy post-trade reasoning
-    claude_erl_extended_thinking: bool = True
+    claude_erl_extended_thinking: bool = True               # adaptive thinking on Opus 4.8
+    claude_erl_effort: str = "high"                         # output_config.effort; low|medium|high|max
     claude_prompt_model: str = "claude-opus-4-8"            # MIPRO instruction proposer
 
     # GPT models
