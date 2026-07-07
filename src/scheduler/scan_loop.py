@@ -725,35 +725,41 @@ def _get_current_prices(tickers: list[str], market: str) -> dict[str, float]:
 _erl_threads: list[threading.Thread] = []
 
 
+def _erl_kwargs(track: str, closed_trade) -> dict:
+    """Build the run_erl(**kwargs) payload from a closed trade."""
+    trade_dict = closed_trade.to_dict()
+    trade_dict["id"] = closed_trade.trade_id
+    trade_dict["stop_hit"] = closed_trade.exit_reason == "stop_loss"
+    trade_dict["pnl_pct"] = closed_trade.pnl_pct
+    # Entry-time news/macro so ERL can attribute outcomes to the environment
+    entry_inputs = getattr(closed_trade, "entry_inputs", {}) or {}
+    return dict(
+        track=track,
+        trade=trade_dict,
+        technicals_str=closed_trade.technical_snapshot,
+        regime_str=closed_trade.regime,
+        news_str=entry_inputs.get("news_summary", ""),
+        macro_str=entry_inputs.get("macro_context", ""),
+    )
+
+
 def _trigger_erl(track: str, closed_trade) -> None:
     """Run ERL analysis on a just-closed trade in a background thread."""
     try:
-        trade_dict = closed_trade.to_dict()
-        trade_dict["id"] = closed_trade.trade_id
-        trade_dict["stop_hit"] = closed_trade.exit_reason == "stop_loss"
-        trade_dict["pnl_pct"] = closed_trade.pnl_pct
-
-        # Entry-time news/macro so ERL can attribute outcomes to the environment
-        entry_inputs = getattr(closed_trade, "entry_inputs", {}) or {}
-        kwargs = dict(
-            track=track,
-            trade=trade_dict,
-            technicals_str=closed_trade.technical_snapshot,
-            regime_str=closed_trade.regime,
-            news_str=entry_inputs.get("news_summary", ""),
-            macro_str=entry_inputs.get("macro_context", ""),
-        )
+        kwargs = _erl_kwargs(track, closed_trade)
     except Exception as exc:
         logger.error("ERL trigger error for %s trade %s: %s", track, closed_trade.trade_id, exc)
         return
+
+    trade_id = kwargs["trade"]["id"]
 
     def _worker() -> None:
         try:
             run_erl(**kwargs)
         except Exception as exc:
-            logger.error("ERL error for %s trade %s: %s", track, trade_dict["id"], exc)
+            logger.error("ERL error for %s trade %s: %s", track, trade_id, exc)
 
-    thread = threading.Thread(target=_worker, name=f"erl-{track}-{trade_dict['id']}", daemon=True)
+    thread = threading.Thread(target=_worker, name=f"erl-{track}-{trade_id}", daemon=True)
     _erl_threads.append(thread)
     thread.start()
 
@@ -764,3 +770,38 @@ def wait_for_erl(timeout: float = 60.0) -> None:
     for thread in list(_erl_threads):
         thread.join(max(0.0, deadline - time.monotonic()))
     _erl_threads[:] = [t for t in _erl_threads if t.is_alive()]
+
+
+def backfill_erl(tracks: Optional[list[str]] = None) -> dict:
+    """
+    Re-run ERL over closed trades that don't yet have a heuristic — e.g. trades
+    that closed while the ERL model call was failing. Runs synchronously (unlike
+    the live path's background thread) and returns per-track counts.
+
+    Idempotent: a trade whose trade_id already sourced a heuristic is skipped, so
+    tracks that already learned from a trade are never re-analyzed or duplicated.
+    """
+    target = tracks or list(settings.tracks)
+    result: dict[str, dict] = {}
+    for track in target:
+        portfolio = get_portfolio(track)
+        store = get_store(track)
+        already = {
+            h.get("source_trade_id")
+            for h in store.all_as_list()
+            if h.get("source_trade_id") is not None
+        }
+        attempted = 0
+        created = 0
+        for closed in portfolio.closed_trades:
+            if closed.trade_id in already:
+                continue
+            attempted += 1
+            try:
+                if run_erl(**_erl_kwargs(track, closed)):
+                    created += 1
+            except Exception as exc:
+                logger.error("ERL backfill error for %s trade %s: %s", track, closed.trade_id, exc)
+        result[track] = {"trades_without_heuristic": attempted, "heuristics_created": created}
+        logger.info("ERL backfill [%s]: %d without heuristic, %d created", track, attempted, created)
+    return result
