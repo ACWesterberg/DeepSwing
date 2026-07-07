@@ -389,6 +389,63 @@ class TestHousekeeping:
         assert backup_database() is None
 
 
+class TestErlBackfill:
+    def _open_and_close(self, portfolio, ticker):
+        portfolio.open_trade(
+            ticker=ticker, market="us", quantity=10.0, entry_price=100.0,
+            stop_loss=95.0, target=115.0, regime="trending", reasoning="x",
+            confidence=0.8, technical_snapshot="snap",
+            entry_inputs={"news_summary": "n", "macro_context": "m"},
+        )
+        portfolio.update_prices({ticker: 120.0})  # closes at take_profit
+
+    def test_backfills_only_trades_without_heuristic(self, tmp_heuristics):
+        from unittest.mock import patch
+        from src.portfolio.simulator import get_portfolio, reset_portfolios
+        from src.agent.memory import get_store
+        from src.scheduler.scan_loop import backfill_erl
+
+        reset_portfolios()
+        portfolio = get_portfolio("claude")
+        self._open_and_close(portfolio, "AAA")
+        self._open_and_close(portfolio, "BBB")
+        ids = [t.trade_id for t in portfolio.closed_trades]
+
+        # First trade already produced a heuristic (as GPT's two did) — skip it
+        get_store("claude").save(trigger="T", action="A", source_trade_id=ids[0])
+
+        seen = []
+
+        def fake_run_erl(**kw):
+            seen.append(kw["trade"]["id"])
+            return f"hid-{kw['trade']['id']}"
+
+        with patch("src.scheduler.scan_loop.run_erl", side_effect=fake_run_erl):
+            result = backfill_erl(["claude"])
+
+        assert seen == [ids[1]]  # only the trade lacking a heuristic
+        assert result["claude"] == {"trades_without_heuristic": 1, "heuristics_created": 1}
+        reset_portfolios()
+
+    def test_backfill_reports_zero_when_all_covered(self, tmp_heuristics):
+        from unittest.mock import patch
+        from src.portfolio.simulator import get_portfolio, reset_portfolios
+        from src.agent.memory import get_store
+        from src.scheduler.scan_loop import backfill_erl
+
+        reset_portfolios()
+        portfolio = get_portfolio("gpt")
+        self._open_and_close(portfolio, "AAA")
+        tid = portfolio.closed_trades[0].trade_id
+        get_store("gpt").save(trigger="T", action="A", source_trade_id=tid)
+
+        with patch("src.scheduler.scan_loop.run_erl", side_effect=AssertionError("must not run")):
+            result = backfill_erl(["gpt"])
+
+        assert result["gpt"] == {"trades_without_heuristic": 0, "heuristics_created": 0}
+        reset_portfolios()
+
+
 class TestNewsPrefilterCompanyName:
     def test_nordic_headline_matches_company_name(self):
         from src.agent.news_analyzer import _prefilter

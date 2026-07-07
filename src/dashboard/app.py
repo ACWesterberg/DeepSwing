@@ -362,6 +362,31 @@ async def reset_simulation(body: _ResetRequest):
     return {"reset": True, "tracks": target_tracks, "cleared": cleared}
 
 
+class _BackfillRequest(BaseModel):
+    pin: str
+    tracks: list[str] | None = None
+
+
+@app.post("/api/erl/backfill")
+async def erl_backfill(body: _BackfillRequest):
+    """Re-run ERL over closed trades that have no heuristic yet (e.g. trades that
+    closed while the Claude ERL call was failing). PIN-guarded — it spends model
+    tokens — and offloaded to a worker thread since ERL is a long blocking call.
+    Idempotent: trades that already sourced a heuristic are skipped."""
+    if not secrets.compare_digest(str(body.pin), settings.reset_pin):
+        return {"error": "Invalid PIN"}
+    target = body.tracks if body.tracks else list(settings.tracks)
+    invalid = [t for t in target if t not in settings.tracks]
+    if invalid:
+        return {"error": f"Unknown tracks: {invalid}"}
+
+    from src.scheduler.scan_loop import backfill_erl
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, backfill_erl, target)
+    logger.info("ERL backfill complete: %s", result)
+    return {"backfilled": True, "result": result}
+
+
 @app.post("/api/scan/{market}")
 async def trigger_scan(market: str):
     """Manually trigger a scan. run_scan is a long blocking call, so it runs in a
