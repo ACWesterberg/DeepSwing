@@ -54,37 +54,27 @@ class TestEarningsFilter:
         assert kept == []  # days == buffer → dropped
 
 
-class TestUsMarketHeadlines:
-    def setup_method(self):
-        nf._market_cache.clear()
+class TestNewsDelegation:
+    """The source chain, breaker and TTL caching now live in financedata; this
+    module is a thin bridge, so we assert it delegates with the right arguments."""
 
-    def teardown_method(self):
-        nf._market_cache.clear()
+    def test_fetch_market_headlines_delegates(self):
+        with patch.object(nf, "get_market_headlines", return_value=[{"headline": "x"}]) as m:
+            out = nf.fetch_market_headlines("us", limit=10)
+        m.assert_called_once_with("us", max_age_hours=24, limit=10)
+        assert out == [{"headline": "x"}]
 
-    def test_us_uses_newsapi_and_normalizes(self):
-        articles = [
-            {"headline": "Fed holds rates steady", "source": "Reuters",
-             "published_at": "2026-07-01T08:00:00Z"},
-            {"headline": "Oil jumps on Gulf tension", "source": "Bloomberg",
-             "published_at": "2026-07-01T07:30:00Z"},
-        ]
-        with patch.object(nf.settings, "news_api_key", "k"):
-            with patch.object(nf, "fetch_newsapi", return_value=articles) as m:
-                out = nf.fetch_market_headlines("us", limit=10)
-        m.assert_called_once()
-        assert {h["headline"] for h in out} == {"Fed holds rates steady", "Oil jumps on Gulf tension"}
-        assert out[0]["published_at"] == "2026-07-01 08:00"  # T/Z normalized
+    def test_fetch_news_for_ticker_delegates_and_flattens(self):
+        with patch.object(nf, "get_news_cached", return_value={"AAPL": [{"headline": "h"}]}) as m:
+            out = nf.fetch_news_for_ticker("AAPL", "us")
+        assert out == [{"headline": "h"}]
+        kwargs = m.call_args.kwargs
+        assert kwargs["market"] == "us"
+        assert kwargs["use_fallback"] is True
+        assert kwargs["force_refresh"] is False
 
-    def test_us_empty_without_api_key(self):
-        with patch.object(nf.settings, "news_api_key", ""):
-            with patch.object(nf, "fetch_newsapi") as m:
-                out = nf.fetch_market_headlines("us", limit=10)
-        assert out == []
-        m.assert_not_called()
-
-    def test_result_is_cached_per_market(self):
-        with patch.object(nf.settings, "news_api_key", "k"):
-            with patch.object(nf, "fetch_newsapi", return_value=[]) as m:
-                nf.fetch_market_headlines("us", limit=5)
-                nf.fetch_market_headlines("us", limit=5)  # second call served from cache
-        assert m.call_count == 1
+    def test_fetch_news_for_ticker_force_refresh_passed_through(self):
+        with patch.object(nf, "get_news_cached", return_value={}) as m:
+            out = nf.fetch_news_for_ticker("ZZZZ", "us", force_refresh=True)
+        assert out == []  # missing ticker → empty list
+        assert m.call_args.kwargs["force_refresh"] is True
