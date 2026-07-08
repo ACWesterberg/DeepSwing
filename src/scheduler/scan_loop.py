@@ -201,11 +201,13 @@ def _run_scan(market: MarketType) -> dict:
         result["vix"] = vix
         return result
 
-    # If no track has cash to open a new position, the candidate/news/decision
-    # pipeline can't produce a trade — skip it and just monitor open holdings.
-    funded_tracks = [t for t in settings.tracks if get_portfolio(t).can_open_new_position]
+    # If no track has budget to open a new position *in this market*, the
+    # candidate/news/decision pipeline can't produce a trade — skip it and just
+    # monitor open holdings. Budget is gated per market (market_allocation) so a
+    # long US session can't fill the whole book and starve the Nordic session.
+    funded_tracks = [t for t in settings.tracks if get_portfolio(t).can_open_in_market(market)]
     if not funded_tracks:
-        logger.info("All cash allocated across tracks — holdings-only monitor for %s market", market)
+        logger.info("No track has %s-market budget available — holdings-only monitor", market)
         return _monitor_holdings(market)
 
     watchlist = get_omxs30_tickers() if market == "nordic" else get_us_tickers()
@@ -343,6 +345,9 @@ def _run_scan(market: MarketType) -> dict:
                 [p.ticker for p in portfolio.open_positions if p.market == market],
                 ohlcv_map,
             )
+            # Cap sizing at the market's remaining allocation budget (<= cash), so a
+            # single scan can't blow past this market's share and starve the other.
+            investable = portfolio.market_budget_remaining(market)
             risk = validate_trade(
                 action="BUY",
                 entry_price=entry_sek,
@@ -353,7 +358,7 @@ def _run_scan(market: MarketType) -> dict:
                 signals=candidate.signals,
                 is_drawdown_mode=portfolio.is_drawdown_mode,
                 candidate_sector=sector,
-                available_cash=portfolio.cash,
+                available_cash=investable,
                 position_correlations=correlations,
             )
 

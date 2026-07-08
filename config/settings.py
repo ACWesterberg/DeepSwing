@@ -106,6 +106,13 @@ class Settings(BaseSettings):
     # candidate/news/decision pipeline for it. When no track is funded the whole scan
     # drops to a lightweight holdings-only monitor.
     min_cash_for_new_position_pct: float = 0.05
+    # Per-market cap on invested value as a fraction of each track's equity, so one
+    # market can't consume all the cash and starve the other. The US session is long
+    # and scans while Stockholm is closed, so without a cap it fills the book before
+    # the Nordic session opens. Each market's open-position value is held below its
+    # cap; a market with no entry here (or > 1.0) is uncapped. Keep the values below
+    # 1.0 to reserve room — the leftover is what the other market can deploy.
+    market_allocation: dict[str, float] = Field(default={"nordic": 0.5, "us": 0.5})
     # Holdings are monitored on price alone; a news pull + AI exit review only fires
     # for a position once it has moved at least this fraction (up or down) since its
     # last news check — a "large jump". Set to 0.0 to review every scan.

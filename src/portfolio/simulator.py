@@ -279,6 +279,24 @@ class Portfolio:
         """False once free cash is too small to fund a new position — treated as fully allocated."""
         return self.cash >= settings.min_cash_for_new_position_pct * self.equity
 
+    def market_exposure(self, market: str) -> float:
+        """Total current value of open positions in a given market (SEK)."""
+        return sum(p.market_value for p in self.open_positions if p.market == market)
+
+    def market_budget_remaining(self, market: str) -> float:
+        """SEK still investable in `market` under its allocation cap (never negative).
+        A market with no configured cap (or a cap >= 1.0) is limited only by cash."""
+        cap = settings.market_allocation.get(market)
+        if cap is None or cap >= 1.0:
+            return self.cash
+        allowed = cap * self.equity
+        return max(0.0, min(self.cash, allowed - self.market_exposure(market)))
+
+    def can_open_in_market(self, market: str) -> bool:
+        """True when this track has enough investable headroom in `market` — both
+        free cash and remaining market-allocation budget — to fund a new position."""
+        return self.market_budget_remaining(market) >= settings.min_cash_for_new_position_pct * self.equity
+
     def open_trade(
         self,
         ticker: str,

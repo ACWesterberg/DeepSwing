@@ -238,6 +238,65 @@ class TestRunScanTradeExecution:
         assert "rrr" in buy_decisions[0]
 
 
+class TestMarketAllocationGating:
+    def setup_method(self):
+        reset_portfolios()
+        from config.settings import settings
+        self._orig_alloc = dict(settings.market_allocation)
+
+    def teardown_method(self):
+        patch.stopall()
+        reset_portfolios()
+        from config.settings import settings
+        settings.market_allocation = self._orig_alloc
+
+    def _fill_us_book(self):
+        # Push each track's US exposure past its cap so US entries are blocked.
+        for track in ("claude", "gpt"):
+            get_portfolio(track).open_trade(
+                ticker="MSFT", market="us", quantity=400.0, entry_price=100.0,
+                stop_loss=95.0, target=120.0, regime="trending",
+                reasoning="preexisting", confidence=0.8,
+            )
+
+    def test_saturated_us_book_drops_to_holdings_monitor(self):
+        from config.settings import settings
+        settings.market_allocation = {"nordic": 0.5, "us": 0.1}
+        _apply_patches(SCAN_PATCHES)
+        from src.scheduler.scan_loop import run_scan
+
+        self._fill_us_book()  # 40k US exposure >> 10k cap
+        result = run_scan("us")
+
+        assert result.get("mode") == "holdings_monitor"
+        # No new US position opened beyond the preexisting one
+        for track in ("claude", "gpt"):
+            assert len(get_portfolio(track).open_positions) == 1
+
+    def test_full_us_book_still_allows_nordic_entries(self):
+        from config.settings import settings
+        settings.market_allocation = {"nordic": 0.5, "us": 0.1}
+        mocks = _apply_patches(SCAN_PATCHES)
+        # Nordic scan uses fetch_batch_nordic + a nordic candidate
+        nordic_candidate = ScreenerCandidate(
+            ticker="ERIC-B.ST", market="nordic",
+            signals=_make_signals("ERIC-B.ST"), regime=_make_regime(),
+        )
+        mocks["screen_candidates"].return_value = [nordic_candidate]
+        mocks["compute_signals"].return_value = _make_signals("ERIC-B.ST")
+        with patch("src.scheduler.scan_loop.fetch_batch_nordic",
+                   return_value={"ERIC-B.ST": MagicMock()}):
+            from src.scheduler.scan_loop import run_scan
+            self._fill_us_book()
+            result = run_scan("nordic")
+
+        # Nordic still had its reserved budget → a real decision pipeline ran
+        assert result.get("mode") != "holdings_monitor"
+        for track in ("claude", "gpt"):
+            tickers = get_portfolio(track).get_open_tickers()
+            assert "ERIC-B.ST" in tickers
+
+
 class TestRunScanStopHitAndERL:
     def setup_method(self):
         reset_portfolios()
