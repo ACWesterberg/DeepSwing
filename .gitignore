@@ -15,6 +15,7 @@ build/
 # Runtime data — not committed, lives on the Pi
 data/deepswing.db
 data/*.db
+data/backtest/
 heuristics/claude/
 heuristics/gpt/
 compiled/

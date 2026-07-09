@@ -60,6 +60,13 @@ Last updated: 2026-07-02
 - [x] **Universe hygiene** — disabled 3 delisted Nordic tickers (TFBANK.ST, SKAKO.CO, ILKKA2.HE) that logged a yfinance ERROR on every scan
 - [x] **Tests** — technical, regime, screener, risk, scan_loop (integration), e2e lifecycle, backtesting, backup, optimizer, preflight, decision_lm, watchlist, insider, reset (196 passing). Note: this cycle's ops features (persistence, scan lock, news breaker/fallback, volume fix) are verified manually but not yet in the suite.
 
+### Historical replay — prompt bootstrap (this cycle)
+- [x] **`src/backtesting/replay.py`** — replays past trading days point-in-time (same technical/regime/screener stack as live), rebuilds the five decision-prompt inputs (historical news via GDELT + Finnhub, macro from index/VIX/FX histories, relative-age headlines), labels each screened candidate with a mechanically simulated outcome (next-open entry, 1.5×ATR stop, RRR target, timeout, live cost model), and writes MIPRO-ready JSONL — zero LLM calls in `raw`/`off` news modes
+- [x] **`src/backtesting/optimize.py`** — offline MIPROv2 over a replay trainset (chronological 80/20 split, same P&L-weighted metric and task/prompt model split as live) → `compiled/backtest/{track}_trade_decision.json` + meta; adopted live only by manual copy
+- [x] **`src/backtesting/history.py` / `news_history.py` / `macro_history.py`** — disk-cached historical OHLCV, per-ticker + market-wide news as-of market close, previous-close macro snapshots
+- [x] **CLI** — `python -m src.backtesting generate|optimize|stats`; generation is resumable/idempotent (seen-key + cooldown replay). Caveats (model hindsight, survivorship, no earnings filter) documented in `src/backtesting/README.md`
+- [x] **Tests** — `tests/test_backtest_replay.py`: outcome simulation (stop/target/gap/both-touch/timeout/costs), relative-age formatting, trainset IO, synthetic end-to-end generation + idempotent rerun (222 passing total)
+
 ### Documentation & Deployment
 - [x] `SETUP.md`, `README.md`, `ARCHITECTURE.md`, `STATUS.md`, `CLAUDE.md`
 - [x] `.gitignore` — excludes `.env`, `venv/`, `data/*.db`, `heuristics/`, `compiled/`

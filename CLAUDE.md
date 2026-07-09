@@ -24,6 +24,7 @@ An AI-powered **swing trading simulator** running on a Raspberry Pi 5. Paper-tra
 - **NewsAPI is rate-limit-guarded** — per-ticker news is cached for `news_refresh_interval_minutes`; if a fetch stalls beyond `newsapi_slow_threshold_seconds` (429 backoff) a breaker skips NewsAPI (RSS only) for `newsapi_cooldown_minutes`, so one throttled ticker doesn't cost ~1 min each. The jump-triggered exit review passes `force_refresh=True` for freshness.
 - **Per-ticker news has a free fallback** — when NewsAPI/RSS returns nothing (common for US, which has no RSS), `fetch_news_for_ticker` falls back to a free source so US tickers still get news: yfinance/Yahoo (no key, universal backstop), with Finnhub preferred for US when `finnhub_api_key` is set (dormant drop-in until then).
 - **Volume is screened on the last *completed* daily bar** — intraday the latest bar is still forming, so `volume_ratio` from it reads ~0.1× and the `volume_spike_multiplier` gate would reject everything until near the close. `technical.py` computes the ratio from the previous full day vs its trailing 20-day average; `current_volume` still reports the live bar for display.
+- **Historical replay is offline-only** — `src/backtesting/replay.py` bootstraps MIPRO training data from past market data: point-in-time technicals/regime/screener (same modules as live), historical news via GDELT (+Finnhub for US when keyed), macro reconstructed from index/VIX/FX histories, and each screened candidate labeled by a mechanical next-open entry + 1.5×ATR stop + RRR target simulation — zero LLM calls during generation. `python -m src.backtesting optimize` compiles to `compiled/backtest/`, which the live engine never reads; adoption is a manual copy. Headline timestamps are rendered as relative ages ("3d ago") to weaken model-hindsight anchoring; replay scores are optimistic, live paper-trading stays the real scoreboard. See `src/backtesting/README.md`.
 
 ---
 
@@ -85,6 +86,9 @@ src/portfolio/metrics.py    Sharpe, drawdown, win rate, MIPRO metric
 src/scheduler/market_hours.py  is_market_open(), active_markets(), CET-aware
 src/scheduler/scan_loop.py  Main 15-min cycle: fetch → analyze → screen → decide → trade
 src/scheduler/optimizer.py  Weekly MIPROv2 + heuristic prune/promote
+src/backtesting/engine.py   Mechanical walk-forward backtest (no AI, no news)
+src/backtesting/replay.py   Historical replay → MIPRO trainset JSONL (point-in-time prompt inputs + simulated outcome)
+src/backtesting/optimize.py Offline MIPROv2 on a replay trainset → compiled/backtest/ (never auto-adopted)
 src/dashboard/app.py        FastAPI + WebSocket; /api/comparison is the key endpoint
 src/dashboard/static/app.js Chart.js equity curves, head-to-head table, auto-refresh
 main.py                     Entry point: DB init + APScheduler + uvicorn
