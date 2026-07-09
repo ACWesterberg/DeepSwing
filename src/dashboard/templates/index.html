@@ -1,176 +1,260 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DeepSwing Dashboard</title>
+  <title>DeepSwing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/static/style.css?v={{ v }}" />
 </head>
 <body>
-  <header>
-    <h1>DeepSwing</h1>
-    <div id="market-status">
-      <span id="nordic-status" class="badge">Nordic: —</span>
-      <span id="us-status" class="badge">US: —</span>
-      <span id="last-update"></span>
-      <button id="scan-nordic-btn" class="scan-btn" title="Run Nordic scan now">Scan Nordic</button>
-      <button id="scan-us-btn" class="scan-btn" title="Run US scan now">Scan US</button>
-      <button id="reset-btn" class="reset-btn" title="Reset both tracks to starting state">Reset Sim</button>
+
+  <!-- Mobile sidebar backdrop -->
+  <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
+  <!-- ── Sidebar ── -->
+  <aside id="app-sidebar" class="sidebar">
+    <div class="sidebar-brand">
+      <a href="/">Deep<span>Swing</span></a>
     </div>
-  </header>
 
-  <div id="scan-toast" class="scan-toast hidden">
-    <span class="scan-spinner"></span>
-    <span id="scan-toast-msg">Scanning…</span>
-    <span id="scan-toast-timer" class="scan-timer">0s</span>
-  </div>
+    <nav class="sidebar-nav">
+      <button class="nav-link tab active" data-tab="comparison">
+        <span class="material-symbols-outlined">leaderboard</span>Comparison
+      </button>
 
-  <nav class="tabs">
-    <button class="tab active" data-tab="comparison">Comparison</button>
-    <button class="tab" data-tab="claude">Claude Track</button>
-    <button class="tab" data-tab="gpt">GPT Track</button>
-    <button class="tab" data-tab="decisions">Decisions</button>
-    <button class="tab" data-tab="heuristics-claude">Heuristics (Claude)</button>
-    <button class="tab" data-tab="heuristics-gpt">Heuristics (GPT)</button>
-    <button class="tab" data-tab="prompts">Prompts</button>
-  </nav>
+      <div class="nav-sep"></div>
+      <p class="nav-section">Tracks</p>
+      <button class="nav-link tab" data-tab="claude" style="--accent:#a78bfa">
+        <span class="material-symbols-outlined">psychology</span>Claude Track
+      </button>
+      <button class="nav-link tab" data-tab="gpt" style="--accent:#38bdf8">
+        <span class="material-symbols-outlined">science</span>GPT Track
+      </button>
 
-  <!-- Comparison Tab -->
-  <div id="tab-comparison" class="tab-content active">
-    <div class="panel">
-      <h2>Equity Curves</h2>
-      <canvas id="comparison-chart" height="80"></canvas>
-    </div>
-    <div class="panel">
-      <h2>Head-to-Head Metrics</h2>
-      <div class="table-scroll">
-        <table id="comparison-table">
-          <thead>
-            <tr>
-              <th>Metric</th>
-              <th>Claude</th>
-              <th>GPT</th>
-            </tr>
-          </thead>
-          <tbody id="comparison-tbody"></tbody>
-        </table>
+      <div class="nav-sep"></div>
+      <p class="nav-section">Analysis</p>
+      <button class="nav-link tab" data-tab="decisions">
+        <span class="material-symbols-outlined">history</span>Decisions
+      </button>
+      <button class="nav-link tab" data-tab="heuristics-claude">
+        <span class="material-symbols-outlined">lightbulb</span>Heuristics · Claude
+      </button>
+      <button class="nav-link tab" data-tab="heuristics-gpt">
+        <span class="material-symbols-outlined">lightbulb</span>Heuristics · GPT
+      </button>
+      <button class="nav-link tab" data-tab="prompts">
+        <span class="material-symbols-outlined">tune</span>Prompts
+      </button>
+    </nav>
+
+    <div class="sidebar-foot"><span>Paper trading · dual-track</span></div>
+  </aside>
+
+  <!-- ── Main area ── -->
+  <div class="app-main">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button id="sidebar-toggle" class="sidebar-toggle" type="button">
+          <span class="material-symbols-outlined">menu</span>
+        </button>
+        <span class="material-symbols-outlined topbar-home">home</span>
+        <span class="topbar-title">Dashboard</span>
       </div>
-    </div>
-    <div class="panel">
-      <h2>Latest Decisions <span id="decisions-meta" class="panel-meta"></span></h2>
-      <div id="decisions-list"></div>
-    </div>
-  </div>
+      <div class="topbar-right" id="market-status">
+        <span id="nordic-status" class="badge">Nordic: —</span>
+        <span id="us-status" class="badge">US: —</span>
+        <span id="last-update"></span>
+        <button id="scan-nordic-btn" class="scan-btn" title="Run Nordic scan now">Scan Nordic</button>
+        <button id="scan-us-btn" class="scan-btn" title="Run US scan now">Scan US</button>
+        <button id="reset-btn" class="reset-btn" title="Reset both tracks to starting state">Reset</button>
+      </div>
+    </header>
 
-  <!-- Per-track tabs (claude / gpt) -->
-  <div id="tab-claude" class="tab-content">
-    <div class="panel">
-      <h2>Portfolio — Claude Track</h2>
-      <div id="claude-snapshot" class="snapshot-grid"></div>
+    <div id="scan-toast" class="scan-toast hidden">
+      <span class="scan-spinner"></span>
+      <span id="scan-toast-msg">Scanning…</span>
+      <span id="scan-toast-timer" class="scan-timer">0s</span>
     </div>
-    <div class="panel">
-      <h2>Open Positions</h2>
-      <div class="table-scroll">
-        <table class="data-table">
-          <thead><tr><th>Ticker</th><th>Entry</th><th>Current</th><th>P&L%</th><th>Stop</th><th>Target</th><th>Days</th></tr></thead>
-          <tbody id="claude-positions"></tbody>
-        </table>
-      </div>
-    </div>
-    <div class="panel">
-      <h2>Trade History</h2>
-      <div class="table-scroll">
-        <table class="data-table">
-          <thead><tr><th>Ticker</th><th>P&L%</th><th>RRR</th><th>Duration</th><th>Regime</th><th>Exit Reason</th></tr></thead>
-          <tbody id="claude-trades"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
 
-  <div id="tab-gpt" class="tab-content">
-    <div id="gpt-key-warning" class="warning-banner">
-      ⚠ OpenAI API key not configured — GPT track will not make trading decisions.
-      Add <code>OPENAI_API_KEY</code> to your <code>.env</code> file and restart.
-    </div>
-    <div class="panel">
-      <h2>Portfolio — GPT Track</h2>
-      <div id="gpt-snapshot" class="snapshot-grid"></div>
-    </div>
-    <div class="panel">
-      <h2>Open Positions</h2>
-      <div class="table-scroll">
-        <table class="data-table">
-          <thead><tr><th>Ticker</th><th>Entry</th><th>Current</th><th>P&L%</th><th>Stop</th><th>Target</th><th>Days</th></tr></thead>
-          <tbody id="gpt-positions"></tbody>
-        </table>
-      </div>
-    </div>
-    <div class="panel">
-      <h2>Trade History</h2>
-      <div class="table-scroll">
-        <table class="data-table">
-          <thead><tr><th>Ticker</th><th>P&L%</th><th>RRR</th><th>Duration</th><th>Regime</th><th>Exit Reason</th></tr></thead>
-          <tbody id="gpt-trades"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+    <!-- Page content -->
+    <main class="app-content">
 
-  <!-- Decision History tab -->
-  <div id="tab-decisions" class="tab-content">
-    <div class="panel">
-      <h2>Decision History</h2>
-      <div class="filter-bar">
-        <select id="hist-track">
-          <option value="">All tracks</option>
-          <option value="claude">Claude</option>
-          <option value="gpt">GPT</option>
-        </select>
-        <select id="hist-action">
-          <option value="">All actions</option>
-          <option value="BUY">BUY</option>
-          <option value="SELL">SELL (AI exit)</option>
-          <option value="PASS">PASS</option>
-          <option value="BLOCKED">BLOCKED</option>
-        </select>
-        <input id="hist-ticker" type="text" placeholder="Ticker…" />
-        <button id="hist-apply" class="filter-btn">Apply</button>
+      <!-- Comparison Tab -->
+      <div id="tab-comparison" class="tab-content active">
+        <section class="card">
+          <div class="card-header"><h2 class="card-title">Equity Curves</h2></div>
+          <canvas id="comparison-chart" height="80"></canvas>
+        </section>
+        <section class="card">
+          <div class="card-header"><h2 class="card-title">Head-to-Head Metrics</h2></div>
+          <div class="table-scroll">
+            <table id="comparison-table" class="data-table">
+              <thead>
+                <tr><th>Metric</th><th class="num">Claude</th><th class="num">GPT</th></tr>
+              </thead>
+              <tbody id="comparison-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-header">
+            <h2 class="card-title">Latest Decisions</h2>
+            <span id="decisions-meta" class="card-meta"></span>
+          </div>
+          <div id="decisions-list"></div>
+        </section>
       </div>
-      <div id="history-list"></div>
-    </div>
-  </div>
 
-  <!-- Heuristics tabs -->
-  <div id="tab-heuristics-claude" class="tab-content">
-    <div class="panel">
-      <h2>Heuristic Library — Claude Track</h2>
-      <div id="heuristics-claude-list"></div>
-    </div>
-  </div>
-
-  <div id="tab-heuristics-gpt" class="tab-content">
-    <div class="panel">
-      <h2>Heuristic Library — GPT Track</h2>
-      <div id="heuristics-gpt-list"></div>
-    </div>
-  </div>
-
-  <!-- Prompts tab -->
-  <div id="tab-prompts" class="tab-content">
-    <div class="prompts-grid">
-      <div class="panel">
-        <h2>Claude Track <span class="track-pill track-claude">claude</span></h2>
-        <div id="prompts-claude"><p class="neutral">Loading…</p></div>
+      <!-- Claude Track -->
+      <div id="tab-claude" class="tab-content">
+        <section class="card">
+          <div class="card-header"><h2 class="card-title">Portfolio · Claude Track</h2></div>
+          <div id="claude-snapshot" class="snapshot-grid"></div>
+        </section>
+        <section class="card">
+          <div class="card-header"><h2 class="card-title">Open Positions</h2></div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead><tr><th>Ticker</th><th class="num">Entry</th><th class="num">Current</th><th class="num">P&L%</th><th class="num">Stop</th><th class="num">Target</th><th class="num">Days</th></tr></thead>
+              <tbody id="claude-positions"></tbody>
+            </table>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-header"><h2 class="card-title">Trade History</h2></div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead><tr><th>Ticker</th><th class="num">P&L%</th><th class="num">RRR</th><th class="num">Duration</th><th>Regime</th><th>Exit Reason</th></tr></thead>
+              <tbody id="claude-trades"></tbody>
+            </table>
+          </div>
+        </section>
       </div>
-      <div class="panel">
-        <h2>GPT Track <span class="track-pill track-gpt">gpt</span></h2>
-        <div id="prompts-gpt"><p class="neutral">Loading…</p></div>
+
+      <!-- GPT Track -->
+      <div id="tab-gpt" class="tab-content">
+        <div id="gpt-key-warning" class="warning-banner">
+          ⚠ OpenAI API key not configured — GPT track will not make trading decisions.
+          Add <code>OPENAI_API_KEY</code> to your <code>.env</code> file and restart.
+        </div>
+        <section class="card">
+          <div class="card-header"><h2 class="card-title">Portfolio · GPT Track</h2></div>
+          <div id="gpt-snapshot" class="snapshot-grid"></div>
+        </section>
+        <section class="card">
+          <div class="card-header"><h2 class="card-title">Open Positions</h2></div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead><tr><th>Ticker</th><th class="num">Entry</th><th class="num">Current</th><th class="num">P&L%</th><th class="num">Stop</th><th class="num">Target</th><th class="num">Days</th></tr></thead>
+              <tbody id="gpt-positions"></tbody>
+            </table>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-header"><h2 class="card-title">Trade History</h2></div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead><tr><th>Ticker</th><th class="num">P&L%</th><th class="num">RRR</th><th class="num">Duration</th><th>Regime</th><th>Exit Reason</th></tr></thead>
+              <tbody id="gpt-trades"></tbody>
+            </table>
+          </div>
+        </section>
       </div>
-    </div>
+
+      <!-- Decision History -->
+      <div id="tab-decisions" class="tab-content">
+        <section class="card">
+          <div class="card-header"><h2 class="card-title">Decision History</h2></div>
+          <div class="filter-bar">
+            <select id="hist-track">
+              <option value="">All tracks</option>
+              <option value="claude">Claude</option>
+              <option value="gpt">GPT</option>
+            </select>
+            <select id="hist-action">
+              <option value="">All actions</option>
+              <option value="BUY">BUY</option>
+              <option value="SELL">SELL (AI exit)</option>
+              <option value="PASS">PASS</option>
+              <option value="BLOCKED">BLOCKED</option>
+            </select>
+            <input id="hist-ticker" type="text" placeholder="Ticker…" />
+            <button id="hist-apply" class="filter-btn">Apply</button>
+          </div>
+          <div id="history-list"></div>
+        </section>
+      </div>
+
+      <!-- Heuristics -->
+      <div id="tab-heuristics-claude" class="tab-content">
+        <section class="card">
+          <div class="card-header">
+            <h2 class="card-title">Heuristic Library · Claude Track</h2>
+            <span class="track-pill track-claude">claude</span>
+          </div>
+          <div id="heuristics-claude-list"></div>
+        </section>
+      </div>
+
+      <div id="tab-heuristics-gpt" class="tab-content">
+        <section class="card">
+          <div class="card-header">
+            <h2 class="card-title">Heuristic Library · GPT Track</h2>
+            <span class="track-pill track-gpt">gpt</span>
+          </div>
+          <div id="heuristics-gpt-list"></div>
+        </section>
+      </div>
+
+      <!-- Prompts -->
+      <div id="tab-prompts" class="tab-content">
+        <div class="prompts-grid">
+          <section class="card">
+            <div class="card-header">
+              <h2 class="card-title">Claude Track</h2>
+              <span class="track-pill track-claude">claude</span>
+            </div>
+            <div id="prompts-claude"><p class="neutral">Loading…</p></div>
+          </section>
+          <section class="card">
+            <div class="card-header">
+              <h2 class="card-title">GPT Track</h2>
+              <span class="track-pill track-gpt">gpt</span>
+            </div>
+            <div id="prompts-gpt"><p class="neutral">Loading…</p></div>
+          </section>
+        </div>
+      </div>
+
+    </main>
   </div>
 
   <script src="/static/app.js?v={{ v }}"></script>
+  <script>
+    // Mobile sidebar toggle + close-on-nav (desktop nav uses app.js tab handler)
+    const _sb = document.getElementById('app-sidebar');
+    const _bd = document.getElementById('sidebar-backdrop');
+    const _tg = document.getElementById('sidebar-toggle');
+    if (_tg) {
+      _tg.addEventListener('click', () => { _sb.classList.toggle('open'); _bd.classList.toggle('open'); });
+      _bd.addEventListener('click', () => { _sb.classList.remove('open'); _bd.classList.remove('open'); });
+    }
+    // Reflect the active tab's label in the topbar, and close the mobile drawer
+    document.querySelectorAll('.sidebar-nav .tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const label = btn.textContent.trim();
+        const t = document.querySelector('.topbar-title');
+        if (t) t.textContent = label;
+        _sb.classList.remove('open'); _bd.classList.remove('open');
+      });
+    });
+  </script>
 </body>
 </html>
