@@ -177,7 +177,7 @@ def _parse_heuristic(text: str) -> Optional[dict]:
                 result["quality"] = 0
         elif line.startswith("Market:"):
             val = line[len("Market:"):].strip().lower()
-            result["market"] = val if val in ("nordic", "us", "both") else "both"
+            result["market"] = val if val in ("nordic", "eu", "us", "both") else "both"
         elif line.startswith("Regime:"):
             val = line[len("Regime:"):].strip().lower()
             result["regime"] = val if val in ("trending", "mean-reverting", "any") else "any"

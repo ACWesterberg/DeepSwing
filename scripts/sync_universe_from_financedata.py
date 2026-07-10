@@ -13,15 +13,55 @@ if str(_BASE) not in sys.path:
 
 NORDIC_COUNTRIES = frozenset({"Sweden", "Norway", "Finland", "Denmark"})
 NORDIC_EXCHANGE_CODES = frozenset({"ST", "OL", "HE", "CO"})
+
+EU_COUNTRIES = frozenset({
+    "United Kingdom", "Germany", "France", "Netherlands", "Belgium", "Spain",
+    "Switzerland", "Poland", "Austria", "Portugal", "Ireland",
+})
+EU_EXCHANGE_CODES = frozenset({"LSE", "XETRA", "PA", "AS", "BR", "MC", "SW", "WAR", "VI", "LS", "IR"})
+
 US_LIT_EXCHANGES = frozenset({"NYSE", "NASDAQ"})
 
-EXCHANGE_CODE_TO_LABEL: dict[str, str] = {
+NORDIC_EXCHANGE_CODE_TO_LABEL: dict[str, str] = {
     "ST": "OMXS",
     "OL": "OSLO",
     "HE": "OMXH",
     "CO": "OMXC",
-    "NYSE": "NYSE",
-    "NASDAQ": "NASDAQ",
+}
+
+EU_EXCHANGE_CODE_TO_LABEL: dict[str, str] = {
+    "LSE": "LSE",
+    "XETRA": "XETRA",
+    "PA": "EURONEXT",
+    "AS": "EURONEXT",
+    "BR": "EURONEXT",
+    "MC": "BME",
+    "SW": "SIX",
+    "WAR": "WSE",
+    "VI": "VIE",
+    "LS": "EURONEXT",
+    "IR": "EURONEXT",
+}
+
+NORDIC_YAHOO_SUFFIX: dict[str, str] = {
+    "ST": "ST",
+    "OL": "OL",
+    "HE": "HE",
+    "CO": "CO",
+}
+
+EU_YAHOO_SUFFIX: dict[str, str] = {
+    "LSE": "L",
+    "XETRA": "DE",
+    "PA": "PA",
+    "AS": "AS",
+    "BR": "BR",
+    "MC": "MC",
+    "SW": "SW",
+    "WAR": "WA",
+    "VI": "VI",
+    "LS": "LS",
+    "IR": "IR",
 }
 
 COUNTRY_TO_CODE: dict[str, str] = {
@@ -30,13 +70,17 @@ COUNTRY_TO_CODE: dict[str, str] = {
     "Finland": "FI",
     "Denmark": "DK",
     "United States": "US",
-}
-
-YAHOO_SUFFIX: dict[str, str] = {
-    "ST": "ST",
-    "OL": "OL",
-    "HE": "HE",
-    "CO": "CO",
+    "United Kingdom": "GB",
+    "Germany": "DE",
+    "France": "FR",
+    "Netherlands": "NL",
+    "Belgium": "BE",
+    "Spain": "ES",
+    "Switzerland": "CH",
+    "Poland": "PL",
+    "Austria": "AT",
+    "Portugal": "PT",
+    "Ireland": "IE",
 }
 
 FIELDNAMES = ("name", "yahoo_ticker", "isin", "country", "exchange", "sector", "enabled")
@@ -70,36 +114,42 @@ def _load_existing(path: Path) -> dict[str, dict]:
         return {row["yahoo_ticker"]: row for row in csv.DictReader(f)}
 
 
-def _yahoo_ticker(row: dict) -> str | None:
+def _yahoo_ticker(row: dict, suffix_map: dict[str, str]) -> str | None:
     code = (row.get("exchange_code") or "").strip()
     ticker = (row.get("ticker") or "").strip()
     if not ticker:
         return None
-    if code in YAHOO_SUFFIX:
-        return f"{ticker}.{YAHOO_SUFFIX[code]}"
+    suffix = suffix_map.get(code)
+    if suffix:
+        return f"{ticker}.{suffix}"
     if code == "US":
         return ticker
     return None
 
 
-def _deepswing_exchange(row: dict) -> str | None:
+def _deepswing_exchange(row: dict, label_map: dict[str, str]) -> str | None:
     code = (row.get("exchange_code") or "").strip()
-    if code in EXCHANGE_CODE_TO_LABEL:
-        return EXCHANGE_CODE_TO_LABEL[code]
+    if code in label_map:
+        return label_map[code]
     if code == "US":
         venue = (row.get("exchange") or "").strip()
         return venue if venue in US_LIT_EXCHANGES else None
     return None
 
 
-def _convert_row(row: dict, existing: dict[str, dict]) -> dict | None:
+def _convert_row(
+    row: dict,
+    existing: dict[str, dict],
+    *,
+    suffix_map: dict[str, str],
+    label_map: dict[str, str],
+) -> dict | None:
     if (row.get("status") or "active").strip().lower() != "active":
         return None
 
     country = (row.get("country") or "").strip()
-    code = (row.get("exchange_code") or "").strip()
-    yahoo = _yahoo_ticker(row)
-    exchange = _deepswing_exchange(row)
+    yahoo = _yahoo_ticker(row, suffix_map)
+    exchange = _deepswing_exchange(row, label_map)
     if not yahoo or not exchange:
         return None
 
@@ -127,6 +177,12 @@ def _nordic_row(row: dict) -> bool:
     return country in NORDIC_COUNTRIES and code in NORDIC_EXCHANGE_CODES
 
 
+def _eu_row(row: dict) -> bool:
+    country = (row.get("country") or "").strip()
+    code = (row.get("exchange_code") or "").strip()
+    return country in EU_COUNTRIES and code in EU_EXCHANGE_CODES
+
+
 def _us_row(row: dict) -> bool:
     if (row.get("country") or "").strip() != "United States":
         return False
@@ -148,32 +204,53 @@ def sync_universe(
     *,
     source: str | None = None,
     nordic_path: Path | None = None,
+    eu_path: Path | None = None,
     us_path: Path | None = None,
-) -> tuple[int, int]:
+) -> tuple[int, int, int]:
     nordic_path = nordic_path or _BASE / "config" / "universe.csv"
+    eu_path = eu_path or _BASE / "config" / "universe_eu.csv"
     us_path = us_path or _BASE / "config" / "universe_global.csv"
 
     raw_rows = _load_financedata_rows(source)
     existing_nordic = _load_existing(nordic_path)
+    existing_eu = _load_existing(eu_path)
     existing_us = _load_existing(us_path)
-    existing = {**existing_us, **existing_nordic}
+    existing = {**existing_us, **existing_eu, **existing_nordic}
 
     nordic_out: list[dict] = []
+    eu_out: list[dict] = []
     us_out: list[dict] = []
 
     for raw in raw_rows:
         if _nordic_row(raw):
-            converted = _convert_row(raw, existing)
+            converted = _convert_row(
+                raw, existing,
+                suffix_map=NORDIC_YAHOO_SUFFIX,
+                label_map=NORDIC_EXCHANGE_CODE_TO_LABEL,
+            )
             if converted:
                 nordic_out.append(converted)
+        if _eu_row(raw):
+            converted = _convert_row(
+                raw, existing,
+                suffix_map=EU_YAHOO_SUFFIX,
+                label_map=EU_EXCHANGE_CODE_TO_LABEL,
+            )
+            if converted:
+                eu_out.append(converted)
         if _us_row(raw):
-            converted = _convert_row(raw, existing)
+            converted = _convert_row(
+                raw, existing,
+                suffix_map={},
+                label_map={},
+            )
             if converted:
                 us_out.append(converted)
 
     _write_csv(nordic_path, nordic_out)
+    _write_csv(eu_path, eu_out)
     _write_csv(us_path, us_out)
-    return len(nordic_out), len(us_out)
+    return len(nordic_out), len(eu_out), len(us_out)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -183,15 +260,18 @@ def main(argv: list[str] | None = None) -> int:
         help="FinanceData universe CSV export (default: financedata cache or ../FinanceData snapshot)",
     )
     parser.add_argument("--nordic-out", type=Path, default=_BASE / "config" / "universe.csv")
+    parser.add_argument("--eu-out", type=Path, default=_BASE / "config" / "universe_eu.csv")
     parser.add_argument("--us-out", type=Path, default=_BASE / "config" / "universe_global.csv")
     args = parser.parse_args(argv)
 
-    nordic_n, us_n = sync_universe(
+    nordic_n, eu_n, us_n = sync_universe(
         source=args.source,
         nordic_path=args.nordic_out,
+        eu_path=args.eu_out,
         us_path=args.us_out,
     )
     print(f"Wrote {nordic_n:,} Nordic rows to {args.nordic_out}")
+    print(f"Wrote {eu_n:,} EU rows to {args.eu_out}")
     print(f"Wrote {us_n:,} US rows to {args.us_out}")
     return 0
 

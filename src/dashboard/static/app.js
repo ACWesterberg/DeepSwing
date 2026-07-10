@@ -80,9 +80,12 @@ async function refreshStatus() {
   const data = await fetchJSON("/api/status");
   if (!data) return;
   const nb = document.getElementById("nordic-status");
+  const eb = document.getElementById("eu-status");
   const ub = document.getElementById("us-status");
   nb.textContent = "Nordic: " + (data.nordic_open ? "OPEN" : "CLOSED");
   nb.className = "badge " + (data.nordic_open ? "open" : "closed");
+  eb.textContent = "EU: " + (data.eu_open ? "OPEN" : "CLOSED");
+  eb.className = "badge " + (data.eu_open ? "open" : "closed");
   ub.textContent = "US: " + (data.us_open ? "OPEN" : "CLOSED");
   ub.className = "badge " + (data.us_open ? "open" : "closed");
 
@@ -340,6 +343,7 @@ async function runScan(market) {
 }
 
 document.getElementById("scan-nordic-btn").addEventListener("click", () => runScan("nordic"));
+document.getElementById("scan-eu-btn").addEventListener("click", () => runScan("eu"));
 document.getElementById("scan-us-btn").addEventListener("click", () => runScan("us"));
 
 document.getElementById("reset-btn").addEventListener("click", async () => {

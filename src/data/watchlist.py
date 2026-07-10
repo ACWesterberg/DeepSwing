@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from config.settings import settings
+from src.data.universe import get_eu_tickers as _universe_eu
 from src.data.universe import get_nordic_tickers as _universe_nordic
 from src.data.universe import get_us_tickers as _universe_us
 
@@ -43,3 +44,19 @@ def get_us_tickers() -> list[str]:
     except Exception as exc:
         logger.warning("universe_global.csv load failed: %s — using hardcoded fallback", exc)
     return settings.us_watchlist
+
+
+def get_eu_watchlist() -> list[str]:
+    """
+    Return the continental-EU watchlist from universe_eu.csv (LSE, XETRA,
+    Euronext, SIX, etc.). Falls back to an empty list if unavailable.
+    """
+    try:
+        tickers = _universe_eu()
+        if len(tickers) >= 50:
+            logger.debug("EU watchlist: %d tickers from universe_eu.csv", len(tickers))
+            return tickers
+        logger.warning("Universe returned only %d EU tickers", len(tickers))
+    except Exception as exc:
+        logger.warning("universe_eu.csv load failed: %s", exc)
+    return []

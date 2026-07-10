@@ -9,6 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from config.settings import settings
 from src.db import init_db
 from src.scheduler.market_hours import is_market_open
+from src.scheduler.markets import SCAN_MARKETS
 from src.scheduler.optimizer import run_heuristic_refinement, run_mipro_optimization
 from src.scheduler.scan_loop import run_scan
 
@@ -22,7 +23,7 @@ logger = logging.getLogger("deepswing")
 
 def scheduled_scan():
     """Called every 15 min by APScheduler — runs scan for any open market."""
-    for market in ("nordic", "us"):
+    for market in SCAN_MARKETS:
         if is_market_open(market):
             try:
                 run_scan(market)

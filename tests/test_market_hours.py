@@ -49,3 +49,13 @@ class TestNordicMarketHours:
     def test_nordic_closed_on_weekend(self):
         dt = datetime(2026, 3, 14, 9, 0)  # Saturday
         assert is_market_open("nordic", dt) is False
+
+
+class TestEuMarketHours:
+    def test_eu_open_mid_session(self):
+        dt = datetime(2026, 3, 16, 9, 0)  # 10:00 CET Monday
+        assert is_market_open("eu", dt) is True
+
+    def test_eu_closed_evening(self):
+        dt = datetime(2026, 3, 16, 17, 30)  # 18:30 CET
+        assert is_market_open("eu", dt) is False

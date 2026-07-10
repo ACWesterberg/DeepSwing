@@ -116,7 +116,7 @@ class Settings(BaseSettings):
     # the Nordic session opens. Each market's open-position value is held below its
     # cap; a market with no entry here (or > 1.0) is uncapped. Keep the values below
     # 1.0 to reserve room — the leftover is what the other market can deploy.
-    market_allocation: dict[str, float] = Field(default={"nordic": 0.5, "us": 0.5})
+    market_allocation: dict[str, float] = Field(default={"nordic": 0.4, "eu": 0.2, "us": 0.4})
     # Holdings are monitored on price alone; a news pull + AI exit review only fires
     # for a position once it has moved at least this fraction (up or down) since its
     # last news check — a "large jump". Set to 0.0 to review every scan.

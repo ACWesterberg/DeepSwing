@@ -4,7 +4,7 @@ import logging
 import threading
 import time
 from datetime import datetime
-from typing import Callable, Literal, Optional
+from typing import Callable, Optional
 
 from config.settings import settings
 from src.agent.decision import get_decision, get_exit_decision
@@ -17,14 +17,14 @@ from src.analysis.screener import screen_candidates
 from src.analysis.technical import compute_signals
 from src.data.insider_fetcher import get_insider_summary
 from src.data.macro_data import get_macro_context
-from src.data.market_data import fetch_batch_nordic, fetch_batch_us, get_current_price, get_days_to_earnings, get_sector, get_vix
-from src.data.watchlist import get_omxs30_tickers, get_us_tickers
+from src.data.market_data import fetch_batch_eu, fetch_batch_nordic, fetch_batch_us, get_current_price, get_days_to_earnings, get_sector, get_vix
+from src.data.watchlist import get_eu_watchlist, get_omxs30_tickers, get_us_tickers
 from src.data.news_fetcher import fetch_market_headlines, fetch_news_for_ticker, format_market_environment
 from src.portfolio.simulator import get_portfolio, persist_portfolio
 
 logger = logging.getLogger(__name__)
 
-MarketType = Literal["nordic", "us"]
+from src.scheduler.markets import MarketType
 
 # Optional financedata integrations — gracefully absent until installed on the Pi
 try:
@@ -49,14 +49,31 @@ _NORDIC_SUFFIX_CURRENCY: dict[str, str] = {
     ".CO": "DKK",
 }
 
+_EU_SUFFIX_CURRENCY: dict[str, str] = {
+    ".L": "GBP",
+    ".DE": "EUR",
+    ".PA": "EUR",
+    ".AS": "EUR",
+    ".BR": "EUR",
+    ".MC": "EUR",
+    ".SW": "CHF",
+    ".WA": "PLN",
+    ".VI": "EUR",
+    ".LS": "EUR",
+    ".IR": "EUR",
+}
+
 
 def _currency_for_ticker(ticker: str, market: str) -> str:
     """Resolve the native currency a ticker's price is quoted in."""
-    if market != "nordic":
+    if market == "us":
         return "USD"
-    for suffix, currency in _NORDIC_SUFFIX_CURRENCY.items():
+    suffix_map = _EU_SUFFIX_CURRENCY if market == "eu" else _NORDIC_SUFFIX_CURRENCY
+    for suffix, currency in suffix_map.items():
         if ticker.endswith(suffix):
             return currency
+    if market == "eu":
+        return "EUR"
     # Legacy .STO suffix or unrecognized Nordic ticker — assume Swedish (SEK)
     return "SEK"
 
@@ -210,9 +227,18 @@ def _run_scan(market: MarketType) -> dict:
         logger.info("No track has %s-market budget available — holdings-only monitor", market)
         return _monitor_holdings(market)
 
-    watchlist = get_omxs30_tickers() if market == "nordic" else get_us_tickers()
+    if market == "nordic":
+        watchlist = get_omxs30_tickers()
+    elif market == "eu":
+        watchlist = get_eu_watchlist()
+    else:
+        watchlist = get_us_tickers()
     logger.info("Watchlist: %d tickers for %s market", len(watchlist), market)
-    macro_context = get_macro_context(market)
+    if not watchlist:
+        logger.warning("Empty watchlist for %s market — nothing to scan", market)
+        return {"market": market, "candidates": [], "decisions": []}
+    macro_market = "nordic" if market in ("nordic", "eu") else "us"
+    macro_context = get_macro_context(macro_market)
 
     # Market-wide news environment (geopolitics, sector themes, risk sentiment) —
     # fetched once per scan and folded into the macro context so it reaches the
@@ -228,6 +254,8 @@ def _run_scan(market: MarketType) -> dict:
     # --- Fetch OHLCV ---
     if market == "nordic":
         ohlcv_map = fetch_batch_nordic(watchlist)
+    elif market == "eu":
+        ohlcv_map = fetch_batch_eu(watchlist)
     else:
         ohlcv_map = fetch_batch_us(watchlist)
 

@@ -317,7 +317,7 @@ class Portfolio:
         filled_price = entry_price * (1 + settings.simulated_slippage)
         cost = filled_price * quantity
         commission = cost * settings.commission_pct
-        if market == "us":
+        if market in ("us", "eu"):
             commission += cost * settings.fx_commission_pct
 
         if cost + commission > self.cash:

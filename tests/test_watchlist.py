@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from src.data.universe import get_nordic_tickers, get_sector_from_universe
-from src.data.watchlist import get_omxs30_tickers
+from src.data.universe import get_eu_tickers, get_nordic_tickers, get_sector_from_universe
+from src.data.watchlist import get_eu_watchlist, get_omxs30_tickers
 
 
 def _write_universe(path, rows: list[dict]) -> None:
@@ -21,10 +21,12 @@ def _write_universe(path, rows: list[dict]) -> None:
 
 @pytest.fixture(autouse=True)
 def _clear_cache():
-    from src.data.universe import _load_rows
+    from src.data.universe import _load_eu_rows, _load_rows
     _load_rows.cache_clear()
+    _load_eu_rows.cache_clear()
     yield
     _load_rows.cache_clear()
+    _load_eu_rows.cache_clear()
 
 
 class TestGetNordicTickersFromUniverse:
@@ -114,3 +116,24 @@ class TestGetOmxs30TickersFallback:
             result = get_omxs30_tickers()
         assert len(result) == 25
         assert "T00.ST" in result
+
+
+class TestGetEuTickersFromUniverse:
+    def test_returns_enabled_eu_tickers(self, tmp_path):
+        _write_universe(tmp_path / "universe_eu.csv", [
+            {"yahoo_ticker": "SAP.DE", "exchange": "XETRA", "enabled": "true"},
+            {"yahoo_ticker": "HIDDEN.L", "exchange": "LSE", "enabled": "false"},
+        ])
+        with patch("src.data.universe.UNIVERSE_EU_PATH", tmp_path / "universe_eu.csv"):
+            result = get_eu_tickers()
+        assert result == ["SAP.DE"]
+
+    def test_get_eu_watchlist_uses_universe_when_large_enough(self, tmp_path):
+        rows = [
+            {"yahoo_ticker": f"T{i:02d}.DE", "exchange": "XETRA", "enabled": "true"}
+            for i in range(55)
+        ]
+        _write_universe(tmp_path / "universe_eu.csv", rows)
+        with patch("src.data.universe.UNIVERSE_EU_PATH", tmp_path / "universe_eu.csv"):
+            result = get_eu_watchlist()
+        assert len(result) == 55

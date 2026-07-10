@@ -65,6 +65,11 @@ def fetch_batch_nordic(tickers: list[str]) -> dict[str, pd.DataFrame]:
     return _fetch_batch_chunked(tickers, market="nordic")
 
 
+def fetch_batch_eu(tickers: list[str]) -> dict[str, pd.DataFrame]:
+    # EU listings use Yahoo suffixes; yfinance path matches US batch fetch.
+    return _fetch_batch_chunked(tickers, market="us")
+
+
 def fetch_batch_us(tickers: list[str]) -> dict[str, pd.DataFrame]:
     return _fetch_batch_chunked(tickers, market="us")
 

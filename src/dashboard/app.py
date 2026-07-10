@@ -26,6 +26,7 @@ from config.settings import settings
 from src.portfolio.metrics import build_equity_curve_chart_data, compute_metrics
 from src.portfolio.simulator import get_portfolio, reset_portfolios
 from src.scheduler.market_hours import active_markets, is_exchange_open
+from src.scheduler.markets import SCAN_MARKETS
 from src.scheduler.scan_loop import clear_recent_decisions, get_recent_decisions, run_scan, set_trade_event_handler
 
 logger = logging.getLogger(__name__)
@@ -157,6 +158,7 @@ async def status():
         "timestamp": datetime.utcnow().isoformat(),
         "active_markets": active_markets(),
         "nordic_open": is_exchange_open("nordic"),
+        "eu_open": is_exchange_open("eu"),
         "us_open": is_exchange_open("us"),
         "tracks": settings.tracks,
         "claude_configured": bool(settings.anthropic_api_key),
@@ -268,11 +270,11 @@ async def run_backtest(
     Run walk-forward backtesting on historical data.
     No AI calls — uses ATR-based entries, real screener + risk rules.
     """
-    if market not in ("nordic", "us"):
-        return {"error": "market must be 'nordic' or 'us'"}
+    if market not in SCAN_MARKETS:
+        return {"error": f"market must be one of {SCAN_MARKETS}"}
 
     from src.backtesting.engine import BacktestEngine
-    from src.data.watchlist import get_omxs30_tickers, get_us_tickers
+    from src.data.watchlist import get_eu_watchlist, get_omxs30_tickers, get_us_tickers
 
     try:
         start_date = date.fromisoformat(start) if start else date(date.today().year - 1, 1, 1)
@@ -280,7 +282,12 @@ async def run_backtest(
     except ValueError as exc:
         return {"error": f"Invalid date format: {exc}"}
 
-    tickers = get_omxs30_tickers() if market == "nordic" else get_us_tickers()
+    if market == "nordic":
+        tickers = get_omxs30_tickers()
+    elif market == "eu":
+        tickers = get_eu_watchlist()
+    else:
+        tickers = get_us_tickers()
 
     import asyncio
     loop = asyncio.get_event_loop()
@@ -392,8 +399,8 @@ async def trigger_scan(market: str):
     """Manually trigger a scan. run_scan is a long blocking call, so it runs in a
     worker thread — otherwise it would freeze the whole event loop (every page and
     API refresh) for the duration of the scan."""
-    if market not in ("nordic", "us"):
-        return {"error": "market must be 'nordic' or 'us'"}
+    if market not in SCAN_MARKETS:
+        return {"error": f"market must be one of {SCAN_MARKETS}"}
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(None, run_scan, market)
     await _broadcast({"event": "scan_complete", "data": result})
@@ -403,18 +410,22 @@ async def trigger_scan(market: str):
 @app.get("/api/debug/screener/{market}")
 async def debug_screener(market: str):
     """Return per-ticker screener breakdown — why each stock passed or was rejected."""
-    if market not in ("nordic", "us"):
-        return {"error": "market must be 'nordic' or 'us'"}
+    if market not in SCAN_MARKETS:
+        return {"error": f"market must be one of {SCAN_MARKETS}"}
 
-    from src.data.market_data import fetch_batch_nordic, fetch_batch_us, get_sector
-    from src.data.watchlist import get_omxs30_tickers, get_us_tickers
+    from src.data.market_data import fetch_batch_eu, fetch_batch_nordic, fetch_batch_us, get_sector
+    from src.data.watchlist import get_eu_watchlist, get_omxs30_tickers, get_us_tickers
     from src.analysis.technical import compute_signals
     from src.analysis.regime import classify_regime
     from src.scheduler.scan_loop import _to_sek_price
     from config.settings import settings as s
 
-    fetch_fn = fetch_batch_nordic if market == "nordic" else fetch_batch_us
-    watchlist = get_omxs30_tickers() if market == "nordic" else get_us_tickers()
+    if market == "nordic":
+        fetch_fn, watchlist = fetch_batch_nordic, get_omxs30_tickers()
+    elif market == "eu":
+        fetch_fn, watchlist = fetch_batch_eu, get_eu_watchlist()
+    else:
+        fetch_fn, watchlist = fetch_batch_us, get_us_tickers()
     batch = fetch_fn(watchlist)
 
     rows = []
