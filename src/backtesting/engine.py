@@ -330,34 +330,38 @@ class BacktestEngine:
             for t in self.tickers
         ]
         ticker_map = dict(zip(yf_tickers, self.tickers))
-
-        try:
-            raw = yf.download(
-                yf_tickers,
-                start=load_start.isoformat(),
-                end=(load_end + timedelta(days=1)).isoformat(),
-                interval="1d",
-                auto_adjust=True,
-                group_by="ticker",
-                progress=False,
-                threads=True,
-            )
-        except Exception as exc:
-            logger.error("yfinance batch download error: %s", exc)
-            return {}
-
+        chunk_size = max(1, settings.ohlcv_batch_chunk_size)
         result: dict[str, pd.DataFrame] = {}
-        if len(yf_tickers) == 1:
-            df = _standardize(raw)
-            if not df.empty:
-                result[self.tickers[0]] = df
-        else:
-            for yf_ticker, orig_ticker in ticker_map.items():
+
+        for i in range(0, len(yf_tickers), chunk_size):
+            chunk = yf_tickers[i : i + chunk_size]
+            try:
+                raw = yf.download(
+                    chunk,
+                    start=load_start.isoformat(),
+                    end=(load_end + timedelta(days=1)).isoformat(),
+                    interval="1d",
+                    auto_adjust=True,
+                    group_by="ticker",
+                    progress=False,
+                    threads=True,
+                )
+            except Exception as exc:
+                logger.error("yfinance batch download error: %s", exc)
+                continue
+
+            if len(chunk) == 1:
+                df = _standardize(raw)
+                if not df.empty:
+                    result[ticker_map[chunk[0]]] = df
+                continue
+
+            for yf_ticker in chunk:
                 try:
                     df = raw[yf_ticker].dropna(how="all")
                     df = _standardize(df)
                     if not df.empty:
-                        result[orig_ticker] = df
+                        result[ticker_map[yf_ticker]] = df
                 except Exception:
                     pass
 

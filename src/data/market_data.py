@@ -49,12 +49,24 @@ def fetch_ohlcv(
     return _get_prices(ticker, market=market, period=period, interval=interval)
 
 
+def _fetch_batch_chunked(tickers: list[str], market: str) -> dict[str, pd.DataFrame]:
+    if not tickers:
+        return {}
+    chunk_size = max(1, settings.ohlcv_batch_chunk_size)
+    results: dict[str, pd.DataFrame] = {}
+    for i in range(0, len(tickers), chunk_size):
+        chunk = tickers[i : i + chunk_size]
+        results.update(get_prices_batch(chunk, market=market, period="1y"))
+    logger.info("OHLCV batch: %d/%d %s tickers returned", len(results), len(tickers), market)
+    return results
+
+
 def fetch_batch_nordic(tickers: list[str]) -> dict[str, pd.DataFrame]:
-    return get_prices_batch(tickers, market="nordic", period="1y")
+    return _fetch_batch_chunked(tickers, market="nordic")
 
 
 def fetch_batch_us(tickers: list[str]) -> dict[str, pd.DataFrame]:
-    return get_prices_batch(tickers, market="us", period="1y")
+    return _fetch_batch_chunked(tickers, market="us")
 
 
 def get_sector(ticker: str) -> str:

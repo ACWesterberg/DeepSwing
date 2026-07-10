@@ -272,7 +272,7 @@ async def run_backtest(
         return {"error": "market must be 'nordic' or 'us'"}
 
     from src.backtesting.engine import BacktestEngine
-    from src.data.watchlist import get_omxs30_tickers
+    from src.data.watchlist import get_omxs30_tickers, get_us_tickers
 
     try:
         start_date = date.fromisoformat(start) if start else date(date.today().year - 1, 1, 1)
@@ -280,7 +280,7 @@ async def run_backtest(
     except ValueError as exc:
         return {"error": f"Invalid date format: {exc}"}
 
-    tickers = get_omxs30_tickers() if market == "nordic" else settings.us_watchlist[:30]
+    tickers = get_omxs30_tickers() if market == "nordic" else get_us_tickers()
 
     import asyncio
     loop = asyncio.get_event_loop()
@@ -407,13 +407,14 @@ async def debug_screener(market: str):
         return {"error": "market must be 'nordic' or 'us'"}
 
     from src.data.market_data import fetch_batch_nordic, fetch_batch_us, get_sector
+    from src.data.watchlist import get_omxs30_tickers, get_us_tickers
     from src.analysis.technical import compute_signals
     from src.analysis.regime import classify_regime
     from src.scheduler.scan_loop import _to_sek_price
     from config.settings import settings as s
 
     fetch_fn = fetch_batch_nordic if market == "nordic" else fetch_batch_us
-    watchlist = s.nordic_watchlist if market == "nordic" else s.us_watchlist
+    watchlist = get_omxs30_tickers() if market == "nordic" else get_us_tickers()
     batch = fetch_fn(watchlist)
 
     rows = []

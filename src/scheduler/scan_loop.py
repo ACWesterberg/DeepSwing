@@ -211,6 +211,7 @@ def _run_scan(market: MarketType) -> dict:
         return _monitor_holdings(market)
 
     watchlist = get_omxs30_tickers() if market == "nordic" else get_us_tickers()
+    logger.info("Watchlist: %d tickers for %s market", len(watchlist), market)
     macro_context = get_macro_context(market)
 
     # Market-wide news environment (geopolitics, sector themes, risk sentiment) —

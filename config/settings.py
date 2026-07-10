@@ -90,6 +90,10 @@ class Settings(BaseSettings):
     earnings_buffer_days: int = 2          # exclude candidates within N days of earnings
     market_news_max_headlines: int = 20    # market-wide headlines injected into macro context
 
+    # yfinance batch downloads fail above ~200 symbols — chunk large universe
+    # watchlists so cold-cache scans still populate every ticker.
+    ohlcv_batch_chunk_size: int = 150
+
     # Scheduler intervals (minutes)
     scan_interval_minutes: int = 15
     news_refresh_interval_minutes: int = 60  # also the per-ticker news cache TTL
