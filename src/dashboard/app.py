@@ -65,8 +65,10 @@ class _AuthMiddleware(BaseHTTPMiddleware):
 
         path = request.url.path
 
-        # Always allow static assets and the login form itself
-        if path.startswith("/static/") or path == "/login":
+        # Always allow static assets, the login form, and the read-only kiosk
+        # feed (aggregate performance numbers only — safe to expose to the wall
+        # display without a password).
+        if path.startswith("/static/") or path == "/login" or path == "/api/kiosk":
             return await call_next(request)
 
         # Valid session cookie — let everything through
@@ -201,6 +203,71 @@ async def comparison():
             "equity_curve": build_equity_curve_chart_data(portfolio),
         }
     return result
+
+
+@app.get("/api/kiosk")
+async def kiosk():
+    """Consolidated, read-only feed for the Pi wall display (Claude-vs-GPT screens).
+
+    Unauthenticated by design (see _AuthMiddleware allowlist): it returns only
+    aggregate, non-sensitive performance numbers, shaped so the kiosk can bind to
+    it directly without doing its own maths.
+    """
+    tracks_out: dict[str, Any] = {}
+    for track in settings.tracks:
+        portfolio = get_portfolio(track)
+        md = compute_metrics(portfolio).to_dict()
+        snap = portfolio.snapshot()
+        opens = sorted(
+            portfolio.open_positions,
+            key=lambda p: abs(p.market_value),
+            reverse=True,
+        )
+        tracks_out[track] = {
+            "equity": snap["equity"],
+            "cash": snap["cash"],
+            "open_positions_count": snap["open_positions_count"],
+            "total_trades": md["total_trades"],
+            "win_rate": md["win_rate"],            # already ×100, 1 dp
+            "sharpe": md["sharpe_ratio"],
+            "max_dd": md["max_drawdown_pct"],      # already ×100, negative
+            "total_return_pct": md["total_return_pct"],
+            "open_positions": [
+                {
+                    "ticker": p.ticker,
+                    "side": "LONG" if p.quantity >= 0 else "SHORT",
+                    "qty": abs(round(p.quantity, 2)),
+                    "pnl_pct": round(p.unrealised_pnl_pct * 100, 2),
+                }
+                for p in opens
+            ],
+            "equity_curve": build_equity_curve_chart_data(portfolio),
+        }
+
+    # Leading track + gap over the runner-up (first two configured tracks).
+    leader = None
+    names = list(tracks_out.keys())
+    if len(names) >= 2:
+        top, second = sorted(names, key=lambda t: tracks_out[t]["equity"], reverse=True)[:2]
+        gap = tracks_out[top]["equity"] - tracks_out[second]["equity"]
+        base = tracks_out[second]["equity"] or 1.0
+        leader = {
+            "track": top,
+            "behind": second,
+            "amount": round(gap, 2),
+            "spread_pct": round(gap / abs(base) * 100, 1) if base else 0.0,
+        }
+
+    return {
+        "timestamp": datetime.utcnow().isoformat(),
+        "markets": {
+            "nordic_open": is_exchange_open("nordic"),
+            "us_open": is_exchange_open("us"),
+            "active": active_markets(),
+        },
+        "leader": leader,
+        "tracks": tracks_out,
+    }
 
 
 @app.get("/api/heuristics/{track}")
