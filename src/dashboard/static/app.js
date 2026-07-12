@@ -27,8 +27,10 @@ try {
   type: "line",
   data: {
     datasets: [
-      { label: "Claude", borderColor: "#7c3aed", backgroundColor: "rgba(124,58,237,0.08)", data: [], cubicInterpolationMode: "monotone", pointRadius: 2 },
-      { label: "GPT",    borderColor: "#0ea5e9", backgroundColor: "rgba(14,165,233,0.08)",  data: [], cubicInterpolationMode: "monotone", pointRadius: 2 },
+      { label: "Claude",     borderColor: "#7c3aed", backgroundColor: "rgba(124,58,237,0.08)", data: [], cubicInterpolationMode: "monotone", pointRadius: 2 },
+      { label: "GPT",        borderColor: "#0ea5e9", backgroundColor: "rgba(14,165,233,0.08)",  data: [], cubicInterpolationMode: "monotone", pointRadius: 2 },
+      { label: "Claude Opt", borderColor: "#d946ef", backgroundColor: "rgba(217,70,239,0.08)", data: [], cubicInterpolationMode: "monotone", pointRadius: 2, borderDash: [6, 4] },
+      { label: "GPT Opt",    borderColor: "#14b8a6", backgroundColor: "rgba(20,184,166,0.08)", data: [], cubicInterpolationMode: "monotone", pointRadius: 2, borderDash: [6, 4] },
     ],
   },
   options: {
@@ -64,13 +66,14 @@ const METRIC_LABELS = {
   optimization_metric: "MIPRO Metric (WR×RRR)",
 };
 
+const TRACKS = ["claude", "gpt", "claude-opt", "gpt-opt"];
+
 async function refreshAll() {
   await Promise.all([
     refreshStatus(),
     refreshComparison(),
     refreshDecisions(),
-    refreshTrack("claude"),
-    refreshTrack("gpt"),
+    ...TRACKS.map(refreshTrack),
   ]);
   document.getElementById("last-update").textContent =
     "Updated " + new Date().toLocaleTimeString();
@@ -98,13 +101,12 @@ async function refreshComparison() {
   const data = await fetchJSON("/api/comparison");
   if (!data) return;
 
-  // Equity curves
-  const toPoint = (p) => ({ x: p.date, y: p.equity });
-  const claudeData = (data.claude?.equity_curve || []).map(toPoint);
-  const gptData    = (data.gpt?.equity_curve || []).map(toPoint);
+  // Equity curves — dataset order matches TRACKS
   if (compChart) {
-    compChart.data.datasets[0].data = claudeData;
-    compChart.data.datasets[1].data = gptData;
+    TRACKS.forEach((track, i) => {
+      compChart.data.datasets[i].data =
+        (data[track]?.equity_curve || []).map((p) => ({ x: p.date, y: p.equity }));
+    });
     compChart.update();
   }
 
@@ -112,9 +114,8 @@ async function refreshComparison() {
   const tbody = document.getElementById("comparison-tbody");
   tbody.innerHTML = "";
   for (const [key, label] of Object.entries(METRIC_LABELS)) {
-    const cv = data.claude?.metrics?.[key] ?? "—";
-    const gv = data.gpt?.metrics?.[key] ?? "—";
-    tbody.innerHTML += `<tr><td>${label}</td><td>${fmt(cv)}</td><td>${fmt(gv)}</td></tr>`;
+    const cells = TRACKS.map(t => `<td>${fmt(data[t]?.metrics?.[key] ?? "—")}</td>`).join("");
+    tbody.innerHTML += `<tr><td>${label}</td>${cells}</tr>`;
   }
 }
 
@@ -345,9 +346,10 @@ async function runScan(market) {
 document.getElementById("scan-nordic-btn").addEventListener("click", () => runScan("nordic"));
 document.getElementById("scan-eu-btn").addEventListener("click", () => runScan("eu"));
 document.getElementById("scan-us-btn").addEventListener("click", () => runScan("us"));
+document.getElementById("scan-options-btn").addEventListener("click", () => runScan("options"));
 
 document.getElementById("reset-btn").addEventListener("click", async () => {
-  const pin = prompt("Enter PIN to reset both tracks:");
+  const pin = prompt("Enter PIN to reset all tracks:");
   if (pin === null) return;  // cancelled
   const r = await fetch("/api/reset", {
     method: "POST",
@@ -368,7 +370,7 @@ document.getElementById("reset-btn").addEventListener("click", async () => {
 
 async function refreshPrompts() {
   const data = await fetchJSON("/api/prompts");
-  for (const track of ["claude", "gpt"]) {
+  for (const track of TRACKS) {
     const el = document.getElementById(`prompts-${track}`);
     if (!el) continue;
     const td = data?.[track];

@@ -24,10 +24,16 @@ from starlette.requests import Request
 
 from config.settings import settings
 from src.portfolio.metrics import build_equity_curve_chart_data, compute_metrics
+from src.portfolio.options_simulator import get_options_portfolio, reset_options_portfolios
 from src.portfolio.simulator import get_portfolio, reset_portfolios
 from src.scheduler.market_hours import active_markets, is_exchange_open
 from src.scheduler.markets import SCAN_MARKETS
+from src.scheduler.options_scan import run_options_scan
 from src.scheduler.scan_loop import clear_recent_decisions, get_recent_decisions, run_scan, set_trade_event_handler
+
+
+def _portfolio_for(track: str):
+    return get_options_portfolio(track) if track in settings.options_tracks else get_portfolio(track)
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +169,7 @@ async def status():
         "eu_open": is_exchange_open("eu"),
         "us_open": is_exchange_open("us"),
         "tracks": settings.tracks,
+        "options_tracks": settings.options_tracks,
         "claude_configured": bool(settings.anthropic_api_key),
         "gpt_configured": bool(settings.openai_api_key),
     }
@@ -170,9 +177,9 @@ async def status():
 
 @app.get("/api/portfolio/{track}")
 async def portfolio_state(track: str):
-    if track not in settings.tracks:
+    if track not in settings.all_tracks:
         return {"error": f"Unknown track: {track}"}
-    portfolio = get_portfolio(track)
+    portfolio = _portfolio_for(track)
     metrics = compute_metrics(portfolio)
     return {
         "snapshot": portfolio.snapshot(),
@@ -183,19 +190,19 @@ async def portfolio_state(track: str):
 
 @app.get("/api/trades/{track}")
 async def trade_history(track: str, limit: int = 50):
-    if track not in settings.tracks:
+    if track not in settings.all_tracks:
         return {"error": f"Unknown track: {track}"}
-    portfolio = get_portfolio(track)
+    portfolio = _portfolio_for(track)
     trades = sorted(portfolio.closed_trades, key=lambda t: t.exit_time, reverse=True)[:limit]
     return {"trades": [t.to_dict() for t in trades]}
 
 
 @app.get("/api/comparison")
 async def comparison():
-    """Side-by-side metrics for both tracks."""
+    """Side-by-side metrics for all tracks (stock + options)."""
     result = {}
-    for track in settings.tracks:
-        portfolio = get_portfolio(track)
+    for track in settings.all_tracks:
+        portfolio = _portfolio_for(track)
         metrics = compute_metrics(portfolio)
         result[track] = {
             "metrics": metrics.to_dict(),
@@ -272,7 +279,7 @@ async def kiosk():
 
 @app.get("/api/heuristics/{track}")
 async def heuristics(track: str, page: int = 1, page_size: int = 20):
-    if track not in settings.tracks:
+    if track not in settings.all_tracks:
         return {"error": f"Unknown track: {track}"}
     from src.agent.memory import get_store
     store = get_store(track)
@@ -387,8 +394,8 @@ async def reset_simulation(body: _ResetRequest):
     if not secrets.compare_digest(str(body.pin), settings.reset_pin):
         return {"error": "Invalid PIN"}
 
-    target_tracks = body.tracks if body.tracks else list(settings.tracks)
-    invalid = [t for t in target_tracks if t not in settings.tracks]
+    target_tracks = body.tracks if body.tracks else list(settings.all_tracks)
+    invalid = [t for t in target_tracks if t not in settings.all_tracks]
     if invalid:
         return {"error": f"Unknown tracks: {invalid}"}
 
@@ -425,7 +432,8 @@ async def reset_simulation(body: _ResetRequest):
         # Reset in-memory portfolios, drop their persisted state (so a restart
         # doesn't resurrect them), and clear the latest-decisions cache.
         from src.portfolio.persistence import delete_portfolio_state
-        reset_portfolios(target_tracks)
+        reset_portfolios([t for t in target_tracks if t in settings.tracks])
+        reset_options_portfolios([t for t in target_tracks if t in settings.options_tracks])
         delete_portfolio_state(target_tracks)
         clear_recent_decisions()
     finally:
@@ -466,10 +474,13 @@ async def trigger_scan(market: str):
     """Manually trigger a scan. run_scan is a long blocking call, so it runs in a
     worker thread — otherwise it would freeze the whole event loop (every page and
     API refresh) for the duration of the scan."""
-    if market not in SCAN_MARKETS:
-        return {"error": f"market must be one of {SCAN_MARKETS}"}
+    if market not in SCAN_MARKETS and market != "options":
+        return {"error": f"market must be one of {SCAN_MARKETS} or 'options'"}
     loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(None, run_scan, market)
+    if market == "options":
+        result = await loop.run_in_executor(None, run_options_scan)
+    else:
+        result = await loop.run_in_executor(None, run_scan, market)
     await _broadcast({"event": "scan_complete", "data": result})
     return result
 
@@ -573,14 +584,23 @@ async def prompts():
     """Current and historical DSPy instructions for each track, as saved by MIPRO."""
     try:
         from src.agent.decision import TradeDecision
-        baseline = (TradeDecision.__doc__ or "").strip()
+        stock_baseline = (TradeDecision.__doc__ or "").strip()
     except Exception:
-        baseline = "Baseline instructions unavailable."
+        stock_baseline = "Baseline instructions unavailable."
+    try:
+        from src.agent.options_decision import OptionTradeDecision
+        options_baseline = (OptionTradeDecision.__doc__ or "").strip()
+    except Exception:
+        options_baseline = "Baseline instructions unavailable."
 
     result = {}
-    for track in settings.tracks:
+    for track in settings.all_tracks:
+        if track in settings.options_tracks:
+            program, baseline = "option_decision", options_baseline
+        else:
+            program, baseline = "trade_decision", stock_baseline
         compiled_dir = settings.compiled_dir
-        current_path = compiled_dir / f"{track}_trade_decision.json"
+        current_path = compiled_dir / f"{track}_{program}.json"
 
         current = None
         if current_path.exists():
@@ -594,7 +614,7 @@ async def prompts():
 
         history = []
         if compiled_dir.exists():
-            for p in sorted(compiled_dir.glob(f"{track}_trade_decision_*.json"), reverse=True):
+            for p in sorted(compiled_dir.glob(f"{track}_{program}_*.json"), reverse=True):
                 state = _parse_dspy_json(p)
                 history.append({
                     "instructions": state.get("instructions", ""),

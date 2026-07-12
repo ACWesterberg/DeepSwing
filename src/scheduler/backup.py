@@ -13,7 +13,7 @@ from config.settings import settings
 logger = logging.getLogger(__name__)
 
 
-def backup_compiled_program(track: str, metrics: Optional[dict] = None) -> bool:
+def backup_compiled_program(track: str, metrics: Optional[dict] = None, program_name: str = "trade_decision") -> bool:
     """
     Copy a track's freshly compiled MIPRO program into the standalone backups
     repo, keeping a full timestamped history plus a `latest.json`, then commit
@@ -32,7 +32,7 @@ def backup_compiled_program(track: str, metrics: Optional[dict] = None) -> bool:
         logger.warning("MIPRO backup: %s is not a git working copy — skipping", repo)
         return False
 
-    src = settings.compiled_dir / f"{track}_trade_decision.json"
+    src = settings.compiled_dir / f"{track}_{program_name}.json"
     if not src.exists():
         logger.warning("MIPRO backup: no compiled program at %s — skipping", src)
         return False
@@ -42,7 +42,7 @@ def backup_compiled_program(track: str, metrics: Optional[dict] = None) -> bool:
     try:
         dest_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dest_dir / "latest.json")
-        shutil.copy2(src, dest_dir / f"{track}_trade_decision_{ts}.json")
+        shutil.copy2(src, dest_dir / f"{track}_{program_name}_{ts}.json")
 
         meta = {
             "track": track,
@@ -50,7 +50,7 @@ def backup_compiled_program(track: str, metrics: Optional[dict] = None) -> bool:
             "source": str(src),
             "metrics": metrics or {},
         }
-        (dest_dir / f"{track}_trade_decision_{ts}.meta.json").write_text(
+        (dest_dir / f"{track}_{program_name}_{ts}.meta.json").write_text(
             json.dumps(meta, indent=2)
         )
     except Exception as exc:

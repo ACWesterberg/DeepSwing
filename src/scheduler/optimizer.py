@@ -20,12 +20,17 @@ from src.portfolio.simulator import get_portfolio
 logger = logging.getLogger(__name__)
 
 TrackType = Literal["claude", "gpt"]
+OptionsTrackType = Literal["claude-opt", "gpt-opt"]
 
 MIN_TRADES_FOR_OPTIMIZATION = 30
 
 # Scales realized return before the tanh squash. At k=10 a ±10% move lands
 # near the (0,1) extremes, which matches typical swing-trade magnitudes.
 _PNL_METRIC_SCALE = 10.0
+
+# Option P&L is % of premium, so ±50% swings are routine — a much smaller k
+# keeps the squash from saturating and preserves the size signal.
+_OPTIONS_PNL_METRIC_SCALE = 2.0
 
 
 def _pnl_weighted_metric(example, prediction, trace=None) -> float:
@@ -175,6 +180,14 @@ def _build_counterfactual_examples(track: TrackType, max_examples: int) -> list:
     return examples
 
 
+def _options_pnl_weighted_metric(example, prediction, trace=None) -> float:
+    """Same P&L-weighted reward, rescaled for premium-relative option returns."""
+    pred_action = str(getattr(prediction, "action", "")).upper()
+    pnl = float(getattr(example, "pnl_pct", 0.0) or 0.0)
+    realized = pnl if pred_action == "BUY" else 0.0
+    return 0.5 + 0.5 * math.tanh(realized * _OPTIONS_PNL_METRIC_SCALE)
+
+
 def run_mipro_optimization(track: TrackType) -> bool:
     """
     Run MIPROv2 optimization for a track's DSPy TradeDecision program.
@@ -289,7 +302,105 @@ def run_mipro_optimization(track: TrackType) -> bool:
         return False
 
 
-def run_heuristic_refinement(track: TrackType) -> None:
+def run_options_mipro(track: OptionsTrackType) -> bool:
+    """MIPROv2 optimization for an options track's OptionTradeDecision program.
+    Mirrors run_mipro_optimization; trains on closed option trades' entry inputs."""
+    from src.agent.options_decision import OptionsDecisionEngine, OptionTradeDecision, provider_for
+    from src.portfolio.options_simulator import get_options_portfolio
+
+    portfolio = get_options_portfolio(track)
+    trades = portfolio.closed_trades
+
+    if len(trades) < MIN_TRADES_FOR_OPTIMIZATION:
+        logger.info(
+            "MIPRO [%s]: only %d trades, need %d — skipping",
+            track, len(trades), MIN_TRADES_FOR_OPTIMIZATION,
+        )
+        return False
+
+    logger.info("MIPRO [%s]: starting option-program optimization with %d trades", track, len(trades))
+
+    trainset = []
+    for t in trades:
+        inputs = t.entry_inputs
+        if not inputs:
+            continue
+        example = dspy.Example(
+            technicals=inputs.get("technicals", ""),
+            regime=inputs.get("regime", ""),
+            news_summary=inputs.get("news_summary", ""),
+            macro_context=inputs.get("macro_context", ""),
+            heuristics=inputs.get("heuristics", ""),
+            option_shortlist=inputs.get("option_shortlist", ""),
+            action="BUY" if t.pnl_pct > 0 else "PASS",
+            pnl_pct=float(t.pnl_pct),
+        ).with_inputs("technicals", "regime", "news_summary", "macro_context", "heuristics", "option_shortlist")
+        trainset.append(example)
+
+    if len(trainset) < 10:
+        logger.info("MIPRO [%s]: insufficient labeled examples (%d) — skipping", track, len(trainset))
+        return False
+
+    split = int(len(trainset) * 0.8)
+    train, val = trainset[:split], trainset[split:]
+
+    if provider_for(track) == "claude":
+        task_lm = build_lm("claude", settings.claude_decision_model, settings.anthropic_api_key)
+        prompt_lm = build_lm("claude", settings.claude_prompt_model, settings.anthropic_api_key, max_tokens=4096)
+    else:
+        task_lm = build_lm("gpt", settings.gpt_decision_model, settings.openai_api_key)
+        prompt_lm = build_lm("gpt", settings.gpt_prompt_model, settings.openai_api_key, max_tokens=4096)
+
+    program = dspy.Predict(OptionTradeDecision)
+
+    try:
+        dspy.configure(lm=task_lm)
+        optimizer = MIPROv2(
+            metric=_options_pnl_weighted_metric,
+            prompt_model=prompt_lm,
+            task_model=task_lm,
+            auto="light",
+            num_threads=1,
+        )
+        compiled = optimizer.compile(
+            program,
+            trainset=train,
+            valset=val,
+            requires_permission_to_run=False,
+        )
+
+        out_path = settings.compiled_dir / f"{track}_option_decision.json"
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if out_path.exists():
+            from datetime import datetime
+            archive = settings.compiled_dir / f"{track}_option_decision_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+            out_path.rename(archive)
+            logger.info("MIPRO [%s]: archived previous compiled program to %s", track, archive.name)
+
+        compiled.save(str(out_path))
+        logger.info("MIPRO [%s]: saved new compiled program to %s", track, out_path)
+
+        OptionsDecisionEngine.for_track(track).reload()
+
+        metrics = compute_metrics(portfolio)
+        logger.info(
+            "MIPRO [%s]: optimization metric = %.4f (win_rate=%.1f%%, avg_rrr=%.2f)",
+            track, metrics.optimization_metric,
+            metrics.win_rate * 100, metrics.avg_rrr,
+        )
+
+        from src.scheduler.backup import backup_compiled_program
+        backup_compiled_program(track, metrics.to_dict(), program_name="option_decision")
+
+        return True
+
+    except Exception as exc:
+        logger.error("MIPRO optimization error for %s track: %s", track, exc, exc_info=True)
+        return False
+
+
+def run_heuristic_refinement(track: str) -> None:
     """Weekly maintenance: prune low-quality heuristics, promote core rules."""
     from src.agent.memory import get_store
     store = get_store(track)

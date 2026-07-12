@@ -1,8 +1,9 @@
 # DeepOptions — Options Trading Track (Design / Feasibility)
 
-Status: **design only — nothing implemented**. This doc answers "can we build a third
-simulation vertical that trades options instead of stocks, without a paid options data
-feed?" (yes) and sketches the architecture for it.
+Status: **implemented** (v1 — long calls, tracks `claude-opt` / `gpt-opt`). This doc
+records the design; see STATUS.md Phase 6 for what shipped. Deviations from the plan
+below: exits are fully mechanical in v1 (no `OptionExitDecision` review yet), options
+scans run hourly rather than every 15 min, and the expiry sweep runs at 22:10 CET.
 
 ---
 

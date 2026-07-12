@@ -8,6 +8,8 @@ This file gives Claude Code enough context to resume work on this project in any
 
 An AI-powered **swing trading simulator** running on a Raspberry Pi 5. Paper-trading only (no real money). Two parallel simulation tracks — **Claude** and **GPT** — make independent trading decisions on the same market data so their performance can be compared. Prompts evolve over time via DSPy/MIPRO optimization. The system learns from closed trades via Experiential Reflective Learning (ERL), extracting reusable heuristics.
 
+Two additional **options tracks** — `claude-opt` and `gpt-opt` — trade long single-leg US call options on the same candidate pipeline (yfinance chains, premium-based risk, own MIPRO-optimized prompt). See [OPTIONS_TRACK.md](OPTIONS_TRACK.md) for the design.
+
 ---
 
 ## Key design decisions (don't re-litigate these)
@@ -25,6 +27,7 @@ An AI-powered **swing trading simulator** running on a Raspberry Pi 5. Paper-tra
 - **NewsAPI is rate-limit-guarded** — per-ticker news is cached for `news_refresh_interval_minutes`; if a fetch stalls beyond `newsapi_slow_threshold_seconds` (429 backoff) a breaker skips NewsAPI (RSS only) for `newsapi_cooldown_minutes`, so one throttled ticker doesn't cost ~1 min each. The jump-triggered exit review passes `force_refresh=True` for freshness.
 - **Per-ticker news has a free fallback** — when NewsAPI/RSS returns nothing (common for US, which has no RSS), `fetch_news_for_ticker` falls back to a free source so US tickers still get news: yfinance/Yahoo (no key, universal backstop), with Finnhub preferred for US when `finnhub_api_key` is set (dormant drop-in until then).
 - **Volume is screened on the last *completed* daily bar** — intraday the latest bar is still forming, so `volume_ratio` from it reads ~0.1× and the `volume_spike_multiplier` gate would reject everything until near the close. `technical.py` computes the ratio from the previous full day vs its trailing 20-day average; `current_volume` still reports the live bar for display.
+- **Options tracks are US-only, long calls only (v1)** — yfinance has no `.ST` chains and free Nordic derivatives data doesn't exist; short options don't fit the risk philosophy. The LLM picks a contract **by index from a pre-filtered shortlist** (21–60 DTE, |delta| 0.35–0.65, OI ≥ 200, spread ≤ 8%) — it never sees a raw chain and can't invent contracts. Exits are premium-relative and mechanical: profit target %, premium stop % (both model-chosen, clamped), a time stop in DTE, and a daily 22:10 CET expiry sweep that settles at intrinsic. Premium paid IS the risk, so sizing caps premium at 1% of equity (2% hard cap for a single contract). Fills at mid + adverse half-spread; flat per-contract commission. Options scans run hourly (not every 15 min) and share `_scan_lock` with stock scans. Track names `claude-opt`/`gpt-opt` reuse all track-keyed plumbing (heuristics dirs, `portfolio_state`, `compiled/{track}_option_decision.json`, ERL provider chosen by `track.startswith("claude")`).
 
 ---
 
@@ -49,7 +52,7 @@ Both configurable in `config/settings.py` (`nordic_watchlist`, `us_watchlist`).
 | MIPRO — task model (evaluates candidates) | `claude-sonnet-5` | `gpt-5` |
 | MIPRO — prompt model (writes instructions) | `claude-opus-4-8` | `gpt-5.5` |
 
-All model IDs are env-overridable (see `.env.example`). Scan/ERL models were upgraded from the original Haiku/4o-mini/Sonnet-4-6/4o tier. News analysis is a single shared GPT call (`gpt-5-mini`) fed identically to both tracks — kept on a light model, and on GPT to use the free-token quota. MIPRO uses a heavy proposer (`prompt_model`) to write candidate instructions while the cheaper decision model evaluates them.
+All model IDs are env-overridable (see `.env.example`). Scan/ERL models were upgraded from the original Haiku/4o-mini/Sonnet-4-6/4o tier. The options tracks (`claude-opt`/`gpt-opt`) reuse the same per-provider models for decisions, ERL, and MIPRO — only the DSPy signature and compiled program differ. News analysis is a single shared GPT call (`gpt-5-mini`) fed identically to both tracks — kept on a light model, and on GPT to use the free-token quota. MIPRO uses a heavy proposer (`prompt_model`) to write candidate instructions while the cheaper decision model evaluates them.
 
 ---
 
@@ -80,6 +83,12 @@ src/data/news_fetcher.py    NewsAPI + Swedish RSS; yfinance/Finnhub fallback + r
 src/data/insider_fetcher.py SEC EDGAR + FI Insynsregistret
 src/data/macro_data.py      FRED + Riksbank + ECB
 src/analysis/technical.py   11 indicators via `ta` library
+src/analysis/options_math.py  Black-Scholes price/delta/theta (closed-form, no scipy)
+src/data/options_chain.py   yfinance US option chains → liquidity-filtered shortlist
+src/agent/options_decision.py  DSPy OptionTradeDecision; per-track engine (claude-opt/gpt-opt)
+src/agent/options_risk.py   Premium-budget sizing + contract validation
+src/portfolio/options_simulator.py  OptionsPortfolio — long calls, premium stops, expiry
+src/scheduler/options_scan.py  Hourly options scan + daily expiry sweep (22:10 CET)
 src/analysis/regime.py      Hurst Exponent + autocorrelation → trending/mean-reverting
 src/analysis/screener.py    Multi-factor filter → top-N candidates
 src/agent/decision.py       DSPy TradeDecision program; DecisionEngine per track

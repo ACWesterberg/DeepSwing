@@ -232,6 +232,8 @@ header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.05em; }
 .track-pill { font-size: 10px; text-transform: uppercase; padding: 1px 7px; border-radius: 10px; letter-spacing: 0.04em; }
 .track-claude { background: rgba(124, 58, 237, 0.15); color: var(--accent-claude); }
 .track-gpt { background: rgba(14, 165, 233, 0.15); color: var(--accent-gpt); }
+.track-claude-opt { background: rgba(217, 70, 239, 0.15); color: #d946ef; }
+.track-gpt-opt { background: rgba(20, 184, 166, 0.15); color: #14b8a6; }
 
 .action-pill { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 10px; letter-spacing: 0.04em; }
 .act-buy { background: #1a3a20; color: var(--green); }

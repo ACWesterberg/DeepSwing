@@ -5,13 +5,13 @@ from datetime import datetime
 
 from config.settings import settings
 from src.db import PortfolioState, get_session
-from src.portfolio.simulator import Portfolio, get_portfolio
+from src.portfolio.simulator import get_portfolio
 
 logger = logging.getLogger(__name__)
 
 
-def save_portfolio(portfolio: Portfolio) -> None:
-    """Mirror a track's full live state to the DB. Best-effort — never raises."""
+def save_portfolio(portfolio) -> None:
+    """Mirror a track's (stock or options) full live state to the DB. Best-effort — never raises."""
     state = portfolio.export_state()
     session = get_session()
     try:
@@ -35,13 +35,18 @@ def save_portfolio(portfolio: Portfolio) -> None:
 def restore_portfolios() -> None:
     """Rehydrate in-memory portfolios from the DB on startup. Missing/blank rows
     leave a track at its fresh starting capital."""
+    from src.portfolio.options_simulator import get_options_portfolio
+
     session = get_session()
     try:
-        for track in settings.tracks:
+        for track in settings.all_tracks:
             row = session.get(PortfolioState, track)
             if row is None:
                 continue
-            portfolio = get_portfolio(track)
+            if track in settings.options_tracks:
+                portfolio = get_options_portfolio(track)
+            else:
+                portfolio = get_portfolio(track)
             portfolio.import_state({
                 "cash": row.cash,
                 "starting_equity": row.starting_equity,

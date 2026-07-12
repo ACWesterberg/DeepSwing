@@ -19,7 +19,8 @@
       <button id="scan-nordic-btn" class="scan-btn" title="Run Nordic scan now">Scan Nordic</button>
       <button id="scan-eu-btn" class="scan-btn" title="Run EU scan now">Scan EU</button>
       <button id="scan-us-btn" class="scan-btn" title="Run US scan now">Scan US</button>
-      <button id="reset-btn" class="reset-btn" title="Reset both tracks to starting state">Reset Sim</button>
+      <button id="scan-options-btn" class="scan-btn" title="Run options scan now (US chains)">Scan Options</button>
+      <button id="reset-btn" class="reset-btn" title="Reset all tracks to starting state">Reset Sim</button>
     </div>
   </header>
 
@@ -33,6 +34,8 @@
     <button class="tab active" data-tab="comparison">Comparison</button>
     <button class="tab" data-tab="claude">Claude Track</button>
     <button class="tab" data-tab="gpt">GPT Track</button>
+    <button class="tab" data-tab="claude-opt">Claude Options</button>
+    <button class="tab" data-tab="gpt-opt">GPT Options</button>
     <button class="tab" data-tab="decisions">Decisions</button>
     <button class="tab" data-tab="heuristics-claude">Heuristics (Claude)</button>
     <button class="tab" data-tab="heuristics-gpt">Heuristics (GPT)</button>
@@ -54,6 +57,8 @@
               <th>Metric</th>
               <th>Claude</th>
               <th>GPT</th>
+              <th>Claude Opt</th>
+              <th>GPT Opt</th>
             </tr>
           </thead>
           <tbody id="comparison-tbody"></tbody>
@@ -121,6 +126,65 @@
     </div>
   </div>
 
+  <!-- Options track tabs (claude-opt / gpt-opt) -->
+  <div id="tab-claude-opt" class="tab-content">
+    <div class="panel">
+      <h2>Portfolio — Claude Options Track</h2>
+      <div id="claude-opt-snapshot" class="snapshot-grid"></div>
+    </div>
+    <div class="panel">
+      <h2>Open Option Positions</h2>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Contract</th><th>Entry</th><th>Current</th><th>P&L%</th><th>Stop</th><th>Target</th><th>Days</th></tr></thead>
+          <tbody id="claude-opt-positions"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Trade History</h2>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Contract</th><th>P&L%</th><th>RRR</th><th>Duration</th><th>Regime</th><th>Exit Reason</th></tr></thead>
+          <tbody id="claude-opt-trades"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Heuristic Library</h2>
+      <div id="heuristics-claude-opt-list"></div>
+    </div>
+  </div>
+
+  <div id="tab-gpt-opt" class="tab-content">
+    <div class="panel">
+      <h2>Portfolio — GPT Options Track</h2>
+      <div id="gpt-opt-snapshot" class="snapshot-grid"></div>
+    </div>
+    <div class="panel">
+      <h2>Open Option Positions</h2>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Contract</th><th>Entry</th><th>Current</th><th>P&L%</th><th>Stop</th><th>Target</th><th>Days</th></tr></thead>
+          <tbody id="gpt-opt-positions"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Trade History</h2>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Contract</th><th>P&L%</th><th>RRR</th><th>Duration</th><th>Regime</th><th>Exit Reason</th></tr></thead>
+          <tbody id="gpt-opt-trades"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Heuristic Library</h2>
+      <div id="heuristics-gpt-opt-list"></div>
+    </div>
+  </div>
+
   <!-- Decision History tab -->
   <div id="tab-decisions" class="tab-content">
     <div class="panel">
@@ -130,6 +194,8 @@
           <option value="">All tracks</option>
           <option value="claude">Claude</option>
           <option value="gpt">GPT</option>
+          <option value="claude-opt">Claude Options</option>
+          <option value="gpt-opt">GPT Options</option>
         </select>
         <select id="hist-action">
           <option value="">All actions</option>
@@ -170,6 +236,14 @@
       <div class="panel">
         <h2>GPT Track <span class="track-pill track-gpt">gpt</span></h2>
         <div id="prompts-gpt"><p class="neutral">Loading…</p></div>
+      </div>
+      <div class="panel">
+        <h2>Claude Options <span class="track-pill track-claude-opt">claude-opt</span></h2>
+        <div id="prompts-claude-opt"><p class="neutral">Loading…</p></div>
+      </div>
+      <div class="panel">
+        <h2>GPT Options <span class="track-pill track-gpt-opt">gpt-opt</span></h2>
+        <div id="prompts-gpt-opt"><p class="neutral">Loading…</p></div>
       </div>
     </div>
   </div>

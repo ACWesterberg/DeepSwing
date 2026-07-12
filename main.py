@@ -10,7 +10,8 @@ from config.settings import settings
 from src.db import init_db
 from src.scheduler.market_hours import is_market_open
 from src.scheduler.markets import SCAN_MARKETS
-from src.scheduler.optimizer import run_heuristic_refinement, run_mipro_optimization
+from src.scheduler.optimizer import run_heuristic_refinement, run_mipro_optimization, run_options_mipro
+from src.scheduler.options_scan import run_expiry_sweep, run_options_scan
 from src.scheduler.scan_loop import run_scan
 
 logging.basicConfig(
@@ -31,12 +32,38 @@ def scheduled_scan():
                 logger.error("Scan error for %s: %s", market, exc, exc_info=True)
 
 
+def scheduled_options_scan():
+    """Called hourly by APScheduler — options ride the US session only."""
+    if not settings.options_tracks or not is_market_open("us"):
+        return
+    try:
+        run_options_scan()
+    except Exception as exc:
+        logger.error("Options scan error: %s", exc, exc_info=True)
+
+
+def scheduled_expiry_sweep():
+    """Daily post-US-close settlement of expired option contracts."""
+    if not settings.options_tracks:
+        return
+    try:
+        run_expiry_sweep()
+    except Exception as exc:
+        logger.error("Expiry sweep error: %s", exc, exc_info=True)
+
+
 def weekly_maintenance():
     """Run MIPRO optimization + heuristic refinement for all tracks."""
     for track in settings.tracks:
         try:
             run_heuristic_refinement(track)
             run_mipro_optimization(track)
+        except Exception as exc:
+            logger.error("Weekly maintenance error for %s: %s", track, exc, exc_info=True)
+    for track in settings.options_tracks:
+        try:
+            run_heuristic_refinement(track)
+            run_options_mipro(track)
         except Exception as exc:
             logger.error("Weekly maintenance error for %s: %s", track, exc, exc_info=True)
     try:
@@ -66,6 +93,26 @@ def start_scheduler() -> BackgroundScheduler:
         max_instances=1,
         coalesce=True,
     )
+
+    # Options scan (hourly by default) + daily expiry sweep after US close
+    if settings.options_tracks:
+        scheduler.add_job(
+            scheduled_options_scan,
+            "interval",
+            minutes=settings.options_scan_interval_minutes,
+            id="options_scan",
+            max_instances=1,
+            coalesce=True,
+        )
+        scheduler.add_job(
+            scheduled_expiry_sweep,
+            "cron",
+            day_of_week="mon-fri",
+            hour=22,
+            minute=10,
+            id="options_expiry_sweep",
+            max_instances=1,
+        )
 
     # Weekly Sunday at 02:00 CET — MIPRO + heuristic maintenance
     scheduler.add_job(
@@ -109,10 +156,10 @@ def main():
 
     # Ensure compiled + heuristic dirs exist
     settings.compiled_dir.mkdir(parents=True, exist_ok=True)
-    for track in settings.tracks:
+    for track in settings.all_tracks:
         (settings.heuristics_dir / track).mkdir(parents=True, exist_ok=True)
 
-    logger.info("Simulation tracks: %s", settings.tracks)
+    logger.info("Simulation tracks: %s", settings.all_tracks)
 
     # Log resolved model IDs, and optionally ping each so a bad ID/credential
     # surfaces now rather than at the next scan/ERL/MIPRO run.

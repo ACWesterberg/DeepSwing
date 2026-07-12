@@ -1,10 +1,21 @@
 # DeepSwing — Implementation Status
 
-Last updated: 2026-07-02
+Last updated: 2026-07-12
 
 ---
 
 ## Done ✅
+
+### Phase 6 — Options tracks (claude-opt / gpt-opt)
+- [x] `src/analysis/options_math.py` — closed-form Black-Scholes price/delta/theta (`math.erf`, no scipy)
+- [x] `src/data/options_chain.py` — yfinance US chain fetch; DTE window + delta band + OI/volume/spread liquidity gates → ≤8-contract shortlist; quote refresh per (underlying, expiry); prompt formatting
+- [x] `src/agent/options_decision.py` — DSPy `OptionTradeDecision` (BUY/PASS + contract index + premium-relative exit plan); per-track engine; loads `compiled/{track}_option_decision.json`
+- [x] `src/agent/options_risk.py` — premium-budget sizing (1% of equity, 2% single-contract hard cap), reward/risk ≥ 2.0, duplicate-underlying block, liquidity re-check, drawdown halving
+- [x] `src/portfolio/options_simulator.py` — `OptionsPortfolio` (long single-leg calls, ×100 multiplier, SEK premiums); profit-target/premium-stop/time-stop sweep; expiry detection; durable state (same `portfolio_state` table)
+- [x] `src/scheduler/options_scan.py` — hourly US-session scan sharing the stock scan lock; fill at mid + adverse half-spread; daily 22:10 CET expiry sweep settling at intrinsic; options-flavored ERL trigger
+- [x] `src/scheduler/optimizer.py` — `run_options_mipro` with option-scaled P&L metric (k=2, premium-relative returns); weekly slot shared with stock tracks
+- [x] Dashboard — 4-track comparison chart + head-to-head table, options track tabs, options prompts panels, `POST /api/scan/options`, reset covers all tracks
+- [x] `tests/test_options.py` — Black-Scholes, chain filters, risk sizing, simulator lifecycle (open/close/sweep/expiry/state roundtrip)
 
 ### Phase 1 — Foundation
 - [x] Project scaffolding, directory structure, `__init__.py` files

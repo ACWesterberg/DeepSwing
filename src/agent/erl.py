@@ -12,7 +12,7 @@ from src.agent.memory import get_store
 
 logger = logging.getLogger(__name__)
 
-TrackType = Literal["claude", "gpt"]
+TrackType = Literal["claude", "gpt", "claude-opt", "gpt-opt"]
 
 ERL_PROMPT = """You are analyzing a completed swing trade to extract a reusable trading rule.
 
@@ -104,7 +104,7 @@ def run_erl(
 
 def _call_model(track: TrackType, prompt: str) -> Optional[str]:
     try:
-        if track == "claude":
+        if track.startswith("claude"):
             client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
             return _call_claude(client, prompt)
 
