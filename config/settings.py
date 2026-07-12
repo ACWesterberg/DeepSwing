@@ -157,6 +157,11 @@ class Settings(BaseSettings):
     options_max_spread_pct: float = 0.08   # (ask-bid)/mid ceiling
     options_shortlist_size: int = 8
     options_risk_free_rate: float = 0.04   # Black-Scholes r for local greeks
+    # ATR-projected move over the contract's DTE (ATR·√DTE) must cover the distance
+    # to breakeven at least this many times, or the contract never reaches the
+    # prompt — being right on direction can't beat an unreachable breakeven.
+    # Set to 0 to disable the gate.
+    options_min_move_coverage: float = 1.0
 
     # Options track — risk (max loss on a long option IS the premium paid)
     options_max_premium_pct: float = 0.01       # premium budget per trade, % of equity

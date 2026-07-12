@@ -331,10 +331,14 @@ def run_options_mipro(track: OptionsTrackType) -> bool:
             news_summary=inputs.get("news_summary", ""),
             macro_context=inputs.get("macro_context", ""),
             heuristics=inputs.get("heuristics", ""),
+            volatility_context=inputs.get("volatility_context", ""),
             option_shortlist=inputs.get("option_shortlist", ""),
             action="BUY" if t.pnl_pct > 0 else "PASS",
             pnl_pct=float(t.pnl_pct),
-        ).with_inputs("technicals", "regime", "news_summary", "macro_context", "heuristics", "option_shortlist")
+        ).with_inputs(
+            "technicals", "regime", "news_summary", "macro_context",
+            "heuristics", "volatility_context", "option_shortlist",
+        )
         trainset.append(example)
 
     if len(trainset) < 10:

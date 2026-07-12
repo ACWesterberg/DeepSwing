@@ -94,6 +94,86 @@ class TestChainFilters:
         assert text.splitlines()[0].startswith("[0] AAPL C$230")
         assert text.splitlines()[1].startswith("[1] AAPL C$240")
 
+    def test_rejects_unreachable_breakeven(self):
+        # expected move covers only half the distance to breakeven
+        assert not _passes_filters(make_contract(move_coverage=0.5))
+        assert _passes_filters(make_contract(move_coverage=1.5))
+
+    def test_prompt_line_includes_breakeven_and_expected_move(self):
+        c = make_contract(
+            breakeven=242.0, breakeven_move_pct=0.052,
+            expected_move=18.3, move_coverage=1.6,
+        )
+        line = c.to_prompt_line(0)
+        assert "BE $242.00 (+5.2%)" in line
+        assert "exp.move ±$18.30 = 1.6x BE distance" in line
+
+
+class TestExpectedMove:
+    def test_parse_rows_computes_breakeven_coverage(self):
+        import pandas as pd
+        from src.data.options_chain import _parse_rows
+
+        frame = pd.DataFrame([{
+            "contractSymbol": "AAPL260821C00230000",
+            "strike": 230.0, "bid": 11.80, "ask": 12.20, "lastPrice": 12.00,
+            "volume": 500, "openInterest": 5000, "impliedVolatility": 0.30,
+        }])
+        expiry = date.today() + timedelta(days=36)
+        [c] = _parse_rows(frame, "AAPL", "call", expiry, spot=225.0, atr=4.0)
+        assert c.breakeven == pytest.approx(242.0)                    # 230 + 12 mid
+        assert c.breakeven_move_pct == pytest.approx(17.0 / 225.0)
+        assert c.expected_move == pytest.approx(24.0)                 # 4.0 * sqrt(36)
+        assert c.move_coverage == pytest.approx(24.0 / 17.0)
+
+    def test_parse_rows_without_atr_skips_coverage_gate(self):
+        import pandas as pd
+        from src.data.options_chain import _parse_rows
+
+        frame = pd.DataFrame([{
+            "contractSymbol": "AAPL260821C00230000",
+            "strike": 230.0, "bid": 11.80, "ask": 12.20, "lastPrice": 12.00,
+            "volume": 500, "openInterest": 5000, "impliedVolatility": 0.30,
+        }])
+        [c] = _parse_rows(frame, "AAPL", "call", date.today() + timedelta(days=36), spot=225.0)
+        assert c.expected_move == 0.0
+        assert c.move_coverage == float("inf")
+
+
+class TestVolContext:
+    @staticmethod
+    def make_df(daily_vol: float, days: int = 300) -> "pd.DataFrame":
+        import numpy as np
+        import pandas as pd
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0, daily_vol, days)
+        closes = 100.0 * np.exp(np.cumsum(returns))
+        return pd.DataFrame({"Close": closes})
+
+    def test_computes_annualized_realized_vol(self):
+        import math
+        from src.analysis.vol_context import compute_vol_context
+        ctx = compute_vol_context(self.make_df(0.02), atm_iv=0.40)
+        assert ctx is not None
+        expected_annual = 0.02 * math.sqrt(252)  # ≈ 0.32
+        assert ctx.hv_30 == pytest.approx(expected_annual, rel=0.35)
+        assert 0 <= ctx.hv_percentile <= 100
+        assert 0 <= ctx.iv_rank_proxy <= 100
+
+    def test_pricing_labels(self):
+        from src.analysis.vol_context import compute_vol_context
+        df = self.make_df(0.02)
+        cheap = compute_vol_context(df, atm_iv=0.20)
+        expensive = compute_vol_context(df, atm_iv=0.60)
+        assert cheap.iv_hv_ratio < expensive.iv_hv_ratio
+        assert "cheap" in cheap.pricing_label()
+        assert "expensive" in expensive.pricing_label()
+        assert "priced into the premium" in expensive.to_prompt_str()
+
+    def test_too_little_data_returns_none(self):
+        from src.analysis.vol_context import compute_vol_context
+        assert compute_vol_context(self.make_df(0.02, days=20), atm_iv=0.3) is None
+
 
 class TestOptionsRisk:
     def test_approves_and_sizes_by_premium_budget(self):

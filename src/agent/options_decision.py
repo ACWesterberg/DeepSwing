@@ -27,9 +27,13 @@ class OptionTradeDecision(dspy.Signature):
     interest and spread. Do not invent contracts.
 
     Return BUY only for a high-conviction setup where the expected underlying move
-    clearly exceeds the premium's breakeven within the DTE window. Theta decay is a
-    real, daily cost: prefer contracts whose DTE comfortably exceeds the expected
-    swing duration, and PASS when implied volatility already prices in the move.
+    clearly exceeds the premium's breakeven within the DTE window — each contract
+    line shows its breakeven (BE) and how many times the ATR-projected move covers
+    the distance to it. Theta decay is a real, daily cost: prefer contracts whose
+    DTE comfortably exceeds the expected swing duration. Check volatility_context
+    before buying: when IV is expensive vs realized vol, the move is already priced
+    into the premium and you can be right on direction yet still lose — PASS unless
+    the setup justifies paying up.
 
     If action is BUY you must also set the exit plan, as fractions of the premium:
     profit_target_pct / max_loss_pct must be at least 2.0 (e.g. target +0.80 of
@@ -41,6 +45,9 @@ class OptionTradeDecision(dspy.Signature):
     news_summary: str = dspy.InputField(desc="Recent news and sentiment for this ticker")
     macro_context: str = dspy.InputField(desc="Macro economic context relevant to this trade")
     heuristics: str = dspy.InputField(desc="Relevant learned rules from past option trades")
+    volatility_context: str = dspy.InputField(
+        desc="Realized vol percentile and how expensive ATM IV is vs realized — is the move already priced in?"
+    )
     option_shortlist: str = dspy.InputField(desc="Numbered list of purchasable option contracts")
 
     action: Literal["BUY", "PASS"] = dspy.OutputField(
@@ -112,6 +119,7 @@ class OptionsDecisionEngine:
         news_summary: str,
         macro_context: str,
         heuristics_text: str,
+        volatility_context: str = "",
     ) -> Optional[dict]:
         """Run OptionTradeDecision for a candidate + its contract shortlist.
         Returns action/contract/exit-plan dict; invalid contract picks become PASS."""
@@ -124,6 +132,7 @@ class OptionsDecisionEngine:
             "news_summary": news_summary or "No recent news available.",
             "macro_context": macro_context or "No macro data available.",
             "heuristics": heuristics_text or "No relevant heuristics yet.",
+            "volatility_context": volatility_context or "No volatility context available.",
             "option_shortlist": format_shortlist(shortlist),
         }
 
@@ -194,7 +203,8 @@ def get_option_decision(
     news_summary: str,
     macro_context: str,
     heuristics_text: str,
+    volatility_context: str = "",
 ) -> Optional[dict]:
     """Convenience function — gets or creates track engine and runs decision."""
     engine = OptionsDecisionEngine.for_track(track)
-    return engine.decide(candidate, shortlist, news_summary, macro_context, heuristics_text)
+    return engine.decide(candidate, shortlist, news_summary, macro_context, heuristics_text, volatility_context)

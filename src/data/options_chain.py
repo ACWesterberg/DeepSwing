@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Literal, Optional
@@ -33,21 +34,32 @@ class OptionContract:
     spread_pct: float
     delta: float
     theta_per_day: float
+    breakeven: float = 0.0            # USD: strike + premium (call) / strike - premium (put)
+    breakeven_move_pct: float = 0.0   # move from spot needed to reach breakeven at expiry
+    expected_move: float = 0.0        # USD: ATR·√DTE random-walk projection
+    move_coverage: float = float("inf")  # expected_move / distance-to-breakeven
 
     def display_name(self) -> str:
         return f"{self.underlying} {self.right[0].upper()}${self.strike:g} {self.expiry.isoformat()}"
 
     def to_prompt_line(self, index: int) -> str:
-        return (
+        line = (
             f"[{index}] {self.display_name()} | DTE {self.dte} | mid ${self.mid:.2f} "
             f"(bid {self.bid:.2f}/ask {self.ask:.2f}, spread {self.spread_pct*100:.1f}%) | "
             f"delta {self.delta:.2f} | theta {self.theta_per_day:.3f}/day | "
             f"IV {self.implied_vol*100:.1f}% | OI {self.open_interest} | vol {self.volume}"
         )
+        if self.breakeven > 0:
+            line += f" | BE ${self.breakeven:.2f} ({self.breakeven_move_pct*100:+.1f}%)"
+        if self.expected_move > 0:
+            coverage = "∞" if self.move_coverage == float("inf") else f"{self.move_coverage:.1f}"
+            line += f" | exp.move ±${self.expected_move:.2f} = {coverage}x BE distance"
+        return line
 
 
-def fetch_chain_shortlist(ticker: str, spot: float, right: RightType = "call") -> list[OptionContract]:
-    """Fetch the chain and return the liquid, swing-suitable contracts (<= shortlist_size)."""
+def fetch_chain_shortlist(ticker: str, spot: float, right: RightType = "call", atr: float = 0.0) -> list[OptionContract]:
+    """Fetch the chain and return the liquid, swing-suitable contracts (<= shortlist_size).
+    With atr set, each contract carries an ATR·√DTE expected-move vs breakeven check."""
     import yfinance as yf
 
     try:
@@ -68,7 +80,7 @@ def fetch_chain_shortlist(ticker: str, spot: float, right: RightType = "call") -
             logger.warning("option_chain(%s) failed for %s: %s", expiry, ticker, exc)
             continue
         frame = chain.calls if right == "call" else chain.puts
-        contracts.extend(_parse_rows(frame, ticker, right, expiry, spot))
+        contracts.extend(_parse_rows(frame, ticker, right, expiry, spot, atr))
 
     contracts = [c for c in contracts if _passes_filters(c)]
     contracts.sort(key=lambda c: c.open_interest, reverse=True)
@@ -118,7 +130,7 @@ def _expiries_in_window(expiry_strs: tuple[str, ...] | list[str]) -> list[date]:
     return sorted(in_window)[: settings.options_expiries_considered]
 
 
-def _parse_rows(frame, ticker: str, right: RightType, expiry: date, spot: float) -> list[OptionContract]:
+def _parse_rows(frame, ticker: str, right: RightType, expiry: date, spot: float, atr: float = 0.0) -> list[OptionContract]:
     dte = (expiry - date.today()).days
     out: list[OptionContract] = []
     for row in frame.itertuples():
@@ -131,6 +143,13 @@ def _parse_rows(frame, ticker: str, right: RightType, expiry: date, spot: float)
         strike = _f(getattr(row, "strike", 0))
         if strike <= 0 or mid <= 0:
             continue
+        breakeven = strike + mid if right == "call" else strike - mid
+        be_distance = breakeven - spot if right == "call" else spot - breakeven
+        expected_move = atr * math.sqrt(dte) if atr > 0 and dte > 0 else 0.0
+        if expected_move > 0:
+            coverage = expected_move / be_distance if be_distance > 0 else float("inf")
+        else:
+            coverage = float("inf")
         out.append(OptionContract(
             contract_symbol=str(getattr(row, "contractSymbol", "")),
             underlying=ticker,
@@ -148,6 +167,10 @@ def _parse_rows(frame, ticker: str, right: RightType, expiry: date, spot: float)
             spread_pct=(ask - bid) / mid,
             delta=bs_delta(spot, strike, dte, iv, right, settings.options_risk_free_rate),
             theta_per_day=bs_theta_per_day(spot, strike, dte, iv, right, settings.options_risk_free_rate),
+            breakeven=breakeven,
+            breakeven_move_pct=be_distance / spot if spot > 0 else 0.0,
+            expected_move=expected_move,
+            move_coverage=coverage,
         ))
     return out
 
@@ -158,6 +181,7 @@ def _passes_filters(c: OptionContract) -> bool:
         and c.open_interest >= settings.options_min_open_interest
         and c.volume >= settings.options_min_volume
         and c.spread_pct <= settings.options_max_spread_pct
+        and c.move_coverage >= settings.options_min_move_coverage
     )
 
 

@@ -13,6 +13,7 @@ from src.agent.options_risk import validate_option_trade
 from src.analysis.regime import classify_regime
 from src.analysis.screener import screen_candidates
 from src.analysis.technical import compute_signals
+from src.analysis.vol_context import compute_vol_context
 from src.data.insider_fetcher import get_insider_summary
 from src.data.macro_data import get_macro_context
 from src.data.market_data import fetch_batch_us, get_current_price, get_vix
@@ -90,10 +91,14 @@ def _run_options_scan() -> dict:
 
     for candidate in candidates:
         spot_usd = candidate.signals.current_price
-        shortlist = fetch_chain_shortlist(candidate.ticker, spot_usd, "call")
+        shortlist = fetch_chain_shortlist(candidate.ticker, spot_usd, "call", atr=candidate.signals.atr_14)
         if not shortlist:
             logger.info("No tradable contracts for %s — skipping", candidate.ticker)
             continue
+
+        atm_iv = min(shortlist, key=lambda c: abs(abs(c.delta) - 0.5)).implied_vol
+        vol_ctx = compute_vol_context(ohlcv_map[candidate.ticker], atm_iv)
+        vol_ctx_str = vol_ctx.to_prompt_str() if vol_ctx else ""
 
         articles = fetch_news_for_ticker(candidate.ticker, "us")
         insider_summary = get_insider_summary(candidate.ticker, "us")
@@ -121,6 +126,7 @@ def _run_options_scan() -> dict:
                 news_summary=full_news,
                 macro_context=macro_context,
                 heuristics_text=store.to_prompt_text(heuristics_list),
+                volatility_context=vol_ctx_str,
             )
 
             if decision is None or decision["action"] != "BUY":
@@ -315,6 +321,9 @@ def _trigger_options_erl(track: str, closed: ClosedOptionTrade) -> None:
             f"target +{closed.profit_target_pct*100:.0f}%."
         )
         entry_inputs = closed.entry_inputs or {}
+        vol_ctx = entry_inputs.get("volatility_context", "")
+        if vol_ctx:
+            option_context += f"\nVolatility at entry: {vol_ctx}"
         run_erl(
             track=track,
             trade=trade_dict,
