@@ -60,7 +60,7 @@ SHARED DATA                    SHARED SCREENER
 │ claude-sonnet-5│         │ gpt-5          │
 │ (decisions)    │         │ (decisions)    │
 │                │         │                │
-│ claude-opus-4-8│         │ gpt-5.5        │
+│ claude-opus-4-8│         │ gpt-5.6-sol    │
 │ + ext.thinking │         │ (ERL)          │
 │ (ERL)          │         │                │
 │                │         │                │

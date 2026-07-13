@@ -58,9 +58,9 @@ class Settings(BaseSettings):
     # GPT models
     gpt_decision_model: str = "gpt-5"                        # scan decisions (up from 4o-mini)
     gpt_news_model: str = "gpt-5-mini"                       # shared news analysis (light task)
-    gpt_erl_model: str = "gpt-5.5"                           # heavy post-trade reasoning
+    gpt_erl_model: str = "gpt-5.6-sol"                       # heavy post-trade reasoning
     gpt_erl_reasoning_effort: str = "high"                   # GPT "thinking" for ERL; "" disables
-    gpt_prompt_model: str = "gpt-5.5"                        # MIPRO instruction proposer
+    gpt_prompt_model: str = "gpt-5.6-sol"                    # MIPRO instruction proposer
 
     # Risk parameters
     max_risk_per_trade: float = 0.01       # 1% of portfolio

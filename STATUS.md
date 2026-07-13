@@ -42,7 +42,7 @@ Last updated: 2026-07-12
 - [x] `src/portfolio/simulator.py` — track-tagged paper portfolio; open/close with slippage; trailing stop; stop-loss/take-profit auto-close; drawdown-mode flag; `entry_inputs` captured on positions/trades
 - [x] `src/portfolio/metrics.py` — Sharpe, max drawdown, win rate, avg RRR, total return, `optimization_metric = win_rate × avg_rrr`
 - [x] `src/portfolio/persistence.py` — durable portfolio state: full live state (cash, open positions, closed trades, peak equity, next trade id) mirrored to the `portfolio_state` table on every open/close + end of scan, rehydrated on startup so tracks survive a redeploy; `/api/reset` clears persisted rows
-- [x] `src/agent/erl.py` — post-trade causal analysis; Claude Opus + extended thinking (Claude); GPT-5.5 + `reasoning_effort` (GPT); structured heuristic extraction + storage
+- [x] `src/agent/erl.py` — post-trade causal analysis; Claude Opus + extended thinking (Claude); GPT-5.6-sol + `reasoning_effort` (GPT); structured heuristic extraction + storage
 - [x] `src/scheduler/optimizer.py` — weekly MIPROv2 per track; P&L-weighted metric; split prompt-model (heavy proposer) / task-model (decision tier); archives previous compiled program; `DecisionEngine.reload()`; offsite backup; heuristic prune/promote
 
 ### Phase 4 — Scheduler + Data Ingestion
@@ -156,6 +156,6 @@ Last updated: 2026-07-12
 | Item | Detail |
 |---|---|
 | MIPRO sample size | `auto="light"` on ~30 trades (24 train / 6 val) yields calibration, not transformation; expect modest gains until trade count grows |
-| Reasoning-model IDs | GPT-5/5.5 and Claude 5 IDs are env-overridable; a wrong ID surfaces at boot via preflight but still requires a manual `.env` fix |
+| Reasoning-model IDs | GPT-5/5.6-sol and Claude 5 IDs are env-overridable; a wrong ID surfaces at boot via preflight but still requires a manual `.env` fix |
 | Non-SEK FX unavailable | If an FX rate can't be resolved, entries are blocked and price updates skipped (never booked raw); a persistent FX outage means stops on non-SEK holdings don't advance until rates return |
 | Dashboard sessions | Session tokens are in-memory; a process restart logs all dashboard users out (they just log in again) |
