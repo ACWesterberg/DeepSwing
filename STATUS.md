@@ -63,7 +63,7 @@ Last updated: 2026-07-12
 - [x] **P&L-weighted MIPRO metric** — `_pnl_weighted_metric` scores decisions by realized return, not binary action-match
 - [x] **MIPRO offsite backup** — `src/scheduler/backup.py` commits/pushes each compiled program (history + `latest.json` + metrics) to a standalone git repo
 - [x] **Boot preflight** — `src/scheduler/preflight.py` logs resolved model IDs and pings each model once so bad IDs/creds surface at startup
-- [x] **Model upgrades** — scan: Sonnet 5 / GPT-5; ERL: Opus 4.8+thinking / GPT-5.5+reasoning; news: GPT-5-mini (shared); MIPRO proposer: Opus 4.8 / GPT-5.5; `build_lm` fixes reasoning-model params
+- [x] **Model upgrades** — scan: Sonnet 5 / GPT-5; ERL: Opus 4.8+thinking / GPT-5.6-sol+reasoning; news: GPT-5-mini (shared); MIPRO proposer: Opus 4.8 / GPT-5.6-sol; `build_lm` fixes reasoning-model params
 - [x] **ERL environment context** — entry-time news + macro now passed into ERL so heuristics can attribute outcomes to the market environment
 - [x] **Market-wide news environment** — `fetch_market_headlines` pulls the full RSS feed (not ticker-filtered) once per scan; folded into `macro_context`, so geopolitics/sector/risk themes reach decisions, ERL, and MIPRO
 - [x] **Earnings-proximity filter** — candidates within `earnings_buffer_days` (default 2) of earnings are dropped before decisions (financedata fundamentals + `ts_to_days`)
