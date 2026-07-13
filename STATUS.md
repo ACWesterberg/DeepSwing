@@ -80,6 +80,7 @@ Last updated: 2026-07-12
 - [x] `.gitignore` — excludes `.env`, `venv/`, `data/*.db`, `heuristics/`, `compiled/`
 - [x] Deployed and running on Pi 5; Cloudflare Tunnel live (`trade.westerberg.dev`); dashboard cookie auth
 - [x] **Network watchdog** — the Pi's Wi-Fi dropped twice on 2026-07-13 (tunnels + SSH dark, box fine); `deploy/net-watchdog.sh` + systemd timer bounces the interface and reboots after 3 failed recoveries; SETUP.md §8 covers install + disabling Wi-Fi power save
+- [x] **Pre-decision triage** — `src/analysis/triage.py`: one cheap shared `gpt-5-mini` call ranks the screener's candidates and only `triage_keep_top` (5) reach news + per-track decisions (stock + options scans); fails open to screener top-K; cuts the dominant per-scan LLM cost by ~2/3 (`tests/test_triage.py`)
 
 ### Correctness & security review fixes (2026-07-02)
 - [x] **VIX halt no longer abandons holdings** — a VIX ≥ 35 halt blocks new entries but falls through to the holdings monitor, so stops/targets/news exits still run during volatility spikes

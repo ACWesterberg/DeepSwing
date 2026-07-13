@@ -104,6 +104,14 @@ class Settings(BaseSettings):
     earnings_buffer_days: int = 2          # exclude candidates within N days of earnings
     market_news_max_headlines: int = 20    # market-wide headlines injected into macro context
 
+    # Pre-decision triage: every screened candidate costs a news fetch + news
+    # analysis + one decision call per funded track, which dominates LLM spend.
+    # One cheap shared call ranks the candidates on technicals and only the top
+    # K proceed. Fails open to the screener's own top-K; 0 disables entirely.
+    triage_enabled: bool = True
+    triage_model: str = "gpt-5-mini"
+    triage_keep_top: int = 5
+
     # yfinance batch downloads fail above ~200 symbols — chunk large universe
     # watchlists so cold-cache scans still populate every ticker.
     ohlcv_batch_chunk_size: int = 150

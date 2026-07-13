@@ -14,6 +14,7 @@ from src.agent.news_analyzer import analyze_news
 from src.agent.risk import compute_return_correlations, validate_trade
 from src.analysis.regime import classify_regime
 from src.analysis.screener import screen_candidates
+from src.analysis.triage import triage_candidates
 from src.analysis.technical import compute_signals
 from src.data.insider_fetcher import get_insider_summary
 from src.data.macro_data import get_macro_context
@@ -283,6 +284,9 @@ def _run_scan(market: MarketType) -> dict:
     if not candidates:
         logger.info("All candidates filtered out by earnings proximity for %s", market)
         return {"market": market, "candidates": [], "decisions": []}
+
+    # --- Cheap shared triage: only the top-K reach news + per-track decisions ---
+    candidates = triage_candidates(candidates, market)
 
     # --- Decision + risk + execution per candidate × track ---
     decisions_log = []

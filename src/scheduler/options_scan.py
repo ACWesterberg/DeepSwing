@@ -12,6 +12,7 @@ from src.agent.options_decision import get_option_decision
 from src.agent.options_risk import validate_option_trade
 from src.analysis.regime import classify_regime
 from src.analysis.screener import screen_bearish_candidates, screen_candidates
+from src.analysis.triage import triage_candidates
 from src.analysis.technical import compute_signals
 from src.analysis.vol_context import compute_vol_context
 from src.data.insider_fetcher import get_insider_summary
@@ -90,6 +91,12 @@ def _run_options_scan() -> dict:
         decisions_log = _manage_holdings()
         _mark_and_persist(decisions_log)
         return {"market": MARKET_LABEL, "candidates": [], "decisions": decisions_log}
+
+    # Cheap shared triage across calls + puts together — up to 30 combined
+    # candidates otherwise each cost a chain fetch, news pull, and two decisions.
+    sides = {c.ticker: right for c, right in targets}
+    kept = {c.ticker for c in triage_candidates([c for c, _ in targets], "US options", sides=sides)}
+    targets = [(c, right) for c, right in targets if c.ticker in kept]
 
     decisions_log: list[dict] = []
 
