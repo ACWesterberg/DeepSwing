@@ -142,6 +142,9 @@ def _run_options_scan() -> dict:
 
             contract: OptionContract = decision["contract"]
             premium_sek = _to_sek_price(contract.mid, contract.underlying, "us")
+            if premium_sek is None:
+                logger.warning("[%s] USD→SEK unavailable for %s — skipping entry", track, contract.underlying)
+                continue
             risk = validate_option_trade(
                 contract=contract,
                 premium_sek_per_share=premium_sek,
@@ -167,6 +170,9 @@ def _run_options_scan() -> dict:
 
             # Fill at mid + adverse half-spread — option spreads are the real friction
             fill_sek = _to_sek_price(contract.mid + (contract.ask - contract.bid) / 2, contract.underlying, "us")
+            if fill_sek is None:
+                logger.warning("[%s] USD→SEK unavailable for %s fill — skipping entry", track, contract.underlying)
+                continue
             position = portfolio.open_option(
                 contract_symbol=contract.contract_symbol,
                 underlying=contract.underlying,
@@ -250,7 +256,13 @@ def run_expiry_sweep() -> dict:
                 intrinsic_usd = max(spot_usd - position.strike, 0.0)
             else:
                 intrinsic_usd = max(position.strike - spot_usd, 0.0)
-            exit_sek = _to_sek_price(intrinsic_usd, position.underlying, "us") if intrinsic_usd > 0 else 0.0
+            if intrinsic_usd > 0:
+                exit_sek = _to_sek_price(intrinsic_usd, position.underlying, "us")
+                if exit_sek is None:
+                    logger.warning("[%s] USD→SEK unavailable for %s — deferring expiry settlement", track, position.underlying)
+                    continue
+            else:
+                exit_sek = 0.0
             reason = "expired_itm" if intrinsic_usd > 0 else "expired_worthless"
             closed = portfolio.close_option(
                 position.trade_id, exit_sek, reason, exit_underlying_price=spot_usd,
@@ -275,7 +287,9 @@ def _refresh_quotes_sek(portfolio: OptionsPortfolio) -> dict[str, float]:
     for (underlying, expiry, right), symbols in groups.items():
         usd_quotes = fetch_contract_quotes(underlying, expiry, right, symbols)
         for symbol, usd in usd_quotes.items():
-            quotes_sek[symbol] = _to_sek_price(usd, underlying, "us")
+            sek = _to_sek_price(usd, underlying, "us")
+            if sek is not None:
+                quotes_sek[symbol] = sek
     return quotes_sek
 
 
