@@ -11,7 +11,7 @@ from src.agent.news_analyzer import analyze_news
 from src.agent.options_decision import get_option_decision
 from src.agent.options_risk import validate_option_trade
 from src.analysis.regime import classify_regime
-from src.analysis.screener import screen_candidates
+from src.analysis.screener import screen_bearish_candidates, screen_candidates
 from src.analysis.technical import compute_signals
 from src.analysis.vol_context import compute_vol_context
 from src.data.insider_fetcher import get_insider_summary
@@ -80,8 +80,12 @@ def _run_options_scan() -> dict:
             continue
         analysis_map[ticker] = (signals, classify_regime(df))
 
-    candidates = _filter_earnings(screen_candidates(analysis_map, "us"))
-    if not candidates:
+    # Bullish setups buy calls; mirrored bearish setups buy puts. The gates are
+    # mutually exclusive (above vs below 50 SMA), so no ticker appears twice.
+    bullish = _filter_earnings(screen_candidates(analysis_map, "us"))
+    bearish = _filter_earnings(screen_bearish_candidates(analysis_map, "us")) if settings.options_enable_puts else []
+    targets: list[tuple] = [(c, "call") for c in bullish] + [(c, "put") for c in bearish]
+    if not targets:
         logger.info("No candidates for options scan after screener/earnings filter")
         decisions_log = _manage_holdings()
         _mark_and_persist(decisions_log)
@@ -89,11 +93,11 @@ def _run_options_scan() -> dict:
 
     decisions_log: list[dict] = []
 
-    for candidate in candidates:
+    for candidate, right in targets:
         spot_usd = candidate.signals.current_price
-        shortlist = fetch_chain_shortlist(candidate.ticker, spot_usd, "call", atr=candidate.signals.atr_14)
+        shortlist = fetch_chain_shortlist(candidate.ticker, spot_usd, right, atr=candidate.signals.atr_14)
         if not shortlist:
-            logger.info("No tradable contracts for %s — skipping", candidate.ticker)
+            logger.info("No tradable %s contracts for %s — skipping", right, candidate.ticker)
             continue
 
         atm_iv = min(shortlist, key=lambda c: abs(abs(c.delta) - 0.5)).implied_vol
@@ -211,12 +215,12 @@ def _run_options_scan() -> dict:
 
     decisions_log.extend(_manage_holdings())
 
-    logger.info("=== Scan complete: options | %d candidates | %d decisions ===",
-                len(candidates), len(decisions_log))
+    logger.info("=== Scan complete: options | %d call + %d put candidates | %d decisions ===",
+                len(bullish), len(bearish), len(decisions_log))
     _mark_and_persist(decisions_log)
     return {
         "market": MARKET_LABEL,
-        "candidates": [c.to_dict() for c in candidates],
+        "candidates": [dict(c.to_dict(), right=right) for c, right in targets],
         "decisions": decisions_log,
     }
 

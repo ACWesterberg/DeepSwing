@@ -241,10 +241,15 @@ direction, wrong on timing/theta" is *the* canonical options lesson).
 5. `options_scan.py` wiring + settings + dashboard track registration.
 6. Let it run ≥30 closed trades → first MIPRO compile for the options signatures.
 
-Open questions (decide before step 5):
+Open questions — both resolved in implementation:
 
-- Starting capital for options tracks: same 100k SEK, or smaller (options compound
-  faster in both directions)?
-- Should puts be enabled in v1 (requires a bearish screener path that doesn't exist for
-  stocks), or calls-only to mirror the long-only stock tracks? Recommendation: calls-only
-  first; a bearish path changes the screener, not just the options code.
+- **Starting capital: 1M SEK** (not 100k). One contract is the minimum lot; liquid
+  near-ATM premiums run $3-15 ≈ 3-16k SEK/contract, so the 1%/2% premium caps need
+  ~1M equity to afford anything — at 100k the risk gate blocked essentially every
+  entry. `restore_portfolios` auto-rebases an untraded options track to the new
+  capital on restart.
+- **Puts are enabled** (`options_enable_puts`, default True). A mirrored bearish
+  screener path (`screen_bearish_candidates`) finds short setups — below 50 SMA,
+  RSI 30-65, EMA21<SMA50 in downtrends or bb%B ≥ 0.65 in mean-reversion — and those
+  candidates get put shortlists. Direction is decided by the screener; the model
+  judges quality and picks the contract, same as calls. Stock tracks stay long-only.

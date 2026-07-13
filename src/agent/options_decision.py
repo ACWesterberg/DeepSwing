@@ -21,10 +21,12 @@ def provider_for(track: str) -> Literal["claude", "gpt"]:
 
 class OptionTradeDecision(dspy.Signature):
     """
-    You are evaluating whether to BUY a call option on a stock showing a bullish
-    swing setup. You may ONLY choose from the contracts in option_shortlist — each
-    line has an index, strike, expiry, DTE, mid price, delta, theta/day, IV, open
-    interest and spread. Do not invent contracts.
+    You are evaluating whether to BUY a single long option on a stock: a CALL when
+    the setup is bullish, a PUT when it is bearish. The direction has already been
+    chosen by the screener — every contract in option_shortlist matches it (C = call,
+    P = put), so your job is judging setup quality, not picking a side. You may ONLY
+    choose from the listed contracts — each line has an index, strike, expiry, DTE,
+    mid price, delta, theta/day, IV, open interest and spread. Do not invent contracts.
 
     Return BUY only for a high-conviction setup where the expected underlying move
     clearly exceeds the premium's breakeven within the DTE window — each contract
@@ -51,7 +53,7 @@ class OptionTradeDecision(dspy.Signature):
     option_shortlist: str = dspy.InputField(desc="Numbered list of purchasable option contracts")
 
     action: Literal["BUY", "PASS"] = dspy.OutputField(
-        desc="BUY to open a long call position, or PASS to skip this stock"
+        desc="BUY to open a long option position (call or put per the shortlist), or PASS to skip this stock"
     )
     contract_index: int = dspy.OutputField(
         desc="Index of the chosen contract from option_shortlist (ignored on PASS)"

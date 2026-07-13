@@ -140,6 +140,78 @@ class TestExpectedMove:
         assert c.move_coverage == float("inf")
 
 
+class TestBearishScreener:
+    @staticmethod
+    def make_signals(**overrides):
+        from src.analysis.technical import TechnicalSignals
+        base = dict(
+            ticker="TEST", ema_21=95.0, sma_50=100.0, sma_200=110.0,
+            price_above_50sma=False, price_above_200sma=False, ema_21_above_50sma=False,
+            atr_14=2.0, bb_upper=105.0, bb_middle=98.0, bb_lower=91.0, bb_pct_b=0.5,
+            rsi_14=40.0, parabolic_sar=99.0, sar_is_bearish=True, ease_of_movement=0.0,
+            obv=-1000.0, volume_ratio=1.5, volume_spike=True,
+            fib_38_2=100.0, fib_61_8=95.0, current_price=93.0, current_volume=1e6,
+        )
+        base.update(overrides)
+        return TechnicalSignals(**base)
+
+    @staticmethod
+    def make_regime(regime="trending", hurst=0.65):
+        from src.analysis.regime import RegimeResult
+        return RegimeResult(regime=regime, hurst_exponent=hurst, autocorrelation=0.2, recommended_tactic="short rallies")
+
+    def score(self, signals, regime):
+        from src.analysis.screener import _score_bearish_candidate
+        return _score_bearish_candidate(signals, regime)
+
+    def test_downtrend_setup_passes(self):
+        assert self.score(self.make_signals(), self.make_regime()) is not None
+
+    def test_rejects_above_50sma(self):
+        assert self.score(self.make_signals(price_above_50sma=True), self.make_regime()) is None
+
+    def test_rejects_rsi_outside_mirrored_band(self):
+        # mirrored band with defaults (35-70 long) is 30-65 short
+        assert self.score(self.make_signals(rsi_14=70.0), self.make_regime()) is None
+        assert self.score(self.make_signals(rsi_14=25.0), self.make_regime()) is None
+
+    def test_rejects_trending_with_bullish_structure(self):
+        assert self.score(self.make_signals(ema_21_above_50sma=True), self.make_regime()) is None
+
+    def test_mean_reverting_wants_upper_band(self):
+        assert self.score(self.make_signals(bb_pct_b=0.3), self.make_regime("mean-reverting")) is None
+        assert self.score(self.make_signals(bb_pct_b=0.8), self.make_regime("mean-reverting")) is not None
+
+    def test_rejects_neutral_regime(self):
+        assert self.score(self.make_signals(), self.make_regime("neutral")) is None
+
+    def test_bearish_alignment_scores_higher(self):
+        aligned = self.score(self.make_signals(), self.make_regime())
+        weaker = self.score(self.make_signals(price_above_200sma=True, sar_is_bearish=False), self.make_regime())
+        assert aligned > weaker
+
+    def test_gates_are_mutually_exclusive_with_bullish(self):
+        from src.analysis.screener import _score_candidate
+        bear_signals = self.make_signals()
+        assert _score_candidate(bear_signals, self.make_regime()) is None  # below 50 SMA fails long gate
+
+    def test_put_breakeven_math(self):
+        import pandas as pd
+        from src.data.options_chain import _parse_rows
+
+        frame = pd.DataFrame([{
+            "contractSymbol": "AAPL260821P00220000",
+            "strike": 220.0, "bid": 9.80, "ask": 10.20, "lastPrice": 10.00,
+            "volume": 300, "openInterest": 4000, "impliedVolatility": 0.32,
+        }])
+        expiry = date.today() + timedelta(days=36)
+        [c] = _parse_rows(frame, "AAPL", "put", expiry, spot=225.0, atr=4.0)
+        assert c.breakeven == pytest.approx(210.0)                 # 220 - 10 mid
+        assert c.breakeven_move_pct == pytest.approx(15.0 / 225.0) # spot must fall 15 to reach BE
+        assert c.move_coverage == pytest.approx(24.0 / 15.0)
+        assert "P$220" in c.to_prompt_line(0)
+
+
 class TestVolContext:
     @staticmethod
     def make_df(daily_vol: float, days: int = 300) -> "pd.DataFrame":

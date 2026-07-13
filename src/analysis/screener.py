@@ -51,6 +51,26 @@ def screen_candidates(
     return top
 
 
+def screen_bearish_candidates(
+    candidates: dict[str, tuple[TechnicalSignals, RegimeResult]],
+    market: str,
+) -> list[ScreenerCandidate]:
+    """Mirror of screen_candidates for SHORT-side setups (used by the options
+    tracks to buy puts — the stock tracks stay long-only and never see these)."""
+    passed: list[tuple[float, ScreenerCandidate]] = []
+
+    for ticker, (signals, regime) in candidates.items():
+        score = _score_bearish_candidate(signals, regime)
+        if score is None:
+            continue
+        passed.append((score, ScreenerCandidate(ticker, market, signals, regime)))
+
+    passed.sort(key=lambda x: x[0], reverse=True)
+    top = [c for _, c in passed[: settings.max_candidates_per_session]]
+    logger.info("Bearish screener: %d/%d passed for %s market", len(top), len(candidates), market)
+    return top
+
+
 def _score_candidate(signals: TechnicalSignals, regime: RegimeResult) -> float | None:
     """
     Returns a numeric score (higher = stronger candidate) or None to reject.
@@ -104,6 +124,57 @@ def _score_candidate(signals: TechnicalSignals, regime: RegimeResult) -> float |
         score += 10
 
     # Regime confidence (Hurst distance from 0.5 = stronger trend signal)
+    score += abs(regime.hurst_exponent - 0.5) * 40  # up to +20 each side
+
+    return score
+
+
+def _score_bearish_candidate(signals: TechnicalSignals, regime: RegimeResult) -> float | None:
+    """Mirror of _score_candidate: every gate and score component flipped to the
+    short side. RSI band is reflected around 50 (35-70 long → 30-65 short)."""
+    def _reject(reason: str) -> None:
+        logger.debug("REJECT-BEAR %s: %s (rsi=%.1f vol=%.2fx regime=%s)", signals.ticker, reason, signals.rsi_14, signals.volume_ratio, regime.regime)
+
+    rsi_lo, rsi_hi = 100 - settings.rsi_max, 100 - settings.rsi_min
+
+    # --- Mandatory filters (mirrored) ---
+    if signals.price_above_50sma:
+        _reject("above 50 SMA")
+        return None
+    if not (rsi_lo <= signals.rsi_14 <= rsi_hi):
+        _reject(f"RSI {signals.rsi_14:.1f} outside [{rsi_lo},{rsi_hi}]")
+        return None
+    if signals.volume_ratio < settings.volume_spike_multiplier:
+        _reject(f"volume {signals.volume_ratio:.2f}x < {settings.volume_spike_multiplier}x")
+        return None
+
+    if regime.regime == "neutral":
+        _reject("neutral regime")
+        return None
+
+    if regime.regime == "trending":
+        # Want EMA21 below SMA50 (bearish momentum structure)
+        if signals.ema_21_above_50sma:
+            _reject("trending but EMA21 above SMA50")
+            return None
+    elif regime.regime == "mean-reverting":
+        # Want price near or above BB upper band (fade the rip)
+        if signals.bb_pct_b < 0.65:
+            _reject(f"mean-rev but bb_pct_b {signals.bb_pct_b:.2f} < 0.65")
+            return None
+
+    # --- Score components (mirrored) ---
+    score = 0.0
+    score += min(signals.volume_ratio - 1.0, 2.0) * 20  # up to +40
+
+    rsi_mid = 47.5  # reflection of the long side's 52.5
+    score += max(0, 15 - abs(signals.rsi_14 - rsi_mid))  # up to +15
+
+    if not signals.price_above_200sma:
+        score += 15
+    if signals.sar_is_bearish:
+        score += 10
+
     score += abs(regime.hurst_exponent - 0.5) * 40  # up to +20 each side
 
     return score

@@ -17,6 +17,8 @@ Last updated: 2026-07-12
 - [x] Dashboard — 4-track comparison chart + head-to-head table, options track tabs, options prompts panels, `POST /api/scan/options`, reset covers all tracks
 - [x] `tests/test_options.py` — Black-Scholes, chain filters, risk sizing, simulator lifecycle (open/close/sweep/expiry/state roundtrip), expected-move math, vol context
 - [x] **Expected-move vs breakeven** — every shortlist line carries breakeven + ATR·√DTE move coverage; contracts whose projected move can't cover the breakeven distance (`options_min_move_coverage`) never reach the prompt
+- [x] **Bearish side (long puts)** — `screen_bearish_candidates` mirrors every long gate to the short side; bearish setups get put shortlists (breakeven/coverage math already direction-aware); `options_enable_puts` toggle; stock tracks unaffected
+- [x] **Options capital 1M SEK** — one contract is the minimum lot, so the 1%/2% premium caps need ~1M equity to afford liquid $3-15 premiums; untraded tracks auto-rebase on restart
 - [x] `src/analysis/vol_context.py` — realized-vol percentile + ATM-IV-vs-realized pricing ("is the move already priced in?") as a dedicated `volatility_context` DSPy input, captured for MIPRO and echoed into ERL
 
 ### Phase 1 — Foundation

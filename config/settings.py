@@ -34,9 +34,15 @@ class Settings(BaseSettings):
     tracks: list[Literal["claude", "gpt"]] = ["claude", "gpt"]
     starting_capital_sek: float = 100_000.0
 
-    # Options tracks — long single-leg US calls only (v1); empty list disables
+    # Options tracks — long single-leg US options; empty list disables
     options_tracks: list[Literal["claude-opt", "gpt-opt"]] = ["claude-opt", "gpt-opt"]
-    options_starting_capital_sek: float = 100_000.0
+    # One contract is the minimum lot: liquid near-ATM 21-60 DTE premiums on
+    # S&P-100 names run $3-15 ≈ 3-16k SEK/contract, so the 1%/2% premium caps
+    # need ~1M SEK equity to afford a single contract. At 100k the risk gate
+    # blocked essentially every entry.
+    options_starting_capital_sek: float = 1_000_000.0
+    # Bearish side: long puts on mirrored-screener setups. False = calls only.
+    options_enable_puts: bool = True
 
     @property
     def all_tracks(self) -> list[str]:
