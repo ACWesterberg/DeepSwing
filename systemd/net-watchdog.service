@@ -1,0 +1,6 @@
+[Unit]
+Description=Network self-heal watchdog (bounces Wi-Fi when the gateway is unreachable)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/net-watchdog.sh

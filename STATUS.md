@@ -79,6 +79,7 @@ Last updated: 2026-07-12
 - [x] `SETUP.md`, `README.md`, `ARCHITECTURE.md`, `STATUS.md`, `CLAUDE.md`
 - [x] `.gitignore` — excludes `.env`, `venv/`, `data/*.db`, `heuristics/`, `compiled/`
 - [x] Deployed and running on Pi 5; Cloudflare Tunnel live (`trade.westerberg.dev`); dashboard cookie auth
+- [x] **Network watchdog** — the Pi's Wi-Fi dropped twice on 2026-07-13 (tunnels + SSH dark, box fine); `deploy/net-watchdog.sh` + systemd timer bounces the interface and reboots after 3 failed recoveries; SETUP.md §8 covers install + disabling Wi-Fi power save
 
 ### Correctness & security review fixes (2026-07-02)
 - [x] **VIX halt no longer abandons holdings** — a VIX ≥ 35 halt blocks new entries but falls through to the holdings monitor, so stops/targets/news exits still run during volatility spikes

@@ -300,6 +300,53 @@ sudo systemctl restart deepswing
 
 ---
 
+## 8. Network Self-Healing (Wi-Fi Watchdog)
+
+On Wi-Fi the Pi can silently drop its association and never rejoin — the box keeps
+running (local display works) but SSH and every Cloudflare tunnel on the host go dark
+until someone power-cycles it. Two fixes, apply both:
+
+### Disable Wi-Fi power saving
+
+The usual trigger is the driver's power-save mode. On Raspberry Pi OS Bookworm
+(NetworkManager):
+
+```bash
+sudo tee /etc/NetworkManager/conf.d/wifi-powersave.conf > /dev/null <<'EOF'
+[connection]
+wifi.powersave = 2
+EOF
+sudo systemctl restart NetworkManager
+iw wlan0 get power_save   # should report: off
+```
+
+### Install the watchdog
+
+Every 2 minutes it pings the default gateway (falling back to 1.1.1.1). If both fail
+it bounces the interface and restarts NetworkManager; after 3 consecutive failed
+recoveries (~6 min offline) it reboots the Pi. A reboot is safe — portfolio state is
+restored from the DB on startup.
+
+```bash
+cd ~/DeepSwing
+sudo install -m 755 deploy/net-watchdog.sh /usr/local/bin/net-watchdog.sh
+sudo cp systemd/net-watchdog.service systemd/net-watchdog.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now net-watchdog.timer
+```
+
+Verify:
+
+```bash
+systemctl list-timers net-watchdog.timer
+journalctl -t net-watchdog --since today   # empty when the network is healthy
+```
+
+If the Pi sits near Ethernet, prefer a cable — the watchdog then only acts on real
+outages instead of papering over flaky Wi-Fi.
+
+---
+
 ## Quick Reference
 
 | Task | Command |
@@ -311,4 +358,5 @@ sudo systemctl restart deepswing
 | Restore latest | `RCLONE_REMOTE=gdrive:DeepSwingBackups ./deploy/restore_from_gdrive.sh` |
 | Reset sim (fresh start) | `curl -X POST localhost:8000/api/reset -H 'Content-Type: application/json' -d '{"pin":"<PIN>"}'` |
 | Tunnel status | `sudo systemctl status cloudflared` |
+| Watchdog log | `journalctl -t net-watchdog` |
 | Dashboard | `https://trading.yourdomain.com` (or `http://deepswing.local:8000` on LAN) |
