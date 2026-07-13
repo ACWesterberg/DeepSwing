@@ -27,10 +27,8 @@ try {
   type: "line",
   data: {
     datasets: [
-      { label: "Claude",     borderColor: "#7c3aed", backgroundColor: "rgba(124,58,237,0.08)", data: [], cubicInterpolationMode: "monotone", pointRadius: 2 },
-      { label: "GPT",        borderColor: "#0ea5e9", backgroundColor: "rgba(14,165,233,0.08)",  data: [], cubicInterpolationMode: "monotone", pointRadius: 2 },
-      { label: "Claude Opt", borderColor: "#d946ef", backgroundColor: "rgba(217,70,239,0.08)", data: [], cubicInterpolationMode: "monotone", pointRadius: 2, borderDash: [6, 4] },
-      { label: "GPT Opt",    borderColor: "#14b8a6", backgroundColor: "rgba(20,184,166,0.08)", data: [], cubicInterpolationMode: "monotone", pointRadius: 2, borderDash: [6, 4] },
+      { label: "Claude", borderColor: "#7c3aed", backgroundColor: "rgba(124,58,237,0.08)", data: [], cubicInterpolationMode: "monotone", pointRadius: 2 },
+      { label: "GPT",    borderColor: "#0ea5e9", backgroundColor: "rgba(14,165,233,0.08)",  data: [], cubicInterpolationMode: "monotone", pointRadius: 2 },
     ],
   },
   options: {
@@ -67,6 +65,9 @@ const METRIC_LABELS = {
 };
 
 const TRACKS = ["claude", "gpt", "claude-opt", "gpt-opt"];
+// Options tracks run on 10x the paper capital, so their SEK curves would dwarf
+// the stock curves — the first-page chart stays stocks-only.
+const CHART_TRACKS = ["claude", "gpt"];
 
 async function refreshAll() {
   await Promise.all([
@@ -101,9 +102,9 @@ async function refreshComparison() {
   const data = await fetchJSON("/api/comparison");
   if (!data) return;
 
-  // Equity curves — dataset order matches TRACKS
+  // Equity curves — dataset order matches CHART_TRACKS (stocks only)
   if (compChart) {
-    TRACKS.forEach((track, i) => {
+    CHART_TRACKS.forEach((track, i) => {
       compChart.data.datasets[i].data =
         (data[track]?.equity_curve || []).map((p) => ({ x: p.date, y: p.equity }));
     });
