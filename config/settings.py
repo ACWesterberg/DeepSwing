@@ -82,6 +82,12 @@ class Settings(BaseSettings):
     # Montrose Premium: 0.10% courtage each way; 0.10% FX fee for non-SEK trades
     commission_pct: float = 0.001          # 0.10% per trade leg (buy + sell)
     fx_commission_pct: float = 0.001       # 0.10% extra on USD/EUR legs (US market)
+    # Entries fill at a live quote, not the OHLCV close the candidate was screened
+    # on — EOD/delayed feeds make that close hours stale, and booking it while
+    # exits fill live realizes the gap as phantom P&L. If the live quote has
+    # drifted more than this fraction from the scan price, the screened setup no
+    # longer describes the market and the entry is blocked.
+    max_entry_price_deviation: float = 0.03
 
     # Dashboard security
     reset_pin: str = "3821"

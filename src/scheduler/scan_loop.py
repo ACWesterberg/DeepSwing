@@ -65,25 +65,39 @@ _EU_SUFFIX_CURRENCY: dict[str, str] = {
 }
 
 
-def _currency_for_ticker(ticker: str, market: str) -> str:
-    """Resolve the native currency a ticker's price is quoted in."""
+def _currency_for_ticker(ticker: str, market: str, strict: bool = False) -> Optional[str]:
+    """Resolve the native currency a ticker's price is quoted in.
+
+    strict=True returns None instead of guessing when the ticker doesn't match
+    its market (a suffixed listing in the US watchlist, an unknown EU suffix) —
+    a wrong currency assumption corrupts every SEK figure booked for the trade.
+    Non-strict keeps the lenient guess so existing positions can still be priced
+    and exited consistently with how they were entered."""
     if market == "us":
+        if strict and "." in ticker:
+            return None
         return "USD"
     suffix_map = _EU_SUFFIX_CURRENCY if market == "eu" else _NORDIC_SUFFIX_CURRENCY
     for suffix, currency in suffix_map.items():
         if ticker.endswith(suffix):
             return currency
     if market == "eu":
-        return "EUR"
-    # Legacy .STO suffix or unrecognized Nordic ticker — assume Swedish (SEK)
-    return "SEK"
+        return None if strict else "EUR"
+    if ticker.endswith(".STO"):  # legacy Alpha Vantage suffix — Swedish
+        return "SEK"
+    return None if strict else "SEK"
 
 
-def _to_sek_price(price: float, ticker: str, market: str) -> Optional[float]:
+def _to_sek_price(price: float, ticker: str, market: str, strict: bool = False) -> Optional[float]:
     """Convert a ticker's native-currency price to SEK. Returns None when the
     conversion is unavailable — booking a raw USD/EUR price against a SEK
     portfolio corrupts sizing and P&L, so callers must skip instead."""
-    currency = _currency_for_ticker(ticker, market)
+    currency = _currency_for_ticker(ticker, market, strict=strict)
+    if currency is None:
+        logger.error(
+            "Cannot resolve quote currency for %s in %s market — skipping", ticker, market,
+        )
+        return None
     if currency == "SEK":
         return price
     if not _HAS_FX:
@@ -288,6 +302,12 @@ def _run_scan(market: MarketType) -> dict:
     # --- Cheap shared triage: only the top-K reach news + per-track decisions ---
     candidates = triage_candidates(candidates, market)
 
+    # Live quotes for entry fills. The OHLCV close a candidate was screened on
+    # can be hours stale (Alpha Vantage is end-of-day, EU feeds are delayed);
+    # booking entries at it while exits fill at live prices realizes the gap as
+    # phantom P&L the moment the same-scan stop/target sweep runs.
+    entry_quotes_sek = _get_current_prices([c.ticker for c in candidates], market)
+
     # --- Decision + risk + execution per candidate × track ---
     decisions_log = []
 
@@ -351,11 +371,13 @@ def _run_scan(market: MarketType) -> dict:
                 decisions_log.append(entry)
                 continue
 
-            # Convert prices to SEK from the ticker's native currency
-            entry_sek = _to_sek_price(candidate.signals.current_price, candidate.ticker, market)
-            stop_sek = _to_sek_price(decision["stop_loss"], candidate.ticker, market)
-            target_sek = _to_sek_price(decision["target"], candidate.ticker, market)
-            if entry_sek is None or stop_sek is None or target_sek is None:
+            # Convert prices to SEK from the ticker's native currency — strict,
+            # so a ticker whose quote currency can't be resolved is blocked
+            # instead of booked at a guessed FX rate.
+            signal_sek = _to_sek_price(candidate.signals.current_price, candidate.ticker, market, strict=True)
+            stop_sek = _to_sek_price(decision["stop_loss"], candidate.ticker, market, strict=True)
+            target_sek = _to_sek_price(decision["target"], candidate.ticker, market, strict=True)
+            if signal_sek is None or stop_sek is None or target_sek is None or signal_sek <= 0:
                 decisions_log.append({
                     "track": track,
                     "ticker": candidate.ticker,
@@ -364,6 +386,32 @@ def _run_scan(market: MarketType) -> dict:
                     "reasoning": decision["reasoning"],
                     "regime": candidate.regime.regime,
                     "reason": "FX conversion to SEK unavailable",
+                })
+                continue
+
+            # Fill entries at the live quote, never the scan-time OHLCV close.
+            # If no live quote exists, or it has drifted past the deviation cap,
+            # the screened setup no longer describes the market — block.
+            entry_sek = entry_quotes_sek.get(candidate.ticker)
+            deviation = abs(entry_sek - signal_sek) / signal_sek if entry_sek is not None else None
+            if entry_sek is None or deviation > settings.max_entry_price_deviation:
+                reason = (
+                    "Live entry price unavailable"
+                    if entry_sek is None
+                    else (
+                        f"Live price {entry_sek:.4f} SEK deviates {deviation:.1%} from scan price "
+                        f"{signal_sek:.4f} (max {settings.max_entry_price_deviation:.0%}) — signals are stale"
+                    )
+                )
+                logger.info("[%s] %s entry blocked: %s", track, candidate.ticker, reason)
+                decisions_log.append({
+                    "track": track,
+                    "ticker": candidate.ticker,
+                    "action": "BLOCKED",
+                    "confidence": round(decision["confidence"], 2),
+                    "reasoning": decision["reasoning"],
+                    "regime": candidate.regime.regime,
+                    "reason": reason,
                 })
                 continue
 
@@ -415,9 +463,10 @@ def _run_scan(market: MarketType) -> dict:
                 })
                 continue
 
-            # Trailing distance in SEK: ATR is native-currency, so scale it by the
-            # same FX rate the entry price was converted at.
-            fx_rate = entry_sek / candidate.signals.current_price if candidate.signals.current_price > 0 else 1.0
+            # Trailing distance in SEK: ATR is native-currency, so scale it by
+            # the FX rate the scan price was converted at (entry_sek is a live
+            # quote and no longer maps 1:1 to signals.current_price).
+            fx_rate = signal_sek / candidate.signals.current_price if candidate.signals.current_price > 0 else 1.0
             trail_distance = settings.trailing_stop_atr_multiplier * candidate.signals.atr_14 * fx_rate
 
             # Open position
@@ -472,6 +521,18 @@ def _run_scan(market: MarketType) -> dict:
                     "reason": "Insufficient cash at execution",
                 })
 
+    # Live prices for every held ticker, fetched per the position's own market —
+    # mixing markets causes wrong FX conversion. Shared by the news-exit review
+    # and the stop/target sweep so both fill at real quotes, not scan-time OHLCV
+    # closes (which can be hours stale and would book phantom exit P&L).
+    held_by_market: dict[str, list[str]] = {}
+    for track in settings.tracks:
+        for p in get_portfolio(track).open_positions:
+            held_by_market.setdefault(p.market, []).append(p.ticker)
+    live_prices: dict[str, float] = {}
+    for pos_market, pos_tickers in held_by_market.items():
+        live_prices.update(_get_current_prices(sorted(set(pos_tickers)), pos_market))
+
     # --- News-driven exit review, gated on a large price move ---
     # Holdings are otherwise monitored on price alone (stop/target below). We only
     # spend a news pull + AI exit review on a position that has jumped since its
@@ -482,10 +543,10 @@ def _run_scan(market: MarketType) -> dict:
         for position in list(portfolio.open_positions):
             if position.market != market or position.ticker not in analysis_map:
                 continue
-            signals, regime = analysis_map[position.ticker]
-            current_sek = _to_sek_price(signals.current_price, position.ticker, market)
+            current_sek = live_prices.get(position.ticker)
             if current_sek is None:
                 continue
+            signals, regime = analysis_map[position.ticker]
             event = _maybe_news_exit(
                 track, portfolio, position, current_sek, market,
                 signals_str=signals.to_prompt_str(),
@@ -499,14 +560,7 @@ def _run_scan(market: MarketType) -> dict:
     # --- Update open positions and trigger ERL for closed trades ---
     for track in settings.tracks:
         portfolio = get_portfolio(track)
-        # Fetch prices per position's own market — mixing markets here causes wrong FX conversion
-        positions_by_market: dict[str, list[str]] = {}
-        for p in portfolio.open_positions:
-            positions_by_market.setdefault(p.market, []).append(p.ticker)
-        current_prices: dict[str, float] = {}
-        for pos_market, pos_tickers in positions_by_market.items():
-            current_prices.update(_get_current_prices(pos_tickers, pos_market))
-        for closed in portfolio.update_prices(current_prices):
+        for closed in portfolio.update_prices(live_prices):
             _emit_close(track, closed)
         # End-of-scan flush — captures mark-to-market / trailing-stop updates on
         # positions that didn't close (opens/closes already persisted inline).

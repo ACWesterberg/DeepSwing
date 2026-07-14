@@ -376,7 +376,7 @@ class Portfolio:
         filled_price = exit_price * (1 - settings.simulated_slippage)
         proceeds = filled_price * position.quantity
         commission = proceeds * settings.commission_pct
-        if position.market == "us":
+        if position.market in ("us", "eu"):
             commission += proceeds * settings.fx_commission_pct
         self.cash += proceeds - commission
         self.total_commission += commission

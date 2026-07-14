@@ -108,7 +108,7 @@ def _apply_patches(patches: list, **overrides):
     started["format_market_environment"].return_value = "No market-wide news available."
     started["get_days_to_earnings"].return_value = {}  # no earnings info → nothing filtered
     # Pass prices through unchanged — FX conversion tested separately in TestToSekPrice
-    started["_to_sek_price"].side_effect = lambda price, ticker, market: price
+    started["_to_sek_price"].side_effect = lambda price, ticker, market, strict=False: price
     # Use the mocked get_current_price value so tests can control stop-hit behaviour
     started["_get_current_prices"].side_effect = (
         lambda tickers, market: {t: started["get_current_price"].return_value for t in tickers}
@@ -297,6 +297,50 @@ class TestMarketAllocationGating:
             assert "ERIC-B.ST" in tickers
 
 
+class TestLiveEntryFill:
+    def setup_method(self):
+        reset_portfolios()
+
+    def teardown_method(self):
+        patch.stopall()
+        reset_portfolios()
+
+    def test_entry_fills_at_live_quote_not_scan_close(self):
+        from config.settings import settings
+        mocks = _apply_patches(SCAN_PATCHES)
+        mocks["get_current_price"].return_value = 99.0  # live quote; scan close is 100
+        from src.scheduler.scan_loop import run_scan
+        run_scan("us")
+        for track in ("claude", "gpt"):
+            positions = get_portfolio(track).open_positions
+            assert len(positions) == 1
+            assert positions[0].entry_price == pytest.approx(
+                99.0 * (1 + settings.simulated_slippage)
+            )
+
+    def test_entry_blocked_when_live_quote_deviates_from_scan_price(self):
+        mocks = _apply_patches(SCAN_PATCHES)
+        mocks["get_current_price"].return_value = 90.0  # -10% vs scan close of 100
+        from src.scheduler.scan_loop import run_scan
+        result = run_scan("us")
+        for track in ("claude", "gpt"):
+            assert len(get_portfolio(track).open_positions) == 0
+        blocked = [d for d in result["decisions"] if d.get("action") == "BLOCKED"]
+        assert blocked
+        assert "stale" in blocked[0]["reason"]
+
+    def test_entry_blocked_when_live_quote_unavailable(self):
+        mocks = _apply_patches(SCAN_PATCHES)
+        mocks["_get_current_prices"].side_effect = lambda tickers, market: {}
+        from src.scheduler.scan_loop import run_scan
+        result = run_scan("us")
+        for track in ("claude", "gpt"):
+            assert len(get_portfolio(track).open_positions) == 0
+        blocked = [d for d in result["decisions"] if d.get("action") == "BLOCKED"]
+        assert blocked
+        assert "unavailable" in blocked[0]["reason"].lower()
+
+
 class TestRunScanStopHitAndERL:
     def setup_method(self):
         reset_portfolios()
@@ -362,6 +406,24 @@ class TestCurrencyForTicker:
     def test_legacy_sto_suffix_defaults_to_sek(self):
         from src.scheduler.scan_loop import _currency_for_ticker
         assert _currency_for_ticker("ERIC-B.STO", "nordic") == "SEK"
+
+    def test_strict_rejects_suffixed_ticker_in_us_market(self):
+        # An Istanbul listing that slipped into the US watchlist is quoted in
+        # TRY — a blind USD assumption corrupts every SEK figure for the trade.
+        from src.scheduler.scan_loop import _currency_for_ticker
+        assert _currency_for_ticker("CCOLA.IS", "us", strict=True) is None
+        assert _currency_for_ticker("CCOLA.IS", "us") == "USD"  # lenient for existing positions
+
+    def test_strict_rejects_unknown_eu_suffix(self):
+        from src.scheduler.scan_loop import _currency_for_ticker
+        assert _currency_for_ticker("CCOLA.IS", "eu", strict=True) is None
+        assert _currency_for_ticker("CCOLA.IS", "eu") == "EUR"
+
+    def test_strict_still_resolves_known_suffixes(self):
+        from src.scheduler.scan_loop import _currency_for_ticker
+        assert _currency_for_ticker("AAPL", "us", strict=True) == "USD"
+        assert _currency_for_ticker("0RQ6.L", "eu", strict=True) == "GBP"
+        assert _currency_for_ticker("EQNR.OL", "nordic", strict=True) == "NOK"
 
 
 class TestToSekPrice:
