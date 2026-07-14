@@ -101,7 +101,21 @@ def _run_options_scan() -> dict:
     decisions_log: list[dict] = []
 
     for candidate, right in targets:
-        spot_usd = candidate.signals.current_price
+        # Live spot, not the scan-time OHLCV close — strike selection, breakeven
+        # math and ERL's underlying-move attribution all key off it. Same
+        # staleness guard as stock entries: a big drift means the screened
+        # setup no longer describes the market.
+        scan_close = candidate.signals.current_price
+        spot_usd = get_current_price(candidate.ticker, "us")
+        if spot_usd is None:
+            logger.info("No live spot for %s — skipping options candidate", candidate.ticker)
+            continue
+        if scan_close > 0 and abs(spot_usd - scan_close) / scan_close > settings.max_entry_price_deviation:
+            logger.info(
+                "Live spot %.4f deviates %.1f%% from scan close %.4f for %s — skipping (stale signals)",
+                spot_usd, abs(spot_usd - scan_close) / scan_close * 100, scan_close, candidate.ticker,
+            )
+            continue
         shortlist = fetch_chain_shortlist(candidate.ticker, spot_usd, right, atr=candidate.signals.atr_14)
         if not shortlist:
             logger.info("No tradable %s contracts for %s — skipping", right, candidate.ticker)
@@ -288,19 +302,21 @@ def run_expiry_sweep() -> dict:
     return {"market": MARKET_LABEL, "settled": settled}
 
 
-def _refresh_quotes_sek(portfolio: OptionsPortfolio) -> dict[str, float]:
-    """One chain call per open (underlying, expiry, right) → {contract_symbol: SEK mid}."""
+def _refresh_quotes_sek(portfolio: OptionsPortfolio) -> dict[str, tuple[float, float]]:
+    """One chain call per open (underlying, expiry, right) → {contract_symbol:
+    (SEK mid, SEK bid)}. Mid marks the book; bid is the exit fill."""
     groups: dict[tuple, set[str]] = {}
     for p in portfolio.open_positions:
         groups.setdefault((p.underlying, p.expiry, p.right), set()).add(p.contract_symbol)
 
-    quotes_sek: dict[str, float] = {}
+    quotes_sek: dict[str, tuple[float, float]] = {}
     for (underlying, expiry, right), symbols in groups.items():
         usd_quotes = fetch_contract_quotes(underlying, expiry, right, symbols)
-        for symbol, usd in usd_quotes.items():
-            sek = _to_sek_price(usd, underlying, "us")
-            if sek is not None:
-                quotes_sek[symbol] = sek
+        for symbol, (mid_usd, bid_usd) in usd_quotes.items():
+            mid_sek = _to_sek_price(mid_usd, underlying, "us")
+            bid_sek = _to_sek_price(bid_usd, underlying, "us")
+            if mid_sek is not None:
+                quotes_sek[symbol] = (mid_sek, bid_sek if bid_sek is not None else mid_sek)
     return quotes_sek
 
 

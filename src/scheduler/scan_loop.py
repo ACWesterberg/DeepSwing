@@ -489,6 +489,7 @@ def _run_scan(market: MarketType) -> dict:
                     "heuristic_ids": [h["id"] for h in heuristics_list],
                 },
                 trail_distance=trail_distance,
+                entry_fx_rate=fx_rate,
             )
 
             if position:
@@ -817,12 +818,28 @@ def _get_current_prices(tickers: list[str], market: str) -> dict[str, float]:
 _erl_threads: list[threading.Thread] = []
 
 
+def _current_fx_rate(ticker: str, market: str) -> Optional[float]:
+    """Current native→SEK rate for a ticker, None when unknown/SEK."""
+    currency = _currency_for_ticker(ticker, market)
+    if currency is None or currency == "SEK" or not _HAS_FX:
+        return None
+    return _to_sek_fn(1.0, currency)
+
+
 def _erl_kwargs(track: str, closed_trade) -> dict:
     """Build the run_erl(**kwargs) payload from a closed trade."""
     trade_dict = closed_trade.to_dict()
     trade_dict["id"] = closed_trade.trade_id
     trade_dict["stop_hit"] = closed_trade.exit_reason == "stop_loss"
     trade_dict["pnl_pct"] = closed_trade.pnl_pct
+    # All booked prices are SEK, so part of the P&L can be pure currency drift.
+    # Give ERL the FX move over the holding period so an FX-triggered stop
+    # isn't misattributed to the stock's own behaviour.
+    entry_fx = getattr(closed_trade, "entry_fx_rate", 0.0) or 0.0
+    if entry_fx > 0:
+        current_fx = _current_fx_rate(closed_trade.ticker, closed_trade.market)
+        if current_fx is not None:
+            trade_dict["fx_move_pct"] = (current_fx / entry_fx - 1) * 100
     # Entry-time news/macro so ERL can attribute outcomes to the environment
     entry_inputs = getattr(closed_trade, "entry_inputs", {}) or {}
     return dict(

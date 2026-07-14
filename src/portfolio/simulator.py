@@ -62,6 +62,8 @@ class OpenPosition:
     entry_inputs: dict = field(default_factory=dict)
     last_news_price: float = 0.0  # price (SEK) at the last news check; drives jump detection
     trail_distance: float = 0.0   # trailing-stop distance in SEK (ATR-scaled at entry)
+    entry_commission: float = 0.0  # SEK paid at open; folded into net P&L at close
+    entry_fx_rate: float = 0.0     # native→SEK rate at entry; lets ERL see FX-driven P&L
 
     @property
     def unrealised_pnl(self) -> float:
@@ -118,6 +120,8 @@ class OpenPosition:
             "entry_inputs": self.entry_inputs,
             "last_news_price": self.last_news_price,
             "trail_distance": self.trail_distance,
+            "entry_commission": self.entry_commission,
+            "entry_fx_rate": self.entry_fx_rate,
         }
 
     @classmethod
@@ -141,6 +145,8 @@ class OpenPosition:
             entry_inputs=d.get("entry_inputs") or {},
             last_news_price=d.get("last_news_price", 0.0),
             trail_distance=d.get("trail_distance", 0.0),
+            entry_commission=d.get("entry_commission", 0.0),
+            entry_fx_rate=d.get("entry_fx_rate", 0.0),
         )
 
 
@@ -162,16 +168,20 @@ class ClosedTrade:
     exit_reason: str  # "stop_loss" | "take_profit" | "trailing_stop" | "manual"
     technical_snapshot: str = ""
     entry_inputs: dict = field(default_factory=dict)
+    commission: float = 0.0     # entry + exit commission (SEK); 0 for pre-upgrade trades
+    entry_fx_rate: float = 0.0  # native→SEK rate at entry (0 when unknown)
 
     @property
     def pnl(self) -> float:
-        return (self.exit_price - self.entry_price) * self.quantity
+        """Net P&L in SEK — slippage lives in the fill prices, commissions here."""
+        return (self.exit_price - self.entry_price) * self.quantity - self.commission
 
     @property
     def pnl_pct(self) -> float:
-        if self.entry_price == 0:
+        cost_basis = self.entry_price * self.quantity
+        if cost_basis == 0:
             return 0.0
-        return (self.exit_price - self.entry_price) / self.entry_price
+        return self.pnl / cost_basis
 
     @property
     def rrr_achieved(self) -> float:
@@ -193,6 +203,7 @@ class ClosedTrade:
             "exit_price": self.exit_price,
             "pnl": round(self.pnl, 2),
             "pnl_pct": round(self.pnl_pct * 100, 2),
+            "commission": round(self.commission, 2),
             "rrr_achieved": round(self.rrr_achieved, 2),
             "exit_reason": self.exit_reason,
             "duration_days": round(self.duration_days, 2),
@@ -219,6 +230,8 @@ class ClosedTrade:
             "exit_reason": self.exit_reason,
             "technical_snapshot": self.technical_snapshot,
             "entry_inputs": self.entry_inputs,
+            "commission": self.commission,
+            "entry_fx_rate": self.entry_fx_rate,
         }
 
     @classmethod
@@ -240,6 +253,8 @@ class ClosedTrade:
             exit_reason=d.get("exit_reason", ""),
             technical_snapshot=d.get("technical_snapshot", ""),
             entry_inputs=d.get("entry_inputs") or {},
+            commission=d.get("commission", 0.0),
+            entry_fx_rate=d.get("entry_fx_rate", 0.0),
         )
 
 
@@ -312,6 +327,7 @@ class Portfolio:
         sector: str = "",
         entry_inputs: Optional[dict] = None,
         trail_distance: float = 0.0,
+        entry_fx_rate: float = 0.0,
     ) -> Optional[OpenPosition]:
         # Apply simulated slippage (adverse, so price moves against us)
         filled_price = entry_price * (1 + settings.simulated_slippage)
@@ -347,6 +363,8 @@ class Portfolio:
             entry_inputs=entry_inputs or {},
             last_news_price=filled_price,
             trail_distance=trail_distance,
+            entry_commission=commission,
+            entry_fx_rate=entry_fx_rate,
         )
         self.open_positions.append(position)
         self._next_trade_id += 1
@@ -399,6 +417,8 @@ class Portfolio:
             exit_reason=exit_reason,
             technical_snapshot=position.technical_snapshot,
             entry_inputs=position.entry_inputs,
+            commission=position.entry_commission + commission,
+            entry_fx_rate=position.entry_fx_rate,
         )
         self.closed_trades.append(closed)
 

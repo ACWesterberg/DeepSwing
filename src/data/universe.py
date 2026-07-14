@@ -134,8 +134,6 @@ def get_exchange_for_ticker(yahoo_ticker: str, market: str = "") -> str:
         return "US"
     if market == "eu":
         return "EU"
-    if market == "eu":
-        return "EU"
     if market == "nordic":
         return "Nordic"
     return "—"

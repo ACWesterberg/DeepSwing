@@ -43,6 +43,7 @@ class OptionPosition:
     technical_snapshot: str = ""
     sector: str = ""
     entry_inputs: dict = field(default_factory=dict)
+    entry_commission: float = 0.0  # SEK paid at open; folded into net P&L at close
 
     @property
     def dte(self) -> int:
@@ -109,6 +110,7 @@ class OptionPosition:
             "technical_snapshot": self.technical_snapshot,
             "sector": self.sector,
             "entry_inputs": self.entry_inputs,
+            "entry_commission": self.entry_commission,
         }
 
     @classmethod
@@ -137,6 +139,7 @@ class OptionPosition:
             technical_snapshot=d.get("technical_snapshot", ""),
             sector=d.get("sector", ""),
             entry_inputs=d.get("entry_inputs") or {},
+            entry_commission=d.get("entry_commission", 0.0),
         )
 
 
@@ -166,6 +169,7 @@ class ClosedOptionTrade:
     iv_at_exit: float = 0.0
     entry_underlying_price: float = 0.0
     exit_underlying_price: float = 0.0
+    commission: float = 0.0  # entry + exit commission (SEK); 0 for pre-upgrade trades
 
     @property
     def ticker(self) -> str:
@@ -173,13 +177,15 @@ class ClosedOptionTrade:
 
     @property
     def pnl(self) -> float:
-        return (self.exit_premium - self.entry_premium) * CONTRACT_MULTIPLIER * self.contracts
+        """Net P&L in SEK — spread lives in the fill premiums, commissions here."""
+        return (self.exit_premium - self.entry_premium) * CONTRACT_MULTIPLIER * self.contracts - self.commission
 
     @property
     def pnl_pct(self) -> float:
-        if self.entry_premium == 0:
+        cost_basis = self.entry_premium * CONTRACT_MULTIPLIER * self.contracts
+        if cost_basis == 0:
             return 0.0
-        return (self.exit_premium - self.entry_premium) / self.entry_premium
+        return self.pnl / cost_basis
 
     @property
     def rrr_achieved(self) -> float:
@@ -202,6 +208,7 @@ class ClosedOptionTrade:
             "exit_price": self.exit_premium,
             "pnl": round(self.pnl, 2),
             "pnl_pct": round(self.pnl_pct * 100, 2),
+            "commission": round(self.commission, 2),
             "rrr_achieved": round(self.rrr_achieved, 2),
             "exit_reason": self.exit_reason,
             "duration_days": round(self.duration_days, 2),
@@ -235,6 +242,7 @@ class ClosedOptionTrade:
             "iv_at_exit": self.iv_at_exit,
             "entry_underlying_price": self.entry_underlying_price,
             "exit_underlying_price": self.exit_underlying_price,
+            "commission": self.commission,
         }
 
     @classmethod
@@ -264,6 +272,7 @@ class ClosedOptionTrade:
             iv_at_exit=d.get("iv_at_exit", 0.0),
             entry_underlying_price=d.get("entry_underlying_price", 0.0),
             exit_underlying_price=d.get("exit_underlying_price", 0.0),
+            commission=d.get("commission", 0.0),
         )
 
 
@@ -355,6 +364,7 @@ class OptionsPortfolio:
             technical_snapshot=technical_snapshot,
             sector=sector,
             entry_inputs=entry_inputs or {},
+            entry_commission=commission,
         )
         self.open_positions.append(position)
         self._next_trade_id += 1
@@ -411,6 +421,7 @@ class OptionsPortfolio:
             iv_at_exit=iv_at_exit,
             entry_underlying_price=position.entry_underlying_price,
             exit_underlying_price=exit_underlying_price,
+            commission=position.entry_commission + commission,
         )
         self.closed_trades.append(closed)
 
@@ -424,26 +435,35 @@ class OptionsPortfolio:
         persist_portfolio(self)
         return closed
 
-    def update_premiums(self, quotes: dict[str, float]) -> list[ClosedOptionTrade]:
+    def update_premiums(
+        self, quotes: dict[str, "float | tuple[float, float]"]
+    ) -> list[ClosedOptionTrade]:
         """Mark open positions to fresh SEK premiums; close any that hit their
-        profit target, premium stop, or time stop. Expiry is handled separately."""
+        profit target, premium stop, or time stop. Expiry is handled separately.
+
+        Quote values are either a plain mid or a (mid, bid) pair. Marks, equity
+        and trigger checks use the mid; exits FILL at the bid — a long sale
+        receives the bid, and mid-filling would quietly hand back the
+        half-spread paid at entry (spread is the dominant option friction)."""
         closed_this_update: list[ClosedOptionTrade] = []
 
         for position in list(self.open_positions):
-            premium = quotes.get(position.contract_symbol)
-            if premium is not None:
-                position.current_premium = premium
+            quote = quotes.get(position.contract_symbol)
+            mid, bid = quote if isinstance(quote, tuple) else (quote, quote)
+            if mid is not None:
+                position.current_premium = mid
 
             mark = position.current_premium
             if mark <= 0:
                 continue
+            fill = bid if bid is not None and bid > 0 else mark
 
             if mark <= position.premium_stop_level:
-                closed = self.close_option(position.trade_id, mark, "premium_stop")
+                closed = self.close_option(position.trade_id, fill, "premium_stop")
             elif mark >= position.profit_target_level:
-                closed = self.close_option(position.trade_id, mark, "profit_target")
+                closed = self.close_option(position.trade_id, fill, "profit_target")
             elif position.dte <= position.time_stop_dte:
-                closed = self.close_option(position.trade_id, mark, "time_stop")
+                closed = self.close_option(position.trade_id, fill, "time_stop")
             else:
                 continue
             if closed:

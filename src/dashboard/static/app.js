@@ -61,7 +61,7 @@ const METRIC_LABELS = {
   max_drawdown_pct: "Max Drawdown (%)",
   total_return_pct: "Total Return (%)",
   avg_trade_duration_days: "Avg Duration (days)",
-  optimization_metric: "MIPRO Metric (WR×RRR)",
+  optimization_metric: "Expectancy (mean R)",
 };
 
 const TRACKS = ["claude", "gpt", "claude-opt", "gpt-opt"];

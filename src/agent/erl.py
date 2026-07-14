@@ -66,6 +66,12 @@ def run_erl(
         f"P&L: {trade.get('pnl_pct', 0)*100:.2f}% | Duration: {trade.get('duration_days', '?')} days\n"
         f"RRR achieved: {trade.get('rrr_achieved', 0):.2f} | Stop hit: {trade.get('stop_hit', False)}"
     )
+    fx_move = trade.get("fx_move_pct")
+    if fx_move is not None:
+        trade_summary += (
+            f"\nFX effect: the ticker's currency moved {fx_move:+.2f}% vs SEK over the holding "
+            f"period (prices are booked in SEK — that part of the P&L is currency, not the stock)"
+        )
 
     prompt = ERL_PROMPT.format(
         trade_summary=trade_summary,

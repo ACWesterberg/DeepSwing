@@ -13,6 +13,18 @@ logger = logging.getLogger(__name__)
 # Share-class / listing suffixes that appear in universe names but not headlines
 _NAME_SUFFIX_RE = re.compile(r"\s+(a|b|c|sdb|ser\.?\s*[abc])$", re.IGNORECASE)
 
+# Corporate-form words in universe legal names ("Telefonaktiebolaget LM Ericsson
+# (publ)", "AB Volvo") that never appear that way in headlines
+_CORPORATE_FORM_WORDS = frozenset({
+    "ab", "asa", "a/s", "as", "oyj", "abp", "oy", "hf", "plc", "publ",
+    "aktiebolag", "aktiebolaget", "telefonaktiebolaget", "aktieselskab",
+    "class", "ser", "series", "share", "shares", "sdb", "adr",
+    "inc", "corp", "corporation", "ltd", "group", "holding", "holdings",
+    "banken",  # 'Skandinaviska Enskilda Banken' — generic, matches any bank headline
+})
+_PARENTHETICAL_RE = re.compile(r"\([^)]*\)")
+_NON_WORD_RE = re.compile(r"[^\w&åäöæøü-]+", re.UNICODE)
+
 # Keywords for pre-filtering — only send articles that mention the ticker or these terms
 _RELEVANT_KEYWORDS = [
     "earnings", "revenue", "profit", "guidance", "acquisition", "merger",
@@ -82,9 +94,11 @@ def analyze_news(
 
 
 def _company_name_term(ticker: str) -> str:
-    """Lowercased company name to match in headlines ('' when unknown).
-    Headlines say 'Volvo', never 'VOLV-B' — the ticker base alone almost never
-    matches for Nordic stocks, so relevance needs the universe name."""
+    """Lowercased, headline-matchable company name ('' when unknown).
+    Headlines say 'Ericsson', never 'ERIC-B' or the universe's legal name
+    'Telefonaktiebolaget LM Ericsson (publ)' — so strip parentheticals and
+    corporate-form words, then take the last distinctive token (Nordic names
+    put the family/brand name last: 'AB Volvo', 'Svenska Handelsbanken AB')."""
     try:
         from src.data.universe import get_name_from_universe
         name = get_name_from_universe(ticker.replace(".STO", ".ST"))
@@ -92,8 +106,21 @@ def _company_name_term(ticker: str) -> str:
         return ""
     if not name:
         return ""
-    term = _NAME_SUFFIX_RE.sub("", name.strip()).lower()
-    return term if len(term) >= 3 else ""
+    cleaned = _PARENTHETICAL_RE.sub(" ", name)
+    cleaned = _NAME_SUFFIX_RE.sub("", cleaned.strip()).lower()
+    tokens = [
+        t for t in _NON_WORD_RE.split(cleaned)
+        if t and t not in _CORPORATE_FORM_WORDS
+    ]
+    if not tokens:
+        return ""
+    # Prefer the last token long enough to be distinctive; fall back to the
+    # longest one ('Volvo Car' → 'volvo', not the generic 'car').
+    for token in reversed(tokens):
+        if len(token) >= 4:
+            return token
+    longest = max(tokens, key=len)
+    return longest if len(longest) >= 3 else ""
 
 
 def _prefilter(ticker: str, articles: list[dict]) -> list[dict]:

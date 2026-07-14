@@ -21,7 +21,7 @@ class PerformanceMetrics:
     max_drawdown_pct: float
     total_return_pct: float
     avg_trade_duration_days: float
-    optimization_metric: float  # win_rate * avg_rrr — used by MIPRO
+    optimization_metric: float  # mean R-multiple across ALL trades (expectancy per unit risk)
 
     def to_dict(self) -> dict:
         return {
@@ -57,7 +57,10 @@ def compute_metrics(portfolio: "Portfolio") -> PerformanceMetrics:
     winners = [r for r in returns if r > 0]
     win_rate = len(winners) / len(returns)
 
-    rrrs = [t.rrr_achieved for t in trades if t.rrr_achieved > 0]
+    # Mean R-multiple over ALL trades — averaging only the winners (the old
+    # behaviour) hid loss magnitudes entirely, inflating both the dashboard's
+    # Avg RRR and the optimization metric.
+    rrrs = [t.rrr_achieved for t in trades]
     avg_rrr = float(np.mean(rrrs)) if rrrs else 0.0
 
     durations = [t.duration_days for t in trades]
@@ -80,7 +83,9 @@ def compute_metrics(portfolio: "Portfolio") -> PerformanceMetrics:
         max_drawdown_pct=max_dd * 100,
         total_return_pct=total_return,
         avg_trade_duration_days=avg_duration,
-        optimization_metric=win_rate * avg_rrr,
+        # Expectancy per unit risk. The old win_rate × avg_rrr(winners only)
+        # rewarded strategies whose losers were huge — losses never entered it.
+        optimization_metric=avg_rrr,
     )
 
 
@@ -104,7 +109,9 @@ def _compute_sharpe(
 
 
 def _build_equity_curve(portfolio: "Portfolio") -> list[float]:
-    """Reconstruct equity curve from closed trades (simplified: sequential P&L)."""
+    """Realized-equity curve from closed trades. trade.pnl is net of commissions,
+    so the curve reconciles with cash once all positions are closed; open
+    positions' unrealised P&L only appears in the live final point."""
     equity = portfolio.starting_equity
     curve = [equity]
     for trade in sorted(portfolio.closed_trades, key=lambda t: t.exit_time):

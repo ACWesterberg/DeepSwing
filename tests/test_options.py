@@ -363,10 +363,23 @@ class TestOptionsSimulator:
         position = open_test_position(p)
         closed = p.close_option(position.trade_id, 180.0, "profit_target")
         assert closed is not None
-        assert closed.pnl == pytest.approx((180.0 - 120.0) * CONTRACT_MULTIPLIER * 2)
-        assert closed.pnl_pct == pytest.approx(0.5)
-        assert closed.rrr_achieved == pytest.approx(0.5 / 0.4)
+        gross = (180.0 - 120.0) * CONTRACT_MULTIPLIER * 2
+        round_trip_commission = settings.options_commission_per_contract_sek * 2 * 2
+        assert closed.commission == pytest.approx(round_trip_commission)
+        assert closed.pnl == pytest.approx(gross - round_trip_commission)
+        cost_basis = 120.0 * CONTRACT_MULTIPLIER * 2
+        assert closed.pnl_pct == pytest.approx(closed.pnl / cost_basis)
+        assert closed.rrr_achieved == pytest.approx(closed.pnl_pct / 0.4)
         assert not p.open_positions
+
+    def test_update_premiums_fills_exit_at_bid_not_mid(self):
+        p = OptionsPortfolio("claude-opt")
+        position = open_test_position(p)
+        mid, bid = 120.0 * 1.8, 120.0 * 1.8 - 6.0
+        closed = p.update_premiums({position.contract_symbol: (mid, bid)})
+        assert len(closed) == 1
+        assert closed[0].exit_reason == "profit_target"  # trigger checked at mid
+        assert closed[0].exit_premium == pytest.approx(bid)  # filled at bid
 
     def test_update_premiums_hits_profit_target(self):
         p = OptionsPortfolio("claude-opt")

@@ -87,8 +87,12 @@ def fetch_chain_shortlist(ticker: str, spot: float, right: RightType = "call", a
     return contracts[: settings.options_shortlist_size]
 
 
-def fetch_contract_quotes(underlying: str, expiry: date, right: RightType, symbols: set[str]) -> dict[str, float]:
-    """Current mid quotes (USD/share) for the given contract symbols on one expiry."""
+def fetch_contract_quotes(
+    underlying: str, expiry: date, right: RightType, symbols: set[str]
+) -> dict[str, tuple[float, float]]:
+    """Current (mid, bid) USD/share quotes for the given contract symbols on one
+    expiry. Mid is the mark; bid is what a long exit actually receives. When only
+    a last trade exists, both fall back to it."""
     import yfinance as yf
 
     try:
@@ -98,7 +102,7 @@ def fetch_contract_quotes(underlying: str, expiry: date, right: RightType, symbo
         return {}
     frame = chain.calls if right == "call" else chain.puts
 
-    quotes: dict[str, float] = {}
+    quotes: dict[str, tuple[float, float]] = {}
     for row in frame.itertuples():
         symbol = str(getattr(row, "contractSymbol", ""))
         if symbol not in symbols:
@@ -106,9 +110,10 @@ def fetch_contract_quotes(underlying: str, expiry: date, right: RightType, symbo
         bid = _f(getattr(row, "bid", 0))
         ask = _f(getattr(row, "ask", 0))
         last = _f(getattr(row, "lastPrice", 0))
-        mid = (bid + ask) / 2 if bid > 0 and ask > 0 else last
-        if mid > 0:
-            quotes[symbol] = mid
+        if bid > 0 and ask > 0:
+            quotes[symbol] = ((bid + ask) / 2, bid)
+        elif last > 0:
+            quotes[symbol] = (last, last)
     return quotes
 
 
