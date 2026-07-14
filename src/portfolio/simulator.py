@@ -412,11 +412,17 @@ class Portfolio:
             effective_stop = max(position.stop_loss, position.trailing_stop or 0)
 
             if price <= effective_stop:
-                closed = self.close_trade(position.trade_id, price, "stop_loss")
+                # Stop = market order: fills at the stop, worse on a gap-down but
+                # bounded so one bad tick can't book an unbounded loss.
+                gap = max(0.0, effective_stop - price)
+                capped_gap = min(gap, effective_stop * settings.max_gap_slippage_pct)
+                fill = effective_stop - capped_gap
+                closed = self.close_trade(position.trade_id, fill, "stop_loss")
                 if closed:
                     closed_this_update.append(closed)
             elif price >= position.target:
-                closed = self.close_trade(position.trade_id, price, "take_profit")
+                # Take-profit = limit order: fills at the target, never the gap-up bonus.
+                closed = self.close_trade(position.trade_id, position.target, "take_profit")
                 if closed:
                     closed_this_update.append(closed)
 

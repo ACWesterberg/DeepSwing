@@ -260,6 +260,39 @@ class TestEntryInputsLifecycle:
 
 
 # ---------------------------------------------------------------------------
+# Exit fill model — stops/targets fill at the level, not the raw gapped price
+# ---------------------------------------------------------------------------
+
+class TestExitFillModel:
+    def test_take_profit_caps_at_target_not_gap(self):
+        # entry 100, target 115; a gap to 200 must still fill at ~target, not +100%.
+        portfolio = get_portfolio("claude")
+        _open_position(portfolio)
+        closed = portfolio.update_prices({"AAPL": 200.0})[0]
+        assert closed.exit_reason == "take_profit"
+        assert closed.exit_price <= 115.0
+        assert closed.pnl_pct == pytest.approx(0.149, abs=0.01)
+
+    def test_stop_loss_gap_is_bounded(self):
+        # entry 100, stop 95; a crash to 50 must not book a ~-50% loss.
+        portfolio = get_portfolio("claude")
+        _open_position(portfolio)
+        closed = portfolio.update_prices({"AAPL": 50.0})[0]
+        assert closed.exit_reason == "stop_loss"
+        floor = 95.0 * (1 - settings.max_gap_slippage_pct) * (1 - settings.simulated_slippage)
+        assert closed.exit_price >= floor
+        assert closed.pnl_pct > -0.10
+
+    def test_stop_loss_without_gap_fills_at_stop(self):
+        # Price lands exactly on the stop → no gap slippage, fill ≈ stop.
+        portfolio = get_portfolio("claude")
+        _open_position(portfolio)
+        closed = portfolio.update_prices({"AAPL": 95.0})[0]
+        assert closed.exit_reason == "stop_loss"
+        assert closed.exit_price == pytest.approx(95.0 * (1 - settings.simulated_slippage))
+
+
+# ---------------------------------------------------------------------------
 # ERL filter logic (low quality / unparseable)
 # ---------------------------------------------------------------------------
 

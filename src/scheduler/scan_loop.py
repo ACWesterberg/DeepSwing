@@ -39,30 +39,53 @@ except ImportError:
     _HAS_FX = False
 
 
-# financedata returns prices in each stock's native currency — currency mapping
-# (exchange → currency) is the calling project's responsibility, not financedata's.
-_NORDIC_SUFFIX_CURRENCY: dict[str, str] = {
-    ".ST": "SEK",
-    ".OL": "NOK",
-    ".HE": "EUR",
-    ".CO": "DKK",
+# financedata returns prices in each stock's native currency — the exchange →
+# currency mapping is the calling project's responsibility. The universe is now
+# global, so we resolve currency from the Yahoo Finance ticker suffix (which
+# encodes the listing venue) rather than the coarse nordic/us market bucket. The
+# exchange column in the CSV can be mislabeled (e.g. CCOLA.IS tagged NYSE), so the
+# suffix is the trustworthy signal; US tickers carry no suffix.
+_SUFFIX_CURRENCY: dict[str, str] = {
+    ".ST": "SEK",  # Stockholm
+    ".OL": "NOK",  # Oslo
+    ".CO": "DKK",  # Copenhagen
+    ".IC": "ISK",  # Reykjavik
+    ".HE": "EUR",  # Helsinki
+    ".PA": "EUR",  # Paris
+    ".AS": "EUR",  # Amsterdam
+    ".BR": "EUR",  # Brussels
+    ".LS": "EUR",  # Lisbon
+    ".MC": "EUR",  # Madrid
+    ".MI": "EUR",  # Milan
+    ".DE": "EUR",  # Xetra
+    ".F": "EUR",   # Frankfurt
+    ".VI": "EUR",  # Vienna
+    ".IR": "EUR",  # Dublin
+    ".L": "GBP",   # London — quoted in pence (GBX); see _to_sek_price
+    ".SW": "CHF",  # SIX Swiss
+    ".TO": "CAD",  # Toronto
+    ".V": "CAD",   # TSX Venture
+    ".IS": "TRY",  # Istanbul
 }
+
+# Yahoo quotes London (.L) listings in pence (GBX), not pounds — scale before FX.
+_PENCE_SUFFIXES: frozenset[str] = frozenset({".L"})
 
 
 def _currency_for_ticker(ticker: str, market: str) -> str:
-    """Resolve the native currency a ticker's price is quoted in."""
-    if market != "nordic":
-        return "USD"
-    for suffix, currency in _NORDIC_SUFFIX_CURRENCY.items():
+    """Resolve the native currency a ticker's price is quoted in, from its suffix."""
+    for suffix, currency in _SUFFIX_CURRENCY.items():
         if ticker.endswith(suffix):
             return currency
-    # Legacy .STO suffix or unrecognized Nordic ticker — assume Swedish (SEK)
-    return "SEK"
+    # No recognized suffix: US-listed (USD), or a legacy .STO Nordic line (SEK).
+    return "SEK" if market == "nordic" else "USD"
 
 
 def _to_sek_price(price: float, ticker: str, market: str) -> float:
     """Convert a ticker's native-currency price to SEK."""
     currency = _currency_for_ticker(ticker, market)
+    if any(ticker.endswith(s) for s in _PENCE_SUFFIXES):
+        price = price / 100.0  # pence → pounds
     if currency == "SEK" or not _HAS_FX:
         return price
     sek = _to_sek_fn(price, currency)

@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.data.universe import get_nordic_tickers, get_sector_from_universe
+from src.data.universe import get_nordic_tickers, get_sector_from_universe, get_us_tickers
 from src.data.watchlist import get_omxs30_tickers
 
 
@@ -68,6 +68,25 @@ class TestGetNordicTickersFromUniverse:
         with patch("src.data.universe.UNIVERSE_PATH", tmp_path / "universe.csv"):
             result = get_nordic_tickers()
         assert result == []
+
+
+class TestGetUsTickersFromUniverse:
+    """get_us_tickers() must not pull foreign lines mislabeled as NYSE/NASDAQ."""
+
+    def test_excludes_dot_suffixed_foreign_lines(self, tmp_path):
+        from src.data.universe import _load_global_rows
+        _load_global_rows.cache_clear()
+        _write_universe(tmp_path / "universe_global.csv", [
+            {"yahoo_ticker": "AAPL", "exchange": "NASDAQ", "enabled": "true"},
+            {"yahoo_ticker": "GT", "exchange": "NYSE", "enabled": "true"},
+            {"yahoo_ticker": "CCOLA.IS", "exchange": "NYSE", "enabled": "true"},
+        ])
+        with patch("src.data.universe.UNIVERSE_GLOBAL_PATH", tmp_path / "universe_global.csv"):
+            result = get_us_tickers()
+        _load_global_rows.cache_clear()
+        assert "AAPL" in result
+        assert "GT" in result
+        assert "CCOLA.IS" not in result
 
 
 class TestGetSectorFromUniverse:

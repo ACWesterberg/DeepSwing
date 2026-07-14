@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     max_positions_per_sector: int = 2
     vix_halt_threshold: float = 35.0   # halt new entries when VIX >= this
     simulated_slippage: float = 0.0005     # 0.05% bid/ask spread approximation
+    max_gap_slippage_pct: float = 0.02     # cap on extra fill slippage when price gaps through a stop
     # Montrose Premium: 0.10% courtage each way; 0.10% FX fee for non-SEK trades
     commission_pct: float = 0.001          # 0.10% per trade leg (buy + sell)
     fx_commission_pct: float = 0.001       # 0.10% extra on USD/EUR legs (US market)

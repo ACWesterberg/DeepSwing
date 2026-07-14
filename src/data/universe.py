@@ -45,12 +45,17 @@ def get_nordic_tickers(exchanges: frozenset[str] = NORDIC_MAIN_BOARDS) -> list[s
 
 
 def get_us_tickers() -> list[str]:
-    """Enabled US tickers (NYSE + NASDAQ) from universe_global.csv."""
+    """Enabled US tickers (NYSE + NASDAQ) from universe_global.csv.
+
+    A dot suffix means a foreign Yahoo listing (e.g. CCOLA.IS mislabeled NYSE) —
+    exclude those so they aren't priced in USD by the US scan.
+    """
     return [
         r["yahoo_ticker"]
         for r in _load_global_rows()
         if r["enabled"].strip().lower() == "true"
         and r["exchange"] in US_EXCHANGES
+        and "." not in r["yahoo_ticker"]
     ]
 
 

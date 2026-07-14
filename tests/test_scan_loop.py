@@ -283,6 +283,24 @@ class TestCurrencyForTicker:
         from src.scheduler.scan_loop import _currency_for_ticker
         assert _currency_for_ticker("ERIC-B.STO", "nordic") == "SEK"
 
+    def test_paris_suffix_is_eur(self):
+        from src.scheduler.scan_loop import _currency_for_ticker
+        assert _currency_for_ticker("GAM.PA", "us") == "EUR"
+
+    def test_london_suffix_is_gbp(self):
+        from src.scheduler.scan_loop import _currency_for_ticker
+        assert _currency_for_ticker("0RQ6.L", "us") == "GBP"
+
+    def test_istanbul_suffix_is_try(self):
+        # Mislabeled as a US ticker upstream, but the suffix wins.
+        from src.scheduler.scan_loop import _currency_for_ticker
+        assert _currency_for_ticker("CCOLA.IS", "us") == "TRY"
+
+    def test_swiss_and_canadian_suffixes(self):
+        from src.scheduler.scan_loop import _currency_for_ticker
+        assert _currency_for_ticker("NESN.SW", "us") == "CHF"
+        assert _currency_for_ticker("SHOP.TO", "us") == "CAD"
+
 
 class TestToSekPrice:
     def teardown_method(self):
@@ -328,6 +346,19 @@ class TestToSekPrice:
         sl._HAS_FX = True
         sl._to_sek_fn = lambda price, currency: price * 1.5 if currency == "DKK" else None
         assert sl._to_sek_price(100.0, "NOVO-B.CO", "nordic") == pytest.approx(150.0)
+
+    def test_paris_price_converted_via_eur(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_FX = True
+        sl._to_sek_fn = lambda price, currency: price * 11.0 if currency == "EUR" else None
+        assert sl._to_sek_price(50.0, "GAM.PA", "us") == pytest.approx(550.0)
+
+    def test_london_price_scaled_from_pence_before_fx(self):
+        # 800 pence = £8; at 13 SEK/£ that's 104 SEK, not 10400.
+        import src.scheduler.scan_loop as sl
+        sl._HAS_FX = True
+        sl._to_sek_fn = lambda price, currency: price * 13.0 if currency == "GBP" else None
+        assert sl._to_sek_price(800.0, "0RQ6.L", "us") == pytest.approx(104.0)
 
 
 class TestGetCurrentPrices:
