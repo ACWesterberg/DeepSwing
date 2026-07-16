@@ -10,13 +10,38 @@ document.querySelectorAll(".tab").forEach(btn => {
   });
 });
 
-// WebSocket — use wss:// on HTTPS (required behind Cloudflare)
+// WebSocket — use wss:// on HTTPS (required behind Cloudflare). Cloudflare drops
+// idle WS connections (~100s without traffic), so ping every 30s and reconnect on
+// close — scan toasts complete over this socket, so it must outlive a long scan.
 const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
-const ws = new WebSocket(`${wsProto}//${location.host}/ws`);
-ws.onmessage = (e) => {
+let ws = null;
+
+function _connectWs() {
+  ws = new WebSocket(`${wsProto}//${location.host}/ws`);
+  ws.onmessage = _onWsMessage;
+  ws.onclose = () => setTimeout(_connectWs, 5000);
+}
+
+setInterval(() => {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send("ping");
+}, 30000);
+
+const _onWsMessage = (e) => {
   const msg = JSON.parse(e.data);
   if (msg.event === "scan_complete" || msg.event === "simulation_reset") refreshAll();
+  if (msg.event === "scan_complete" && msg.data?.market) {
+    const d = msg.data;
+    const suffix = d.busy ? " — another scan was already running"
+      : d.vix_halt ? " — VIX halt, no entries"
+      : ` — ${d.candidates?.length ?? 0} candidate(s), ${d.decisions?.length ?? 0} decision(s)`;
+    _finishScan(d.market, `${d.market.toUpperCase()} scan done${suffix}`, false);
+  }
+  if (msg.event === "scan_error" && msg.data?.market) {
+    _finishScan(msg.data.market, `${msg.data.market.toUpperCase()} scan failed — ${msg.data.error || "check server logs"}`, true);
+  }
 };
+
+_connectWs();
 
 // Comparison Chart — guard against CDN failure so data tables still load
 let compChart = null;
@@ -325,22 +350,39 @@ function _completeScanToast(tick, resultText, isError) {
   setTimeout(() => toast.classList.add("hidden"), 3500);
 }
 
+// A scan runs for minutes — far past the Cloudflare tunnel's ~100s request cap —
+// so the POST only starts it; the result arrives as a scan_complete/scan_error
+// WebSocket event, matched to the spinning toast via this pending map.
+const _pendingScans = {};
+const _SCAN_WATCHDOG_MS = 60 * 60 * 1000;  // full-universe scans have taken 34+ min on the Pi
+
+function _finishScan(market, resultText, isError) {
+  const pending = _pendingScans[market];
+  if (!pending) return;
+  delete _pendingScans[market];
+  clearTimeout(pending.watchdog);
+  _completeScanToast(pending.tick, resultText, isError);
+  pending.btn.disabled = false;
+}
+
 async function runScan(market) {
+  if (_pendingScans[market]) return;
   const btn = document.getElementById(`scan-${market}-btn`);
   btn.disabled = true;
   const { tick } = _showScanToast(market);
+  const watchdog = setTimeout(
+    () => _finishScan(market, `${market.toUpperCase()} scan gave no result after 60 min — check server logs`, true),
+    _SCAN_WATCHDOG_MS,
+  );
+  _pendingScans[market] = { tick, btn, watchdog };
   try {
     const r    = await fetch(`/api/scan/${market}`, { method: "POST" });
     const data = await r.json();
-    const candidates = data.candidates?.length ?? 0;
-    const decisions  = data.decisions?.length ?? 0;
-    const suffix = data.vix_halt ? " — VIX halt, no entries" : ` — ${candidates} candidate(s), ${decisions} decision(s)`;
-    _completeScanToast(tick, `${market.toUpperCase()} scan done${suffix}`, false);
-    refreshAll();
+    if (!data.started) {
+      _finishScan(market, `${market.toUpperCase()} scan rejected — ${data.error || "unknown error"}`, true);
+    }
   } catch (e) {
-    _completeScanToast(tick, `${market.toUpperCase()} scan failed — check server logs`, true);
-  } finally {
-    btn.disabled = false;
+    _finishScan(market, `${market.toUpperCase()} scan failed to start — server unreachable`, true);
   }
 }
 
