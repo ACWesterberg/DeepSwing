@@ -102,6 +102,9 @@ app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 # Active WebSocket connections
 _ws_clients: list[WebSocket] = []
 
+# Strong refs to in-flight manual-scan tasks — asyncio only holds weak ones
+_scan_tasks: set[asyncio.Task] = set()
+
 
 @app.on_event("startup")
 async def _register_trade_event_handler() -> None:
@@ -471,18 +474,30 @@ async def erl_backfill(body: _BackfillRequest):
 
 @app.post("/api/scan/{market}")
 async def trigger_scan(market: str):
-    """Manually trigger a scan. run_scan is a long blocking call, so it runs in a
-    worker thread — otherwise it would freeze the whole event loop (every page and
-    API refresh) for the duration of the scan."""
+    """Manually trigger a scan. A scan runs for minutes (full-universe screen +
+    chain/news fetches + LLM decisions), far past the Cloudflare tunnel's ~100s
+    request limit — so the POST returns immediately and the result arrives over
+    the WebSocket as scan_complete (or scan_error), which the dashboard toast
+    listens for. The scan still runs in a worker thread, never on the event loop."""
     if market not in SCAN_MARKETS and market != "options":
         return {"error": f"market must be one of {SCAN_MARKETS} or 'options'"}
     loop = asyncio.get_event_loop()
-    if market == "options":
-        result = await loop.run_in_executor(None, run_options_scan)
-    else:
-        result = await loop.run_in_executor(None, run_scan, market)
-    await _broadcast({"event": "scan_complete", "data": result})
-    return result
+
+    async def _run_and_broadcast() -> None:
+        try:
+            if market == "options":
+                result = await loop.run_in_executor(None, run_options_scan)
+            else:
+                result = await loop.run_in_executor(None, run_scan, market)
+            await _broadcast({"event": "scan_complete", "data": result})
+        except Exception as exc:
+            logger.error("Manual %s scan failed: %s", market, exc, exc_info=True)
+            await _broadcast({"event": "scan_error", "data": {"market": market, "error": str(exc)}})
+
+    task = asyncio.ensure_future(_run_and_broadcast())
+    _scan_tasks.add(task)
+    task.add_done_callback(_scan_tasks.discard)
+    return {"market": market, "started": True}
 
 
 @app.get("/api/debug/screener/{market}")
