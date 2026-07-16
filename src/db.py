@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     Column,
     DateTime,
     Float,
@@ -87,6 +88,63 @@ class Decision(Base):
             "regime": self.regime,
             "reasoning": self.reasoning,
             "reason": self.block_reason,
+        }
+
+
+class WatchedTicker(Base):
+    """A stock the user monitors from the dashboard Watchlist tab. Carries the
+    dedupe state the watch monitor needs so restarts never re-ping old events."""
+    __tablename__ = "watched_tickers"
+
+    ticker = Column(String(20), primary_key=True)
+    market = Column(String(10), nullable=False)   # "nordic" | "eu" | "us"
+    added = Column(DateTime, default=datetime.utcnow)
+    # First pass after add records current news/insider state without alerting —
+    # otherwise adding a ticker pings with days-old events the user already knows.
+    baselined = Column(Boolean, default=False)
+    # Display snapshot, refreshed by the monitor so GET /api/watchlist stays cheap
+    last_price = Column(Float)
+    last_move_pct = Column(Float)
+    last_checked = Column(DateTime)
+    # Dedupe state
+    last_alert_day = Column(String(10))    # ISO date of the last move alert
+    last_alert_move_pct = Column(Float)    # signed day-move at that alert
+    seen_news_hashes = Column(JSON, default=list)
+    insider_hash = Column(String(64))
+
+    def to_dict(self) -> dict:
+        return {
+            "ticker": self.ticker,
+            "market": self.market,
+            "added": self.added.isoformat() if self.added else None,
+            "last_price": self.last_price,
+            "last_move_pct": self.last_move_pct,
+            "last_checked": self.last_checked.isoformat() if self.last_checked else None,
+        }
+
+
+class WatchAlert(Base):
+    """Audit trail of watchlist pings — shown as the alerts feed on the dashboard."""
+    __tablename__ = "watch_alerts"
+
+    id = Column(Integer, primary_key=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    ticker = Column(String(20), nullable=False)
+    kind = Column(String(10), nullable=False)     # move | news | insider
+    verdict = Column(String(10), nullable=False)  # bullish | bearish
+    message = Column(Text)
+    delivered = Column(Boolean, default=False)    # False = Telegram unset/failed
+
+    __table_args__ = (Index("ix_watch_alerts_time", "timestamp"),)
+
+    def to_dict(self) -> dict:
+        return {
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "ticker": self.ticker,
+            "kind": self.kind,
+            "verdict": self.verdict,
+            "message": self.message,
+            "delivered": self.delivered,
         }
 
 

@@ -6,6 +6,7 @@ document.querySelectorAll(".tab").forEach(btn => {
     btn.classList.add("active");
     document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
     if (btn.dataset.tab === "decisions") refreshHistory();
+    if (btn.dataset.tab === "watchlist") refreshWatchlist();
     if (btn.dataset.tab === "prompts") refreshPrompts();
   });
 });
@@ -208,6 +209,103 @@ async function refreshHistory() {
     ? rows.map(d => decisionCard(d, true)).join("")
     : "<p class='neutral'>No decisions recorded yet for this filter.</p>";
 }
+
+// --- Personal watchlist tab ---
+const WATCH_VERDICT_CLASS = { bullish: "act-buy", bearish: "act-sell" };
+const WATCH_KIND_ICON = { move: "📈", news: "📰", insider: "👤" };
+
+async function refreshWatchlist() {
+  const [data, alertData] = await Promise.all([
+    fetchJSON("/api/watchlist"),
+    fetchJSON("/api/watchlist/alerts?limit=50"),
+  ]);
+
+  const hint = document.getElementById("watch-telegram-hint");
+  if (hint) hint.style.display = data?.telegram_configured === false ? "block" : "none";
+
+  const tbody = document.getElementById("watch-tbody");
+  if (tbody) {
+    const rows = data?.watched || [];
+    document.getElementById("watch-meta").textContent = rows.length ? `— ${rows.length} ticker(s)` : "";
+    tbody.innerHTML = rows.length ? rows.map(w => {
+      const move = (w.last_move_pct !== null && w.last_move_pct !== undefined)
+        ? `<span class="${w.last_move_pct >= 0 ? "pos" : "neg"}">${(w.last_move_pct * 100).toFixed(1)}%</span>` : "—";
+      const checked = w.last_checked ? new Date(w.last_checked + "Z").toLocaleTimeString() : "pending";
+      return `<tr>
+        <td><strong>${w.ticker}</strong></td>
+        <td>${w.market.toUpperCase()}</td>
+        <td>${w.last_price != null ? w.last_price.toFixed(2) : "—"}</td>
+        <td>${move}</td>
+        <td>${checked}</td>
+        <td><button class="filter-btn" onclick="removeWatch('${w.ticker}')">Remove</button></td>
+      </tr>`;
+    }).join("") : "<tr><td colspan='6' class='neutral'>No stocks watched yet — add one above.</td></tr>";
+  }
+
+  const feed = document.getElementById("watch-alerts");
+  if (feed) {
+    const alerts = alertData?.alerts || [];
+    feed.innerHTML = alerts.length ? alerts.map(a => {
+      const cls = WATCH_VERDICT_CLASS[a.verdict] || "act-pass";
+      const icon = WATCH_KIND_ICON[a.kind] || "";
+      const sent = a.delivered ? "" : " <span class='neutral'>(not sent — Telegram unset)</span>";
+      return `<div class="decision-card">
+        <div class="decision-head">
+          <strong>${icon} ${a.ticker}</strong>
+          <span class="action-pill ${cls}">${a.verdict.toUpperCase()}</span>
+          <span class="decision-meta">${a.kind}${sent}</span>
+          <span class="decision-time">${new Date(a.timestamp + "Z").toLocaleString()}</span>
+        </div>
+        <div class="decision-reason">${a.message.replace(/\n/g, "<br>")}</div>
+      </div>`;
+    }).join("") : "<p class='neutral'>No alerts yet. You'll be pinged on large moves, directional news, and insider activity — neutral news stays silent.</p>";
+  }
+}
+
+async function addWatch() {
+  const input = document.getElementById("watch-ticker");
+  const ticker = input.value.trim();
+  if (!ticker) return;
+  const market = document.getElementById("watch-market").value;
+  const btn = document.getElementById("watch-add");
+  btn.disabled = true;
+  try {
+    const r = await fetch("/api/watchlist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker, market }),
+    });
+    const data = await r.json();
+    if (data.error) { alert(data.error); return; }
+    input.value = "";
+    refreshWatchlist();
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function removeWatch(ticker) {
+  await fetch(`/api/watchlist/${encodeURIComponent(ticker)}`, { method: "DELETE" });
+  refreshWatchlist();
+}
+
+async function testTelegram() {
+  const btn = document.getElementById("watch-test");
+  btn.disabled = true;
+  try {
+    const r = await fetch("/api/watchlist/test", { method: "POST" });
+    const data = await r.json();
+    alert(data.sent ? "Test message sent — check Telegram." : (data.error || "Send failed — check server logs."));
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById("watch-add")?.addEventListener("click", addWatch);
+document.getElementById("watch-test")?.addEventListener("click", testTelegram);
+document.getElementById("watch-ticker")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") addWatch();
+});
 
 async function refreshTrack(track) {
   const [pData, tData] = await Promise.all([

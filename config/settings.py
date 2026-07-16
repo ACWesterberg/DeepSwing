@@ -205,6 +205,21 @@ class Settings(BaseSettings):
     # surfaces immediately in the logs instead of at the next scan/ERL/MIPRO run.
     preflight_check_models: bool = True
 
+    # Personal watchlist alerts — dashboard Watchlist tab pings Telegram on large
+    # day moves, fresh directional news, and insider activity for tickers the user
+    # watches. Alerts no-op (logged only) until both Telegram keys are set.
+    telegram_bot_token: str = ""            # from @BotFather
+    telegram_chat_id: str = ""              # target chat/user id
+    watch_interval_minutes: int = 15
+    watch_move_alert_pct: float = 0.03      # day move vs previous close that pings
+    # Re-ping only when the move extends this much beyond the last alerted level,
+    # so a runaway mover pings again but a stalled one stays quiet.
+    watch_move_realert_step_pct: float = 0.02
+    watch_insider_buys_only: bool = False   # True = skip bearish insider alerts (sells)
+    watch_classifier_model: str = "gpt-5-mini"  # bullish/bearish/neutral verdicts
+    watch_news_max_age_hours: int = 24      # ignore articles older than this
+    watch_alerts_retention: int = 500       # keep the newest N alert rows
+
     # Watchlists (configurable)
     # Emergency fallback only — universe.csv is the live source for Nordic tickers.
     # These are OMXS30 constituents in Yahoo Finance format (.ST not .STO).

@@ -37,6 +37,7 @@
     <button class="tab" data-tab="claude-opt">Claude Options</button>
     <button class="tab" data-tab="gpt-opt">GPT Options</button>
     <button class="tab" data-tab="decisions">Decisions</button>
+    <button class="tab" data-tab="watchlist">Watchlist</button>
     <button class="tab" data-tab="heuristics-claude">Heuristics (Claude)</button>
     <button class="tab" data-tab="heuristics-gpt">Heuristics (GPT)</button>
     <button class="tab" data-tab="prompts">Prompts</button>
@@ -208,6 +209,39 @@
         <button id="hist-apply" class="filter-btn">Apply</button>
       </div>
       <div id="history-list"></div>
+    </div>
+  </div>
+
+  <!-- Personal watchlist tab -->
+  <div id="tab-watchlist" class="tab-content">
+    <div class="panel">
+      <h2>Watched Stocks <span id="watch-meta" class="panel-meta"></span></h2>
+      <p id="watch-telegram-hint" class="neutral" style="display:none">
+        Telegram is not configured — alerts are logged on the server but not sent.
+        Set <code>TELEGRAM_BOT_TOKEN</code> and <code>TELEGRAM_CHAT_ID</code> in <code>.env</code> and restart.
+      </p>
+      <div class="filter-bar">
+        <input id="watch-ticker" type="text" placeholder="Ticker (e.g. AAPL or VOLV-B.ST)" />
+        <select id="watch-market">
+          <option value="us">US</option>
+          <option value="nordic">Nordic</option>
+          <option value="eu">EU</option>
+        </select>
+        <button id="watch-add" class="filter-btn">Add</button>
+        <button id="watch-test" class="filter-btn" title="Send a test Telegram message">Test Telegram</button>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Ticker</th><th>Market</th><th>Last Price</th><th>Day Move</th><th>Last Checked</th><th></th></tr>
+          </thead>
+          <tbody id="watch-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Recent Alerts</h2>
+      <div id="watch-alerts"></div>
     </div>
   </div>
 

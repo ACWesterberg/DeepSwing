@@ -42,6 +42,17 @@ def scheduled_options_scan():
         logger.error("Options scan error: %s", exc, exc_info=True)
 
 
+def scheduled_watch_monitor():
+    """Personal watchlist: move/news/insider alerts to Telegram. News and insider
+    checks run around the clock (cached fetches keep it cheap); the move check
+    gates itself on market hours inside the monitor."""
+    from src.scheduler.watch_monitor import run_watch_monitor
+    try:
+        run_watch_monitor()
+    except Exception as exc:
+        logger.error("Watch monitor error: %s", exc, exc_info=True)
+
+
 def scheduled_expiry_sweep():
     """Daily post-US-close settlement of expired option contracts."""
     if not settings.options_tracks:
@@ -113,6 +124,17 @@ def start_scheduler() -> BackgroundScheduler:
             id="options_expiry_sweep",
             max_instances=1,
         )
+
+    # Personal watchlist monitor — light (one quote + cached news per ticker),
+    # so it never takes the scan lock and can't be starved by a long scan
+    scheduler.add_job(
+        scheduled_watch_monitor,
+        "interval",
+        minutes=settings.watch_interval_minutes,
+        id="watch_monitor",
+        max_instances=1,
+        coalesce=True,
+    )
 
     # Weekly Sunday at 02:00 CET — MIPRO + heuristic maintenance
     scheduler.add_job(

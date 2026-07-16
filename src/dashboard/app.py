@@ -472,6 +472,101 @@ async def erl_backfill(body: _BackfillRequest):
     return {"backfilled": True, "result": result}
 
 
+class _WatchAddRequest(BaseModel):
+    ticker: str
+    market: str
+
+
+@app.get("/api/watchlist")
+async def watchlist():
+    from src.db import WatchedTicker, get_session
+    from src.notify.telegram import telegram_configured
+
+    session = get_session()
+    try:
+        rows = [w.to_dict() for w in session.query(WatchedTicker).order_by(WatchedTicker.added).all()]
+    finally:
+        session.close()
+    return {"watched": rows, "telegram_configured": telegram_configured()}
+
+
+@app.post("/api/watchlist")
+async def watchlist_add(body: _WatchAddRequest):
+    from src.data.market_data import get_current_price
+    from src.db import WatchedTicker, get_session
+
+    ticker = body.ticker.strip().upper()
+    market = body.market.strip().lower()
+    if not ticker:
+        return {"error": "ticker is required"}
+    if market not in SCAN_MARKETS:
+        return {"error": f"market must be one of {SCAN_MARKETS}"}
+
+    loop = asyncio.get_event_loop()
+    price = await loop.run_in_executor(None, get_current_price, ticker, market)
+    if price is None:
+        return {"error": f"No quote found for {ticker} ({market}) — check the symbol (Nordic/EU need the Yahoo suffix, e.g. VOLV-B.ST)"}
+
+    session = get_session()
+    try:
+        if session.get(WatchedTicker, ticker):
+            return {"error": f"{ticker} is already on the watchlist"}
+        row = WatchedTicker(ticker=ticker, market=market, last_price=float(price))
+        session.add(row)
+        session.commit()
+        result = row.to_dict()
+    finally:
+        session.close()
+    return {"added": result}
+
+
+@app.delete("/api/watchlist/{ticker}")
+async def watchlist_remove(ticker: str):
+    from src.db import WatchedTicker, get_session
+
+    session = get_session()
+    try:
+        row = session.get(WatchedTicker, ticker.strip().upper())
+        if not row:
+            return {"error": f"{ticker} is not on the watchlist"}
+        session.delete(row)
+        session.commit()
+    finally:
+        session.close()
+    return {"removed": ticker.strip().upper()}
+
+
+@app.get("/api/watchlist/alerts")
+async def watchlist_alerts(limit: int = 50):
+    from src.db import WatchAlert, get_session
+
+    session = get_session()
+    try:
+        rows = (
+            session.query(WatchAlert)
+            .order_by(WatchAlert.id.desc())
+            .limit(max(1, min(limit, 200)))
+            .all()
+        )
+        return {"alerts": [r.to_dict() for r in rows]}
+    finally:
+        session.close()
+
+
+@app.post("/api/watchlist/test")
+async def watchlist_test_alert():
+    """Send a test Telegram message so the user can verify their bot setup."""
+    from src.notify.telegram import send_telegram, telegram_configured
+
+    if not telegram_configured():
+        return {"sent": False, "error": "TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not set in .env"}
+    loop = asyncio.get_event_loop()
+    sent = await loop.run_in_executor(
+        None, send_telegram, "✅ DeepSwing watchlist alerts are working."
+    )
+    return {"sent": sent, **({} if sent else {"error": "Telegram API rejected the message — check the token and chat id in the server logs"})}
+
+
 @app.post("/api/scan/{market}")
 async def trigger_scan(market: str):
     """Manually trigger a scan. A scan runs for minutes (full-universe screen +
