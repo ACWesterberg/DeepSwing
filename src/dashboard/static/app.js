@@ -354,7 +354,7 @@ function _completeScanToast(tick, resultText, isError) {
 // so the POST only starts it; the result arrives as a scan_complete/scan_error
 // WebSocket event, matched to the spinning toast via this pending map.
 const _pendingScans = {};
-const _SCAN_WATCHDOG_MS = 20 * 60 * 1000;
+const _SCAN_WATCHDOG_MS = 60 * 60 * 1000;  // full-universe scans have taken 34+ min on the Pi
 
 function _finishScan(market, resultText, isError) {
   const pending = _pendingScans[market];
@@ -371,7 +371,7 @@ async function runScan(market) {
   btn.disabled = true;
   const { tick } = _showScanToast(market);
   const watchdog = setTimeout(
-    () => _finishScan(market, `${market.toUpperCase()} scan gave no result after 20 min — check server logs`, true),
+    () => _finishScan(market, `${market.toUpperCase()} scan gave no result after 60 min — check server logs`, true),
     _SCAN_WATCHDOG_MS,
   );
   _pendingScans[market] = { tick, btn, watchdog };
