@@ -43,6 +43,11 @@ class OptionPosition:
     technical_snapshot: str = ""
     sector: str = ""
     entry_inputs: dict = field(default_factory=dict)
+    # Fingerprint of the compiled program that decided this entry. Empty
+    # for the uncompiled baseline and for trades predating fingerprinting;
+    # grouping closed trades by it is the only way to ask whether a MIPRO
+    # compile actually improved anything.
+    program_hash: str = ""
     entry_commission: float = 0.0  # SEK paid at open; folded into net P&L at close
 
     @property
@@ -110,6 +115,7 @@ class OptionPosition:
             "technical_snapshot": self.technical_snapshot,
             "sector": self.sector,
             "entry_inputs": self.entry_inputs,
+            "program_hash": self.program_hash,
             "entry_commission": self.entry_commission,
         }
 
@@ -139,6 +145,7 @@ class OptionPosition:
             technical_snapshot=d.get("technical_snapshot", ""),
             sector=d.get("sector", ""),
             entry_inputs=d.get("entry_inputs") or {},
+            program_hash=d.get("program_hash") or "",
             entry_commission=d.get("entry_commission", 0.0),
         )
 
@@ -165,6 +172,11 @@ class ClosedOptionTrade:
     market: str = "us"
     technical_snapshot: str = ""
     entry_inputs: dict = field(default_factory=dict)
+    # Fingerprint of the compiled program that decided this entry. Empty
+    # for the uncompiled baseline and for trades predating fingerprinting;
+    # grouping closed trades by it is the only way to ask whether a MIPRO
+    # compile actually improved anything.
+    program_hash: str = ""
     iv_at_entry: float = 0.0
     iv_at_exit: float = 0.0
     entry_underlying_price: float = 0.0
@@ -238,6 +250,7 @@ class ClosedOptionTrade:
             "market": self.market,
             "technical_snapshot": self.technical_snapshot,
             "entry_inputs": self.entry_inputs,
+            "program_hash": self.program_hash,
             "iv_at_entry": self.iv_at_entry,
             "iv_at_exit": self.iv_at_exit,
             "entry_underlying_price": self.entry_underlying_price,
@@ -268,6 +281,7 @@ class ClosedOptionTrade:
             market=d.get("market", "us"),
             technical_snapshot=d.get("technical_snapshot", ""),
             entry_inputs=d.get("entry_inputs") or {},
+            program_hash=d.get("program_hash") or "",
             iv_at_entry=d.get("iv_at_entry", 0.0),
             iv_at_exit=d.get("iv_at_exit", 0.0),
             entry_underlying_price=d.get("entry_underlying_price", 0.0),
@@ -329,6 +343,7 @@ class OptionsPortfolio:
         technical_snapshot: str = "",
         sector: str = "",
         entry_inputs: Optional[dict] = None,
+        program_hash: str = "",
     ) -> Optional[OptionPosition]:
         cost = entry_premium * CONTRACT_MULTIPLIER * contracts
         commission = settings.options_commission_per_contract_sek * contracts
@@ -364,6 +379,7 @@ class OptionsPortfolio:
             technical_snapshot=technical_snapshot,
             sector=sector,
             entry_inputs=entry_inputs or {},
+            program_hash=program_hash,
             entry_commission=commission,
         )
         self.open_positions.append(position)
@@ -417,6 +433,7 @@ class OptionsPortfolio:
             market=position.market,
             technical_snapshot=position.technical_snapshot,
             entry_inputs=position.entry_inputs,
+            program_hash=position.program_hash,
             iv_at_entry=position.iv_at_entry,
             iv_at_exit=iv_at_exit,
             entry_underlying_price=position.entry_underlying_price,

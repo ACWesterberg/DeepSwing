@@ -217,6 +217,7 @@ def _run_options_scan() -> dict:
                 delta_at_entry=contract.delta,
                 technical_snapshot=tech_snapshot,
                 entry_inputs=decision.get("entry_inputs", {}),
+                program_hash=decision.get("program_hash") or "",
             )
             if position:
                 trade_event = {

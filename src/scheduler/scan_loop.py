@@ -488,6 +488,7 @@ def _run_scan(market: MarketType) -> dict:
                     **decision.get("entry_inputs", {}),
                     "heuristic_ids": [h["id"] for h in heuristics_list],
                 },
+                program_hash=decision.get("program_hash") or "",
                 trail_distance=trail_distance,
                 entry_fx_rate=fx_rate,
             )

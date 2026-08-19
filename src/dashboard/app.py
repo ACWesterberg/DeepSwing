@@ -280,6 +280,20 @@ async def kiosk():
     }
 
 
+@app.get("/api/programs/{track}")
+async def programs(track: str):
+    """Closed-trade stats grouped by the compiled program that made the entries.
+
+    Whether a MIPRO compile helped. "baseline" is the uncompiled arm. Programs
+    run sequentially, not side by side, so read a gap as a prompt to look rather
+    than as a measured effect.
+    """
+    if track not in settings.tracks and track not in getattr(settings, "options_tracks", []):
+        return {"error": "unknown track"}
+    from src.portfolio.metrics import metrics_by_program
+    return {"track": track, "programs": metrics_by_program(get_portfolio(track))}
+
+
 @app.get("/api/heuristics/{track}")
 async def heuristics(track: str, page: int = 1, page_size: int = 20):
     if track not in settings.all_tracks:

@@ -6,6 +6,7 @@ from typing import Literal, Optional
 import dspy
 
 from config.settings import settings
+from src.agent.compiled_program import BASELINE, program_fingerprint
 from src.analysis.screener import ScreenerCandidate
 
 logger = logging.getLogger(__name__)
@@ -132,10 +133,16 @@ class DecisionEngine:
         compiled_path = settings.compiled_dir / f"{self.track}_trade_decision.json"
         self._program = dspy.Predict(TradeDecision)
 
+        self.program_hash = BASELINE
+
         if compiled_path.exists():
             try:
                 self._program.load(str(compiled_path))
-                logger.info("Loaded compiled DSPy program for %s track from %s", self.track, compiled_path)
+                self.program_hash = program_fingerprint(compiled_path) or BASELINE
+                logger.info(
+                    "Loaded compiled DSPy program for %s track from %s (program %s)",
+                    self.track, compiled_path, self.program_hash,
+                )
             except Exception as exc:
                 logger.warning("Failed to load compiled program for %s: %s — using baseline", self.track, exc)
         else:
@@ -191,6 +198,7 @@ class DecisionEngine:
                 "track": self.track,
                 "ticker": candidate.ticker,
                 "entry_inputs": entry_inputs,
+                "program_hash": getattr(self, "program_hash", BASELINE),
             }
 
         except Exception as exc:

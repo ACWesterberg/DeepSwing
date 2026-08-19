@@ -1,3 +1,25 @@
+"""
+MIPROv2 optimization of the DSPy decision programs.
+
+Two tracks' worth of optimizers live here. The equity path
+(`run_mipro_optimization`) trains on lived trades plus counterfactually-labelled
+PASS/BLOCKED decisions, so the trainset covers both sides of the decision. The
+options path (`run_options_mipro`) trains on lived trades only.
+
+That asymmetry is deliberate, not an oversight waiting to be tidied. Labelling a
+skipped *equity* setup only needs the underlying's forward path, which
+`_label_forward_path` simulates against the stop and target the system would
+have used. An option's outcome is not recoverable that way: a contract can be
+directionally right and still lose to time decay or an IV collapse, so labelling
+skipped option setups from the underlying's move alone would manufacture
+systematically optimistic labels — exactly the kind of confident-but-wrong
+training signal the counterfactual machinery exists to avoid. Closing that gap
+needs an option-payoff model over the forward window (theta and IV included),
+which is real work rather than a port of the equity code.
+
+Until then the options tracks reach their example threshold on lived trades
+alone, which is slower and is the honest constraint.
+"""
 from __future__ import annotations
 
 import json
@@ -13,6 +35,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
 from config.settings import settings
+from src.agent.compiled_program import BASELINE, program_fingerprint
 from src.agent.decision import TradeDecision, build_lm
 from src.portfolio.metrics import compute_metrics
 from src.portfolio.simulator import get_portfolio
@@ -23,6 +46,21 @@ TrackType = Literal["claude", "gpt"]
 OptionsTrackType = Literal["claude-opt", "gpt-opt"]
 
 MIN_TRADES_FOR_OPTIMIZATION = 30
+
+# Real (lived) examples required before counterfactuals are allowed to top up
+# the trainset. Keeps a compile from being decided almost entirely by
+# hindsight-labelled setups that were never actually traded.
+MIN_REAL_EXAMPLES = 10
+
+# Total labelled examples required before MIPRO runs at all, counted AFTER
+# counterfactual augmentation. MIPRO holds out 20% and picks the winning
+# instructions on that slice, so the old floor of 10 meant selecting between
+# candidate instruction sets on two examples. Against swing-trade P&L dispersion
+# the best of a dozen candidates beats the field by more than the real spread
+# between them from chance alone, and the compiled program would look like an
+# improvement while being sampling error. This is the "should we believe it"
+# threshold, not the "can it run" one.
+MIN_EXAMPLES_FOR_OPTIMIZATION = 25
 
 # Scales realized return before the tanh squash. At k=10 a ±10% move lands
 # near the (0,1) extremes, which matches typical swing-trade magnitudes.
@@ -177,7 +215,9 @@ def _build_counterfactual_examples(track: TrackType, max_examples: int) -> list:
 
     logger.info("MIPRO [%s]: %d counterfactual examples from %d PASS decisions",
                 track, len(examples), len(decisions))
-    return examples
+    # Queried newest-first (to take the freshest N); the caller splits on time
+    # order, so hand them back oldest-first.
+    return list(reversed(examples))
 
 
 def _options_pnl_weighted_metric(example, prediction, trace=None) -> float:
@@ -186,6 +226,33 @@ def _options_pnl_weighted_metric(example, prediction, trace=None) -> float:
     pnl = float(getattr(example, "pnl_pct", 0.0) or 0.0)
     realized = pnl if pred_action == "BUY" else 0.0
     return 0.5 + 0.5 * math.tanh(realized * _OPTIONS_PNL_METRIC_SCALE)
+
+
+def _forward_split(*groups: list, val_frac: float = 0.2) -> tuple[list, list]:
+    """Hold out the most recent `val_frac` of each group, keeping time order.
+
+    A plain tail split put every counterfactual in the validation set, because
+    they are appended last — so the previous fix shuffled the whole trainset.
+    That balanced the slices but destroyed the temporal separation: a validation
+    example could predate a training one, which lets the selected instructions
+    be scored partly on setups they were effectively fitted to, and makes the
+    winning candidate's val score optimistic against true forward performance.
+
+    Splitting each group at its own boundary gives both properties at once —
+    every slice sees both kinds of example, and within each kind validation is
+    strictly later than training. Each group must arrive in chronological order.
+    """
+    train: list = []
+    val: list = []
+    for group in groups:
+        if not group:
+            continue
+        cut = max(1, int(len(group) * (1 - val_frac)))
+        train.extend(group[:cut])
+        val.extend(group[cut:])
+    if not val:  # tiny trainset — never hand MIPRO an empty validation set
+        val = train[-1:]
+    return train, val
 
 
 def run_mipro_optimization(track: TrackType) -> bool:
@@ -214,27 +281,32 @@ def run_mipro_optimization(track: TrackType) -> bool:
             continue  # Only trades that stored their DSPy inputs can be used
         trainset.append(_make_example(inputs, "BUY" if t.pnl_pct > 0 else "PASS", t.pnl_pct))
 
-    if len(trainset) < 10:
-        logger.info("MIPRO [%s]: insufficient labeled examples (%d) — skipping", track, len(trainset))
+    if len(trainset) < MIN_REAL_EXAMPLES:
+        logger.info(
+            "MIPRO [%s]: only %d real examples, need %d — skipping",
+            track, len(trainset), MIN_REAL_EXAMPLES,
+        )
         return False
 
     # Augment with counterfactually-labeled PASS decisions, capped at the number
     # of real-trade examples so hindsight labels can't dominate lived outcomes.
+    counterfactuals: list = []
     try:
         counterfactuals = _build_counterfactual_examples(
             track, min(settings.counterfactual_max_examples, len(trainset))
         )
-        trainset = trainset + counterfactuals
     except Exception as exc:
         logger.warning("MIPRO [%s]: counterfactual build failed (continuing without): %s", track, exc)
 
-    # Split 80/20 — shuffled (fixed seed) so real trades and counterfactuals
-    # land in both slices; appending counterfactuals last would otherwise make
-    # the val set purely hindsight-labeled.
-    import random
-    random.Random(42).shuffle(trainset)
-    split = int(len(trainset) * 0.8)
-    train, val = trainset[:split], trainset[split:]
+    total = len(trainset) + len(counterfactuals)
+    if total < MIN_EXAMPLES_FOR_OPTIMIZATION:
+        logger.info(
+            "MIPRO [%s]: %d examples (%d real + %d counterfactual), need %d — skipping",
+            track, total, len(trainset), len(counterfactuals), MIN_EXAMPLES_FOR_OPTIMIZATION,
+        )
+        return False
+
+    train, val = _forward_split(trainset, counterfactuals)
 
     # Two roles: the task model runs the program against trades (many calls, so
     # kept on the cheaper decision tier); the prompt model *writes* the candidate
@@ -284,11 +356,19 @@ def run_mipro_optimization(track: TrackType) -> bool:
         engine.reload()
 
         # Log performance metrics
+        # Historical book statistics — NOT a score for the program just compiled.
+        # This line used to read "optimization metric = ...", which looked like
+        # the optimizer's result but is win_rate * avg_rrr over every past trade,
+        # computed after the compile and unchanged by it: it would print the same
+        # number if MIPRO had produced nonsense. Whether the new program is any
+        # good is answered later, by grouping closed trades on program_hash.
         metrics = compute_metrics(portfolio)
         logger.info(
-            "MIPRO [%s]: optimization metric = %.4f (win_rate=%.1f%%, avg_rrr=%.2f)",
-            track, metrics.optimization_metric,
-            metrics.win_rate * 100, metrics.avg_rrr,
+            "MIPRO [%s]: compiled and applied (program %s). Book to date: "
+            "win_rate=%.1f%%, avg_rrr=%.2f over %d trades — prior performance, "
+            "not a score for this program.",
+            track, program_fingerprint(out_path) or BASELINE,
+            metrics.win_rate * 100, metrics.avg_rrr, metrics.total_trades,
         )
 
         # Offsite backup of the new program (best-effort, never fails the run)
@@ -341,12 +421,16 @@ def run_options_mipro(track: OptionsTrackType) -> bool:
         )
         trainset.append(example)
 
-    if len(trainset) < 10:
-        logger.info("MIPRO [%s]: insufficient labeled examples (%d) — skipping", track, len(trainset))
+    if len(trainset) < MIN_EXAMPLES_FOR_OPTIMIZATION:
+        logger.info(
+            "MIPRO [%s]: only %d labelled examples, need %d — skipping. This track "
+            "has no counterfactual augmentation (see module docstring), so it "
+            "reaches the threshold on lived trades alone.",
+            track, len(trainset), MIN_EXAMPLES_FOR_OPTIMIZATION,
+        )
         return False
 
-    split = int(len(trainset) * 0.8)
-    train, val = trainset[:split], trainset[split:]
+    train, val = _forward_split(trainset)
 
     if provider_for(track) == "claude":
         task_lm = build_lm("claude", settings.claude_decision_model, settings.anthropic_api_key)
@@ -387,11 +471,19 @@ def run_options_mipro(track: OptionsTrackType) -> bool:
 
         OptionsDecisionEngine.for_track(track).reload()
 
+        # Historical book statistics — NOT a score for the program just compiled.
+        # This line used to read "optimization metric = ...", which looked like
+        # the optimizer's result but is win_rate * avg_rrr over every past trade,
+        # computed after the compile and unchanged by it: it would print the same
+        # number if MIPRO had produced nonsense. Whether the new program is any
+        # good is answered later, by grouping closed trades on program_hash.
         metrics = compute_metrics(portfolio)
         logger.info(
-            "MIPRO [%s]: optimization metric = %.4f (win_rate=%.1f%%, avg_rrr=%.2f)",
-            track, metrics.optimization_metric,
-            metrics.win_rate * 100, metrics.avg_rrr,
+            "MIPRO [%s]: compiled and applied (program %s). Book to date: "
+            "win_rate=%.1f%%, avg_rrr=%.2f over %d trades — prior performance, "
+            "not a score for this program.",
+            track, program_fingerprint(out_path) or BASELINE,
+            metrics.win_rate * 100, metrics.avg_rrr, metrics.total_trades,
         )
 
         from src.scheduler.backup import backup_compiled_program

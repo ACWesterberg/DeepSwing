@@ -37,6 +37,42 @@ class PerformanceMetrics:
         }
 
 
+def metrics_by_program(portfolio: "Portfolio") -> list[dict]:
+    """Closed-trade stats grouped by the compiled program that decided the entry.
+
+    The A/B the optimizer has never had. A compiled program is applied the moment
+    MIPRO writes it, so without this the only available question is whether the
+    book as a whole drifted — which confounds the program with the market it
+    traded into. Grouping on the program that actually made each entry is the
+    one comparison that isolates it.
+
+    Trades made before fingerprinting, or by the uncompiled program, group under
+    "baseline" — the arm every compiled version has to beat.
+
+    Descriptive only. Programs run sequentially rather than side by side, so each
+    one's trades come from a different stretch of market; read a gap here as a
+    reason to look, not as a measured effect.
+    """
+    from src.agent.compiled_program import BASELINE
+
+    buckets: dict[str, list] = {}
+    for t in portfolio.closed_trades:
+        buckets.setdefault(getattr(t, "program_hash", "") or BASELINE, []).append(t)
+
+    out = []
+    for program, trades in buckets.items():
+        returns = [t.pnl_pct for t in trades]
+        wins = [r for r in returns if r > 0]
+        out.append({
+            "program": program,
+            "trades": len(trades),
+            "win_rate": len(wins) / len(returns) if returns else 0.0,
+            "mean_pnl_pct": sum(returns) / len(returns) if returns else 0.0,
+            "total_pnl_pct": sum(returns),
+        })
+    return sorted(out, key=lambda b: b["mean_pnl_pct"], reverse=True)
+
+
 def compute_metrics(portfolio: "Portfolio") -> PerformanceMetrics:
     trades = portfolio.closed_trades
 

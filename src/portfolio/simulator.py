@@ -60,6 +60,11 @@ class OpenPosition:
     technical_snapshot: str = ""
     sector: str = ""
     entry_inputs: dict = field(default_factory=dict)
+    # Fingerprint of the compiled program that decided this entry. Empty
+    # for the uncompiled baseline and for trades predating fingerprinting;
+    # grouping closed trades by it is the only way to ask whether a MIPRO
+    # compile actually improved anything.
+    program_hash: str = ""
     last_news_price: float = 0.0  # price (SEK) at the last news check; drives jump detection
     trail_distance: float = 0.0   # trailing-stop distance in SEK (ATR-scaled at entry)
     entry_commission: float = 0.0  # SEK paid at open; folded into net P&L at close
@@ -118,6 +123,7 @@ class OpenPosition:
             "technical_snapshot": self.technical_snapshot,
             "sector": self.sector,
             "entry_inputs": self.entry_inputs,
+            "program_hash": self.program_hash,
             "last_news_price": self.last_news_price,
             "trail_distance": self.trail_distance,
             "entry_commission": self.entry_commission,
@@ -143,6 +149,7 @@ class OpenPosition:
             technical_snapshot=d.get("technical_snapshot", ""),
             sector=d.get("sector", ""),
             entry_inputs=d.get("entry_inputs") or {},
+            program_hash=d.get("program_hash") or "",
             last_news_price=d.get("last_news_price", 0.0),
             trail_distance=d.get("trail_distance", 0.0),
             entry_commission=d.get("entry_commission", 0.0),
@@ -168,6 +175,11 @@ class ClosedTrade:
     exit_reason: str  # "stop_loss" | "take_profit" | "trailing_stop" | "manual"
     technical_snapshot: str = ""
     entry_inputs: dict = field(default_factory=dict)
+    # Fingerprint of the compiled program that decided this entry. Empty
+    # for the uncompiled baseline and for trades predating fingerprinting;
+    # grouping closed trades by it is the only way to ask whether a MIPRO
+    # compile actually improved anything.
+    program_hash: str = ""
     commission: float = 0.0     # entry + exit commission (SEK); 0 for pre-upgrade trades
     entry_fx_rate: float = 0.0  # native→SEK rate at entry (0 when unknown)
 
@@ -230,6 +242,7 @@ class ClosedTrade:
             "exit_reason": self.exit_reason,
             "technical_snapshot": self.technical_snapshot,
             "entry_inputs": self.entry_inputs,
+            "program_hash": self.program_hash,
             "commission": self.commission,
             "entry_fx_rate": self.entry_fx_rate,
         }
@@ -253,6 +266,7 @@ class ClosedTrade:
             exit_reason=d.get("exit_reason", ""),
             technical_snapshot=d.get("technical_snapshot", ""),
             entry_inputs=d.get("entry_inputs") or {},
+            program_hash=d.get("program_hash") or "",
             commission=d.get("commission", 0.0),
             entry_fx_rate=d.get("entry_fx_rate", 0.0),
         )
@@ -326,6 +340,7 @@ class Portfolio:
         technical_snapshot: str = "",
         sector: str = "",
         entry_inputs: Optional[dict] = None,
+        program_hash: str = "",
         trail_distance: float = 0.0,
         entry_fx_rate: float = 0.0,
     ) -> Optional[OpenPosition]:
@@ -361,6 +376,7 @@ class Portfolio:
             technical_snapshot=technical_snapshot,
             sector=sector,
             entry_inputs=entry_inputs or {},
+            program_hash=program_hash,
             last_news_price=filled_price,
             trail_distance=trail_distance,
             entry_commission=commission,
@@ -417,6 +433,7 @@ class Portfolio:
             exit_reason=exit_reason,
             technical_snapshot=position.technical_snapshot,
             entry_inputs=position.entry_inputs,
+            program_hash=position.program_hash,
             commission=position.entry_commission + commission,
             entry_fx_rate=position.entry_fx_rate,
         )
