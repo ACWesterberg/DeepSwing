@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def save_portfolio(portfolio) -> None:
-    """Mirror a track's (stock or options) full live state to the DB. Best-effort — never raises."""
+    """Mirror a track's full live state to the DB. Best-effort — never raises."""
     state = portfolio.export_state()
     session = get_session()
     try:
@@ -35,30 +35,13 @@ def save_portfolio(portfolio) -> None:
 def restore_portfolios() -> None:
     """Rehydrate in-memory portfolios from the DB on startup. Missing/blank rows
     leave a track at its fresh starting capital."""
-    from src.portfolio.options_simulator import get_options_portfolio
-
     session = get_session()
     try:
-        for track in settings.all_tracks:
+        for track in settings.tracks:
             row = session.get(PortfolioState, track)
             if row is None:
                 continue
-            if track in settings.options_tracks:
-                portfolio = get_options_portfolio(track)
-                # An options track that never traded carries no history worth
-                # keeping — rebase it to the current starting capital instead of
-                # resurrecting the old (too-small) bankroll it was created with.
-                if (
-                    not (row.open_positions or row.closed_trades)
-                    and row.starting_equity != settings.options_starting_capital_sek
-                ):
-                    logger.info(
-                        "Rebasing untraded %s from %.0f to %.0f SEK starting capital",
-                        track, row.starting_equity, settings.options_starting_capital_sek,
-                    )
-                    continue
-            else:
-                portfolio = get_portfolio(track)
+            portfolio = get_portfolio(track)
             portfolio.import_state({
                 "cash": row.cash,
                 "starting_equity": row.starting_equity,

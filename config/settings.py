@@ -34,20 +34,6 @@ class Settings(BaseSettings):
     tracks: list[Literal["claude", "gpt"]] = ["claude", "gpt"]
     starting_capital_sek: float = 100_000.0
 
-    # Options tracks — long single-leg US options; empty list disables
-    options_tracks: list[Literal["claude-opt", "gpt-opt"]] = ["claude-opt", "gpt-opt"]
-    # One contract is the minimum lot: liquid near-ATM 21-60 DTE premiums on
-    # S&P-100 names run $3-15 ≈ 3-16k SEK/contract, so the 1%/2% premium caps
-    # need ~1M SEK equity to afford a single contract. At 100k the risk gate
-    # blocked essentially every entry.
-    options_starting_capital_sek: float = 1_000_000.0
-    # Bearish side: long puts on mirrored-screener setups. False = calls only.
-    options_enable_puts: bool = True
-
-    @property
-    def all_tracks(self) -> list[str]:
-        return [*self.tracks, *self.options_tracks]
-
     # Claude models
     claude_decision_model: str = "claude-sonnet-5"          # scan decisions (up from Haiku)
     claude_erl_model: str = "claude-opus-4-8"               # heavy post-trade reasoning
@@ -165,34 +151,6 @@ class Settings(BaseSettings):
     # Daily on-disk SQLite snapshot (data/backups/), keep the newest N (0 disables).
     # MIPRO programs are backed up offsite; this protects the portfolio DB itself.
     db_backup_keep: int = 7
-
-    # Options track — chain shortlist filters (yfinance US chains only)
-    options_min_dte: int = 21
-    options_max_dte: int = 60
-    options_expiries_considered: int = 2   # nearest expiries inside the DTE window
-    options_delta_min: float = 0.35
-    options_delta_max: float = 0.65
-    options_min_open_interest: int = 200
-    options_min_volume: int = 10
-    options_max_spread_pct: float = 0.08   # (ask-bid)/mid ceiling
-    options_shortlist_size: int = 8
-    options_risk_free_rate: float = 0.04   # Black-Scholes r for local greeks
-    # ATR-projected move over the contract's DTE (ATR·√DTE) must cover the distance
-    # to breakeven at least this many times, or the contract never reaches the
-    # prompt — being right on direction can't beat an unreachable breakeven.
-    # Set to 0 to disable the gate.
-    options_min_move_coverage: float = 1.0
-
-    # Options track — risk (max loss on a long option IS the premium paid)
-    options_max_premium_pct: float = 0.01       # premium budget per trade, % of equity
-    options_hard_cap_premium_pct: float = 0.02  # one contract may stretch to this
-    options_profit_target_bounds: tuple[float, float] = (0.20, 3.00)  # +% of premium
-    options_max_loss_bounds: tuple[float, float] = (0.30, 0.60)       # -% of premium
-    options_time_stop_min_dte: int = 7          # force-close at this DTE at the latest
-    options_commission_per_contract_sek: float = 15.0  # flat per contract, each way
-
-    # Options track — scheduling (hourly: chains are slow + decisions cost LLM calls)
-    options_scan_interval_minutes: int = 60
 
     # MIPRO artifact backup — path to a local git working copy of a standalone
     # backups repo (e.g. ~/Github/deepswing-mipro-backups). Set via env

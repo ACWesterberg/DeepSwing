@@ -11,7 +11,7 @@ from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-TrackType = Literal["claude", "gpt", "claude-opt", "gpt-opt"]
+TrackType = Literal["claude", "gpt"]
 
 
 def _hours_since(iso_ts: Optional[str], now: datetime) -> float:

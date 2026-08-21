@@ -1,24 +1,11 @@
 """
-MIPROv2 optimization of the DSPy decision programs.
+MIPROv2 optimization of the DSPy decision program.
 
-Two tracks' worth of optimizers live here. The equity path
-(`run_mipro_optimization`) trains on lived trades plus counterfactually-labelled
-PASS/BLOCKED decisions, so the trainset covers both sides of the decision. The
-options path (`run_options_mipro`) trains on lived trades only.
-
-That asymmetry is deliberate, not an oversight waiting to be tidied. Labelling a
-skipped *equity* setup only needs the underlying's forward path, which
+`run_mipro_optimization` trains on lived trades plus counterfactually-labelled
+PASS/BLOCKED decisions, so the trainset covers both sides of the decision.
+Labelling a skipped setup only needs the underlying's forward path, which
 `_label_forward_path` simulates against the stop and target the system would
-have used. An option's outcome is not recoverable that way: a contract can be
-directionally right and still lose to time decay or an IV collapse, so labelling
-skipped option setups from the underlying's move alone would manufacture
-systematically optimistic labels — exactly the kind of confident-but-wrong
-training signal the counterfactual machinery exists to avoid. Closing that gap
-needs an option-payoff model over the forward window (theta and IV included),
-which is real work rather than a port of the equity code.
-
-Until then the options tracks reach their example threshold on lived trades
-alone, which is slower and is the honest constraint.
+have used.
 """
 from __future__ import annotations
 
@@ -43,7 +30,6 @@ from src.portfolio.simulator import get_portfolio
 logger = logging.getLogger(__name__)
 
 TrackType = Literal["claude", "gpt"]
-OptionsTrackType = Literal["claude-opt", "gpt-opt"]
 
 MIN_TRADES_FOR_OPTIMIZATION = 30
 
@@ -65,10 +51,6 @@ MIN_EXAMPLES_FOR_OPTIMIZATION = 25
 # Scales realized return before the tanh squash. At k=10 a ±10% move lands
 # near the (0,1) extremes, which matches typical swing-trade magnitudes.
 _PNL_METRIC_SCALE = 10.0
-
-# Option P&L is % of premium, so ±50% swings are routine — a much smaller k
-# keeps the squash from saturating and preserves the size signal.
-_OPTIONS_PNL_METRIC_SCALE = 2.0
 
 
 def _pnl_weighted_metric(example, prediction, trace=None) -> float:
@@ -220,14 +202,6 @@ def _build_counterfactual_examples(track: TrackType, max_examples: int) -> list:
     return list(reversed(examples))
 
 
-def _options_pnl_weighted_metric(example, prediction, trace=None) -> float:
-    """Same P&L-weighted reward, rescaled for premium-relative option returns."""
-    pred_action = str(getattr(prediction, "action", "")).upper()
-    pnl = float(getattr(example, "pnl_pct", 0.0) or 0.0)
-    realized = pnl if pred_action == "BUY" else 0.0
-    return 0.5 + 0.5 * math.tanh(realized * _OPTIONS_PNL_METRIC_SCALE)
-
-
 def _forward_split(*groups: list, val_frac: float = 0.2) -> tuple[list, list]:
     """Hold out the most recent `val_frac` of each group, keeping time order.
 
@@ -374,120 +348,6 @@ def run_mipro_optimization(track: TrackType) -> bool:
         # Offsite backup of the new program (best-effort, never fails the run)
         from src.scheduler.backup import backup_compiled_program
         backup_compiled_program(track, metrics.to_dict())
-
-        return True
-
-    except Exception as exc:
-        logger.error("MIPRO optimization error for %s track: %s", track, exc, exc_info=True)
-        return False
-
-
-def run_options_mipro(track: OptionsTrackType) -> bool:
-    """MIPROv2 optimization for an options track's OptionTradeDecision program.
-    Mirrors run_mipro_optimization; trains on closed option trades' entry inputs."""
-    from src.agent.options_decision import OptionsDecisionEngine, OptionTradeDecision, provider_for
-    from src.portfolio.options_simulator import get_options_portfolio
-
-    portfolio = get_options_portfolio(track)
-    trades = portfolio.closed_trades
-
-    if len(trades) < MIN_TRADES_FOR_OPTIMIZATION:
-        logger.info(
-            "MIPRO [%s]: only %d trades, need %d — skipping",
-            track, len(trades), MIN_TRADES_FOR_OPTIMIZATION,
-        )
-        return False
-
-    logger.info("MIPRO [%s]: starting option-program optimization with %d trades", track, len(trades))
-
-    trainset = []
-    for t in trades:
-        inputs = t.entry_inputs
-        if not inputs:
-            continue
-        example = dspy.Example(
-            technicals=inputs.get("technicals", ""),
-            regime=inputs.get("regime", ""),
-            news_summary=inputs.get("news_summary", ""),
-            macro_context=inputs.get("macro_context", ""),
-            heuristics=inputs.get("heuristics", ""),
-            volatility_context=inputs.get("volatility_context", ""),
-            option_shortlist=inputs.get("option_shortlist", ""),
-            action="BUY" if t.pnl_pct > 0 else "PASS",
-            pnl_pct=float(t.pnl_pct),
-        ).with_inputs(
-            "technicals", "regime", "news_summary", "macro_context",
-            "heuristics", "volatility_context", "option_shortlist",
-        )
-        trainset.append(example)
-
-    if len(trainset) < MIN_EXAMPLES_FOR_OPTIMIZATION:
-        logger.info(
-            "MIPRO [%s]: only %d labelled examples, need %d — skipping. This track "
-            "has no counterfactual augmentation (see module docstring), so it "
-            "reaches the threshold on lived trades alone.",
-            track, len(trainset), MIN_EXAMPLES_FOR_OPTIMIZATION,
-        )
-        return False
-
-    train, val = _forward_split(trainset)
-
-    if provider_for(track) == "claude":
-        task_lm = build_lm("claude", settings.claude_decision_model, settings.anthropic_api_key)
-        prompt_lm = build_lm("claude", settings.claude_prompt_model, settings.anthropic_api_key, max_tokens=4096)
-    else:
-        task_lm = build_lm("gpt", settings.gpt_decision_model, settings.openai_api_key)
-        prompt_lm = build_lm("gpt", settings.gpt_prompt_model, settings.openai_api_key, max_tokens=4096)
-
-    program = dspy.Predict(OptionTradeDecision)
-
-    try:
-        dspy.configure(lm=task_lm)
-        optimizer = MIPROv2(
-            metric=_options_pnl_weighted_metric,
-            prompt_model=prompt_lm,
-            task_model=task_lm,
-            auto="light",
-            num_threads=1,
-        )
-        compiled = optimizer.compile(
-            program,
-            trainset=train,
-            valset=val,
-            requires_permission_to_run=False,
-        )
-
-        out_path = settings.compiled_dir / f"{track}_option_decision.json"
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-
-        if out_path.exists():
-            from datetime import datetime
-            archive = settings.compiled_dir / f"{track}_option_decision_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
-            out_path.rename(archive)
-            logger.info("MIPRO [%s]: archived previous compiled program to %s", track, archive.name)
-
-        compiled.save(str(out_path))
-        logger.info("MIPRO [%s]: saved new compiled program to %s", track, out_path)
-
-        OptionsDecisionEngine.for_track(track).reload()
-
-        # Historical book statistics — NOT a score for the program just compiled.
-        # This line used to read "optimization metric = ...", which looked like
-        # the optimizer's result but is win_rate * avg_rrr over every past trade,
-        # computed after the compile and unchanged by it: it would print the same
-        # number if MIPRO had produced nonsense. Whether the new program is any
-        # good is answered later, by grouping closed trades on program_hash.
-        metrics = compute_metrics(portfolio)
-        logger.info(
-            "MIPRO [%s]: compiled and applied (program %s). Book to date: "
-            "win_rate=%.1f%%, avg_rrr=%.2f over %d trades — prior performance, "
-            "not a score for this program.",
-            track, program_fingerprint(out_path) or BASELINE,
-            metrics.win_rate * 100, metrics.avg_rrr, metrics.total_trades,
-        )
-
-        from src.scheduler.backup import backup_compiled_program
-        backup_compiled_program(track, metrics.to_dict(), program_name="option_decision")
 
         return True
 

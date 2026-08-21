@@ -90,10 +90,7 @@ const METRIC_LABELS = {
   optimization_metric: "Expectancy (mean R)",
 };
 
-const TRACKS = ["claude", "gpt", "claude-opt", "gpt-opt"];
-// Options tracks run on 10x the paper capital, so their SEK curves would dwarf
-// the stock curves — the first-page chart stays stocks-only.
-const CHART_TRACKS = ["claude", "gpt"];
+const TRACKS = ["claude", "gpt"];
 
 async function refreshAll() {
   await Promise.all([
@@ -128,9 +125,9 @@ async function refreshComparison() {
   const data = await fetchJSON("/api/comparison");
   if (!data) return;
 
-  // Equity curves — dataset order matches CHART_TRACKS (stocks only)
+  // Equity curves — dataset order matches TRACKS
   if (compChart) {
-    CHART_TRACKS.forEach((track, i) => {
+    TRACKS.forEach((track, i) => {
       compChart.data.datasets[i].data =
         (data[track]?.equity_curve || []).map((p) => ({ x: p.date, y: p.equity }));
     });
@@ -487,7 +484,6 @@ async function runScan(market) {
 document.getElementById("scan-nordic-btn").addEventListener("click", () => runScan("nordic"));
 document.getElementById("scan-eu-btn").addEventListener("click", () => runScan("eu"));
 document.getElementById("scan-us-btn").addEventListener("click", () => runScan("us"));
-document.getElementById("scan-options-btn").addEventListener("click", () => runScan("options"));
 
 document.getElementById("reset-btn").addEventListener("click", async () => {
   const pin = prompt("Enter PIN to reset all tracks:");

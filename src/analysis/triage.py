@@ -28,7 +28,7 @@ Judge purely on setup quality: trend alignment, volume confirmation, room to a 2
 Respond with ONLY a JSON array of the chosen tickers, e.g. ["ABC", "XYZ.ST"]."""
 
 
-def _digest(candidate: ScreenerCandidate, side: str | None) -> str:
+def _digest(candidate: ScreenerCandidate) -> str:
     s, r = candidate.signals, candidate.regime
     atr_pct = s.atr_14 / s.current_price * 100 if s.current_price else 0.0
     parts = [
@@ -41,8 +41,6 @@ def _digest(candidate: ScreenerCandidate, side: str | None) -> str:
         f"bb%B {s.bb_pct_b:.2f}",
         f"{r.regime} (hurst {r.hurst_exponent:.2f})",
     ]
-    if side:
-        parts.append(f"direction: {side}")
     return " | ".join(parts)
 
 
@@ -66,7 +64,6 @@ def _parse_tickers(raw: str) -> list[str]:
 def triage_candidates(
     candidates: list[ScreenerCandidate],
     market: str,
-    sides: dict[str, str] | None = None,
 ) -> list[ScreenerCandidate]:
     """Cheap shared LLM pass that keeps the top-K screened candidates; the rest
     never reach news fetching or the per-track decision models."""
@@ -74,9 +71,7 @@ def triage_candidates(
     if not settings.triage_enabled or keep <= 0 or len(candidates) <= keep:
         return candidates
 
-    table = "\n".join(
-        _digest(c, sides.get(c.ticker) if sides else None) for c in candidates
-    )
+    table = "\n".join(_digest(c) for c in candidates)
     prompt = _TRIAGE_PROMPT.format(market=market, table=table, keep=keep)
 
     try:

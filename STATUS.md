@@ -1,25 +1,24 @@
 # DeepSwing — Implementation Status
 
-Last updated: 2026-07-12
+Last updated: 2026-08-21
 
 ---
 
 ## Done ✅
 
-### Phase 6 — Options tracks (claude-opt / gpt-opt)
-- [x] `src/analysis/options_math.py` — closed-form Black-Scholes price/delta/theta (`math.erf`, no scipy)
-- [x] `src/data/options_chain.py` — yfinance US chain fetch; DTE window + delta band + OI/volume/spread liquidity gates → ≤8-contract shortlist; quote refresh per (underlying, expiry); prompt formatting
-- [x] `src/agent/options_decision.py` — DSPy `OptionTradeDecision` (BUY/PASS + contract index + premium-relative exit plan); per-track engine; loads `compiled/{track}_option_decision.json`
-- [x] `src/agent/options_risk.py` — premium-budget sizing (1% of equity, 2% single-contract hard cap), reward/risk ≥ 2.0, duplicate-underlying block, liquidity re-check, drawdown halving
-- [x] `src/portfolio/options_simulator.py` — `OptionsPortfolio` (long single-leg calls, ×100 multiplier, SEK premiums); profit-target/premium-stop/time-stop sweep; expiry detection; durable state (same `portfolio_state` table)
-- [x] `src/scheduler/options_scan.py` — hourly US-session scan sharing the stock scan lock; fill at mid + adverse half-spread; daily 22:10 CET expiry sweep settling at intrinsic; options-flavored ERL trigger
-- [x] `src/scheduler/optimizer.py` — `run_options_mipro` with option-scaled P&L metric (k=2, premium-relative returns); weekly slot shared with stock tracks
-- [x] Dashboard — 4-track comparison chart + head-to-head table, options track tabs, options prompts panels, `POST /api/scan/options`, reset covers all tracks
-- [x] `tests/test_options.py` — Black-Scholes, chain filters, risk sizing, simulator lifecycle (open/close/sweep/expiry/state roundtrip), expected-move math, vol context
-- [x] **Expected-move vs breakeven** — every shortlist line carries breakeven + ATR·√DTE move coverage; contracts whose projected move can't cover the breakeven distance (`options_min_move_coverage`) never reach the prompt
-- [x] **Bearish side (long puts)** — `screen_bearish_candidates` mirrors every long gate to the short side; bearish setups get put shortlists (breakeven/coverage math already direction-aware); `options_enable_puts` toggle; stock tracks unaffected
-- [x] **Options capital 1M SEK** — one contract is the minimum lot, so the 1%/2% premium caps need ~1M equity to afford liquid $3-15 premiums; untraded tracks auto-rebase on restart
-- [x] `src/analysis/vol_context.py` — realized-vol percentile + ATM-IV-vs-realized pricing ("is the move already priced in?") as a dedicated `volatility_context` DSPy input, captured for MIPRO and echoed into ERL
+### Options tracks — removed (2026-08-21)
+The `claude-opt` / `gpt-opt` options tracks were shut down and deleted. Gone:
+`options_math`, `options_chain`, `options_decision`, `options_risk`,
+`options_simulator`, `options_scan`, `vol_context`, `OPTIONS_TRACK.md`,
+`tests/test_options.py`, `run_options_mipro`, the bearish screener mirror
+(`screen_bearish_candidates`), the triage `sides` argument, every `options_*`
+setting, and the dashboard's options tabs/columns/scan button. DeepSwing is
+long-only equities on the `claude` / `gpt` tracks again.
+
+Leftover state is inert but not auto-purged — a Pi with options history still
+carries `portfolio_state` rows and `decisions` rows for `claude-opt`/`gpt-opt`,
+`heuristics/claude-opt/` + `heuristics/gpt-opt/`, and
+`compiled/*_option_decision*.json`. Nothing reads them; delete when convenient.
 
 ### Phase 1 — Foundation
 - [x] Project scaffolding, directory structure, `__init__.py` files
@@ -80,7 +79,7 @@ Last updated: 2026-07-12
 - [x] `.gitignore` — excludes `.env`, `venv/`, `data/*.db`, `heuristics/`, `compiled/`
 - [x] Deployed and running on Pi 5; Cloudflare Tunnel live (`trade.westerberg.dev`); dashboard cookie auth
 - [x] **Network watchdog** — the Pi's Wi-Fi dropped twice on 2026-07-13 (tunnels + SSH dark, box fine); `deploy/net-watchdog.sh` + systemd timer bounces the interface and reboots after 3 failed recoveries; SETUP.md §8 covers install + disabling Wi-Fi power save
-- [x] **Pre-decision triage** — `src/analysis/triage.py`: one cheap shared `gpt-5-mini` call ranks the screener's candidates and only `triage_keep_top` (5) reach news + per-track decisions (stock + options scans); fails open to screener top-K; cuts the dominant per-scan LLM cost by ~2/3 (`tests/test_triage.py`)
+- [x] **Pre-decision triage** — `src/analysis/triage.py`: one cheap shared `gpt-5-mini` call ranks the screener's candidates and only `triage_keep_top` (5) reach news + per-track decisions; fails open to screener top-K; cuts the dominant per-scan LLM cost by ~2/3 (`tests/test_triage.py`)
 
 ### Correctness & security review fixes (2026-07-02)
 - [x] **VIX halt no longer abandons holdings** — a VIX ≥ 35 halt blocks new entries but falls through to the holdings monitor, so stops/targets/news exits still run during volatility spikes

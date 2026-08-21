@@ -12,7 +12,7 @@ from src.agent.memory import get_store
 
 logger = logging.getLogger(__name__)
 
-TrackType = Literal["claude", "gpt", "claude-opt", "gpt-opt"]
+TrackType = Literal["claude", "gpt"]
 
 ERL_PROMPT = """You are analyzing a completed swing trade to extract a reusable trading rule.
 

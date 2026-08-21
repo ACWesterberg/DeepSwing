@@ -107,16 +107,3 @@ class TestTriage:
         monkeypatch.setattr(triage, "_call_triage_model", lambda p: '["ZZZ", "QQQ"]')
         cands = _candidates(["A", "B", "C"])
         assert [c.ticker for c in triage_candidates(cands, "us")] == ["A", "B"]
-
-    def test_sides_reach_the_prompt(self, monkeypatch):
-        seen = {}
-
-        def _capture(prompt):
-            seen["prompt"] = prompt
-            return '["A", "B"]'
-
-        monkeypatch.setattr(triage, "_call_triage_model", _capture)
-        cands = _candidates(["A", "B", "C"])
-        triage_candidates(cands, "US options", sides={"A": "call", "B": "put", "C": "put"})
-        assert "direction: call" in seen["prompt"]
-        assert "direction: put" in seen["prompt"]
