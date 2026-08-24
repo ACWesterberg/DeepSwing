@@ -360,9 +360,12 @@ def run_heuristic_refinement(track: str) -> None:
     """Weekly maintenance: prune low-quality heuristics, promote core rules."""
     from src.agent.memory import get_store
     store = get_store(track)
+    # Dedupe first: a cluster's copies should be retired before pruning decides
+    # what has earned its place, so survivors are judged against distinct rules.
+    deduped = store.dedupe()
     pruned = store.prune()
     promoted = store.promote_core()
     logger.info(
-        "Heuristic refinement [%s]: pruned=%d, promoted_to_core=%d",
-        track, pruned, promoted,
+        "Heuristic refinement [%s]: deduped=%d, pruned=%d, promoted_to_core=%d",
+        track, deduped, pruned, promoted,
     )

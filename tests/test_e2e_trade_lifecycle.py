@@ -410,3 +410,149 @@ class TestHeuristicStoreBehavior:
         store.promote_core(access_threshold=10)
         data = json.loads(path.read_text())
         assert data["is_core"] is True
+
+
+class TestHeuristicSimilarity:
+    """The library's redundancy is one rule minted at many thresholds."""
+
+    def test_threshold_variants_of_one_rule_read_as_the_same_rule(self):
+        from src.agent.memory import similarity
+
+        assert similarity(
+            "Volume exceeds 3x its 20-day average while RSI is below 60 and BB%B is below 0.60",
+            "Volume exceeds 5x its 20-day average while RSI is below 55 and BB%B is below 0.70",
+        ) >= 0.9
+
+    def test_genuinely_different_rules_stay_apart(self):
+        from src.agent.memory import DIVERSITY_THRESHOLD, similarity
+
+        assert similarity(
+            "Volume exceeds 3x its 20-day average while RSI is below 60",
+            "In an unhedged US swing, expected USD/SEK movement over the holding "
+            "period is at least 50% of the intended stock stop distance",
+        ) < DIVERSITY_THRESHOLD
+
+    def test_empty_text_is_never_similar(self):
+        from src.agent.memory import similarity
+
+        assert similarity("", "Volume exceeds 3x") == 0.0
+
+
+class TestHeuristicDiversityAndDedupe:
+    def _dupe_family(self, store, n=6, quality=8.0):
+        return [
+            store.save(
+                trigger=f"Volume exceeds {i + 2}x its 20-day average while RSI is below {60 - i}",
+                action="Wait for a pullback before entering",
+                quality_score=quality,
+            )
+            for i in range(n)
+        ]
+
+    def test_retrieval_does_not_fill_every_slot_from_one_cluster(self, tmp_path):
+        """Five copies of one rule leave the model reading one consideration."""
+        from src.agent.memory import (
+            DIVERSITY_THRESHOLD, get_store, heuristic_similarity,
+        )
+
+        store = get_store("claude")
+        self._dupe_family(store, n=6, quality=9.0)
+        # Distinct rules, deliberately scored lower than the duplicate cluster.
+        store.save(trigger="After a positive earnings surprise with raised guidance",
+                   action="Hold through the print", quality_score=6.0)
+        store.save(trigger="In an unhedged US swing the currency move exceeds the stop",
+                   action="Hedge or size down", quality_score=6.0)
+
+        top = store.retrieve(ticker="AAPL", regime="any", market="us", top_k=5)
+        for i, a in enumerate(top):
+            for b in top[i + 1:]:
+                assert heuristic_similarity(a, b) < DIVERSITY_THRESHOLD, (
+                    f"duplicate reached the prompt: {a['trigger']} / {b['trigger']}"
+                )
+        # The lower-scoring distinct rules displaced the cluster's copies.
+        assert len(top) == 3
+
+    def test_a_library_of_one_rule_yields_one_rule(self, tmp_path):
+        """Five restatements say no more than one. A short block is the honest
+        signal that the library holds little the model has not been told."""
+        from src.agent.memory import get_store
+
+        store = get_store("claude")
+        self._dupe_family(store, n=6)
+        assert len(store.retrieve(ticker="AAPL", regime="any", market="us", top_k=5)) == 1
+
+    def test_dedupe_keeps_the_best_evidenced_of_a_cluster(self, tmp_path):
+        import json as _json
+
+        from src.agent.memory import get_store
+
+        store = get_store("claude")
+        ids = self._dupe_family(store, n=4, quality=5.0)
+        best = ids[2]
+        path = tmp_path / "claude" / f"{best}.json"
+        data = _json.loads(path.read_text())
+        data["quality_score"] = 9.0
+        path.write_text(_json.dumps(data))
+
+        assert store.dedupe() == 3
+
+        # Retired, not deleted — every file survives, three point at the keeper.
+        assert len(list((tmp_path / "claude").glob("*.json"))) == 4
+        survivors = [h for h in store.all_as_list() if not h.get("superseded_by")]
+        assert [h["id"] for h in survivors] == [best]
+        assert all(h["superseded_by"] == best
+                   for h in store.all_as_list() if h["id"] != best)
+
+    def test_superseded_heuristics_never_reach_the_prompt(self, tmp_path):
+        from src.agent.memory import get_store
+
+        store = get_store("claude")
+        self._dupe_family(store, n=4)
+        store.dedupe()
+        assert len(store.retrieve(ticker="AAPL", regime="any", market="us", top_k=5)) == 1
+
+    def test_dedupe_leaves_distinct_rules_alone(self, tmp_path):
+        from src.agent.memory import get_store
+
+        store = get_store("claude")
+        store.save(trigger="Volume exceeds 3x its 20-day average", action="Wait")
+        store.save(trigger="After a positive earnings surprise with raised guidance",
+                   action="Hold through the print")
+        store.save(trigger="In an unhedged US swing the currency move exceeds the stop",
+                   action="Hedge or size down")
+        assert store.dedupe() == 0
+
+
+class TestUnusedHeuristicsArePrunable:
+    def _backdate(self, tmp_path, hid, days):
+        import json as _json
+        from datetime import datetime, timedelta
+
+        path = tmp_path / "claude" / f"{hid}.json"
+        data = _json.loads(path.read_text())
+        data["created"] = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        path.write_text(_json.dumps(data))
+        return path
+
+    def test_a_rule_never_retrieved_is_eventually_removed(self, tmp_path):
+        """Quality only moves via record_outcome, so an unretrieved rule sat at
+        its initial 5.0 for ever and could never fall into prune range."""
+        from src.agent.memory import get_store
+
+        store = get_store("claude")
+        hid = store.save(trigger="A", action="B", quality_score=8.0)  # self-assessed, unused
+        path = self._backdate(tmp_path, hid, days=45)
+
+        assert store.prune() == 1
+        assert not path.exists()
+
+    def test_a_rare_regime_rule_gets_longer_than_the_quality_clock(self, tmp_path):
+        """A week unretrieved may just mean its regime hasn't come round."""
+        from src.agent.memory import get_store
+
+        store = get_store("claude")
+        hid = store.save(trigger="A", action="B", quality_score=8.0)
+        path = self._backdate(tmp_path, hid, days=10)  # past min_age, inside the unused clock
+
+        assert store.prune() == 0
+        assert path.exists()

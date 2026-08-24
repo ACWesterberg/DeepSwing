@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +23,71 @@ def _hours_since(iso_ts: Optional[str], now: datetime) -> float:
         return (now - datetime.fromisoformat(iso_ts)).total_seconds() / 3600.0
     except ValueError:
         return float("inf")
+
+
+# Words that carry no discriminating meaning between heuristics — dropping them
+# stops two rules looking similar merely because both are English sentences.
+_STOPWORDS = frozenset("""
+a an the and or but if then than that this these those is are was were be been
+being to of in on at by for with from as its it their there when while during
+not no do does than into over under above below out up down
+""".split())
+
+_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
+
+
+def canonical_tokens(text: str) -> frozenset[str]:
+    """Meaning-bearing words of a heuristic, with every number erased.
+
+    Erasing numbers is the whole point. The library's redundancy is one idea
+    minted at a dozen thresholds — "volume exceeds 3x ... RSI below 60" and
+    "volume exceeds 5x ... RSI below 55" are the same rule with the dial moved,
+    and each was written from a single trade's post-mortem. Compared as written
+    they look distinct; with the numbers gone they are visibly one rule.
+    """
+    stripped = _NUMBER_RE.sub(" ", (text or "").lower())
+    words = re.findall(r"[a-z%]+", stripped)
+    return frozenset(w for w in words if w not in _STOPWORDS and len(w) > 1)
+
+
+def similarity(a: str, b: str) -> float:
+    """Jaccard overlap of two heuristics' canonical tokens, 0.0-1.0."""
+    ta, tb = canonical_tokens(a), canonical_tokens(b)
+    if not ta or not tb:
+        return 0.0
+    return len(ta & tb) / len(ta | tb)
+
+
+def heuristic_similarity(a: dict, b: dict) -> float:
+    """How far two heuristics say the same thing, 0.0-1.0.
+
+    Trigger and action are compared separately and the *lower* score wins, so a
+    pair counts as one rule only when both the condition and the response match.
+    Two rules can share a condition and prescribe opposite responses — "volume
+    spike with price not extended: wait for a pullback" against "volume spike
+    with price extended: stand aside" — and collapsing those would delete the
+    distinction that makes either useful.
+    """
+    return min(
+        similarity(a.get("trigger", ""), b.get("trigger", "")),
+        similarity(a.get("action", ""), b.get("action", "")),
+    )
+
+
+# Two bars, because the two decisions differ in cost and reversibility.
+#
+# Dedupe marks a rule superseded and takes it out of circulation until someone
+# intervenes, so it only fires on near-literal restatements — the same rule with
+# the dial moved. Measured across the GPT track's library, those score 1.00.
+SIMILARITY_THRESHOLD = 0.70
+#
+# Retrieval diversity is decided afresh every scan and costs only a slot, so it
+# can be stricter about what counts as "already said". On the same library,
+# rules within one family (volume spike with price unextended, expressed through
+# BB%B, RSI or distance from the SMA) score 0.45-0.50 against each other, while
+# every cross-family pair scores 0.00. Cutting at 0.45 keeps a family to one
+# seat in the prompt without ever conflating two families.
+DIVERSITY_THRESHOLD = 0.45
 
 
 class HeuristicStore:
@@ -75,7 +141,7 @@ class HeuristicStore:
         Retrieve the top-k most relevant heuristics for the current context.
         Relevance = quality_score weighted by regime/market match.
         """
-        all_heuristics = self._load_all()
+        all_heuristics = [h for h in self._load_all() if not h.get("superseded_by")]
         if not all_heuristics:
             return []
 
@@ -95,7 +161,29 @@ class HeuristicStore:
             scored.append((score, h))
 
         scored.sort(key=lambda x: x[0], reverse=True)
-        top = [h for _, h in scored[:top_k]]
+
+        # Fill the slots with distinct ideas, not the same idea restated. Every
+        # heuristic is scored on its own merit, so a cluster of near-identical
+        # rules — the library is full of one rule minted at a dozen thresholds —
+        # scores alike and can take every slot, leaving the model reading five
+        # copies of one consideration and nothing else. Skipping a candidate too
+        # close to one already chosen costs a little relevance and buys the
+        # model something it did not already have.
+        top: list[dict] = []
+        for _, h in scored:
+            if len(top) >= top_k:
+                break
+            if any(heuristic_similarity(h, c) >= DIVERSITY_THRESHOLD for c in top):
+                continue
+            top.append(h)
+
+        # Deliberately no back-filling from the rejected near-duplicates when
+        # fewer than top_k distinct rules exist. A fifth restatement of a rule
+        # already in the prompt tells the model nothing the first one did not,
+        # and costs it the attention a genuinely different consideration would
+        # have had. Returning three distinct rules beats returning five copies
+        # of one, and a short block is the honest signal that the library holds
+        # little the model has not already been told.
 
         # Update access counts — at most once per hour per heuristic. Retrieval
         # happens every 15-min scan × every candidate, so unthrottled counting
@@ -114,12 +202,28 @@ class HeuristicStore:
 
     def record_outcome(self, heuristic_ids: list[str], pnl_pct: float) -> int:
         """Re-score heuristics against the result of a trade that used them.
-        quality_score moves by up to ±1 per trade (pnl-scaled), clamped to 0–10,
-        so validated rules rise and repeatedly harmful ones drift into prune
-        range regardless of the model's initial self-assessment."""
-        delta = max(-1.0, min(1.0, pnl_pct * 10.0))
+
+        One trade is one unit of evidence, split across the heuristics that were
+        in front of the model, weighted by the rank they were retrieved at.
+        Giving all of them the identical delta measured "was I present when
+        things went well" rather than "did I help": with five retrieved every
+        time, a rule accrued the same credit as the four beside it no matter how
+        marginal it was, and scores drifted toward a common base rate. Rank is
+        the only relevance signal available at this point, and `heuristic_ids`
+        arrives in retrieval order, so the top-ranked rule carries the most.
+
+        A heuristic used alone still moves by the full pnl-scaled delta, clamped
+        to ±1 and bounded to 0–10.
+        """
+        full_delta = max(-1.0, min(1.0, pnl_pct * 10.0))
+        n = len(heuristic_ids)
+        # Linear decay by rank, normalised so the weights sum to 1.
+        denom = n * (n + 1) / 2
+        weights = [(n - i) / denom for i in range(n)]
+
         updated = 0
-        for heuristic_id in heuristic_ids:
+        for rank, heuristic_id in enumerate(heuristic_ids):
+            delta = full_delta * weights[rank]
             path = self._dir / f"{heuristic_id}.json"
             if not path.exists():
                 continue
@@ -134,8 +238,9 @@ class HeuristicStore:
                 logger.warning("Failed to record outcome on heuristic %s: %s", heuristic_id[:8], exc)
         if updated:
             logger.info(
-                "Outcome %+.2f%% applied to %d heuristic(s) in %s track (Δquality %+.2f)",
-                pnl_pct * 100, updated, self.track, delta,
+                "Outcome %+.2f%% split across %d heuristic(s) in %s track "
+                "(top rank Δquality %+.2f)",
+                pnl_pct * 100, updated, self.track, full_delta * weights[0],
             )
         return updated
 
@@ -150,14 +255,72 @@ class HeuristicStore:
             )
         return "\n".join(lines)
 
+    def dedupe(self, threshold: float = SIMILARITY_THRESHOLD) -> int:
+        """Retire heuristics that restate a rule the library already holds.
+
+        The store grows by one rule per post-mortem, so the same idea arrives
+        again and again at a slightly different threshold. Left alone it crowds
+        retrieval, and every copy accrues its own credit from the same trades.
+
+        Within a cluster the best-evidenced survivor is kept — highest quality,
+        then most outcomes behind it, then oldest — and the rest are marked
+        superseded rather than deleted, so retrieval skips them while the record
+        of what the fund once believed stays intact and reversible.
+        """
+        live = [h for h in self._load_all() if not h.get("superseded_by")]
+        # Strongest first, so a cluster's survivor is chosen before its copies.
+        live.sort(
+            key=lambda h: (
+                h.get("quality_score", 5.0),
+                h.get("outcome_count", 0),
+                h.get("created", ""),
+            ),
+            reverse=True,
+        )
+
+        kept: list[dict] = []
+        superseded = 0
+        for h in live:
+            match = next(
+                (k for k in kept if heuristic_similarity(h, k) >= threshold), None
+            )
+            if match is None:
+                kept.append(h)
+                continue
+            h["superseded_by"] = match["id"]
+            (self._dir / f"{h['id']}.json").write_text(json.dumps(h, indent=2))
+            superseded += 1
+            logger.debug("Heuristic %s superseded by %s", h["id"][:8], match["id"][:8])
+
+        if superseded:
+            logger.info(
+                "Deduped %d heuristic(s) in %s track — %d distinct rules remain",
+                superseded, self.track, len(kept),
+            )
+        return superseded
+
     def prune(
         self,
         quality_threshold: float = 4.0,
         access_threshold: int = 2,
         min_age_days: float = 7.0,
+        unused_max_age_days: float = 30.0,
     ) -> int:
-        """Remove low-quality, low-access heuristics older than min_age_days.
-        The age gate gives new rules a grace period before they can be culled."""
+        """Remove heuristics that have earned no place, past a grace period.
+
+        Two ways to earn removal. Scoring badly while barely being used is the
+        original one, on the `min_age_days` clock. The second is never being
+        retrieved at all: quality only moves through `record_outcome`, which
+        only fires for heuristics that reached a trade, so a rule that is never
+        retrieved sits at its initial 5.0 for ever — above the quality
+        threshold, and therefore immortal no matter how long it has
+        demonstrated nothing.
+
+        Zero access runs on its own, much longer clock. A rule scoped to a rare
+        regime can go a week unretrieved without being dead weight, and would be
+        worth having when that regime returns; a month of never once placing in
+        any scan's top five is a different claim.
+        """
         removed = 0
         now = datetime.utcnow()
         for path in self._dir.glob("*.json"):
@@ -165,10 +328,20 @@ class HeuristicStore:
                 h = json.loads(path.read_text())
                 if _hours_since(h.get("created"), now) < min_age_days * 24:
                     continue
-                if h.get("quality_score", 5.0) < quality_threshold and h.get("access_count", 0) < access_threshold:
+                access = h.get("access_count", 0)
+                age_days = _hours_since(h.get("created"), now) / 24.0
+                unproven = access == 0 and age_days >= unused_max_age_days
+                underperforming = (
+                    h.get("quality_score", 5.0) < quality_threshold
+                    and access < access_threshold
+                )
+                if unproven or underperforming:
                     path.unlink()
                     removed += 1
-                    logger.debug("Pruned heuristic %s", h["id"][:8])
+                    logger.debug(
+                        "Pruned heuristic %s (%s)", h["id"][:8],
+                        "never retrieved" if unproven else "low quality",
+                    )
             except Exception:
                 pass
         if removed:
