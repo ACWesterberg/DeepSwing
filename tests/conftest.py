@@ -32,6 +32,8 @@ for _mod in [
     "fastapi.staticfiles",
     "fastapi.templating",
     "starlette",
+    "starlette.middleware",
+    "starlette.middleware.base",
     "starlette.requests",
     "starlette.websockets",
     # Feed / news parsing

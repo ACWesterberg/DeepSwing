@@ -190,6 +190,11 @@ def _emit(event: dict) -> None:
             logger.warning("Trade event callback error: %s", exc)
 
 
+def emit(event: dict) -> None:
+    """Public alias — the event loop shares this dashboard socket."""
+    _emit(event)
+
+
 # Serialize scans across threads — the scheduler and a manual /api/scan trigger
 # must never run concurrently, or two scans could double-open the same ticker.
 _scan_lock = threading.Lock()

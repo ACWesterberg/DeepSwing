@@ -35,7 +35,7 @@ class PortfolioState(Base):
     in-memory Portfolio, so tracks survive a process restart / redeploy."""
     __tablename__ = "portfolio_state"
 
-    track = Column(String(10), primary_key=True)
+    track = Column(String(20), primary_key=True)
     updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     cash = Column(Float, nullable=False)
     starting_equity = Column(Float, nullable=False)
@@ -51,8 +51,8 @@ class Decision(Base):
 
     id = Column(Integer, primary_key=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
-    market = Column(String(10), nullable=False)   # "nordic" | "us"
-    track = Column(String(10), nullable=False)    # "claude" | "gpt"
+    market = Column(String(10), nullable=False)   # "nordic" | "eu" | "us" | "events"
+    track = Column(String(20), nullable=False)    # "claude" | "gpt" | "*_events"
     ticker = Column(String(20), nullable=False)
     action = Column(String(10), nullable=False)   # BUY | HOLD | SELL | BLOCKED | ERROR
     confidence = Column(Float)
@@ -69,6 +69,11 @@ class Decision(Base):
     # none_as_null: Python None must become SQL NULL (not the JSON string 'null')
     # or the isnot(None) filters in the counterfactual builder match empty rows
     entry_inputs = Column(JSON(none_as_null=True))
+    # Event-contract fields — null for equity decisions. First-class columns
+    # rather than entry_inputs keys because the calibration record queries them.
+    fair_prob = Column(Float)
+    market_prob = Column(Float)
+    edge = Column(Float)
 
     __table_args__ = (
         Index("ix_decisions_time", "timestamp"),
@@ -88,6 +93,9 @@ class Decision(Base):
             "regime": self.regime,
             "reasoning": self.reasoning,
             "reason": self.block_reason,
+            "fair_prob": self.fair_prob,
+            "market_prob": self.market_prob,
+            "edge": self.edge,
         }
 
 
@@ -167,7 +175,10 @@ def _migrate_decisions(engine) -> None:
 
     with engine.connect() as conn:
         existing = {row[1] for row in conn.execute(text("PRAGMA table_info(decisions)"))}
-        for name, ddl in (("price", "FLOAT"), ("atr", "FLOAT"), ("entry_inputs", "JSON")):
+        for name, ddl in (
+            ("price", "FLOAT"), ("atr", "FLOAT"), ("entry_inputs", "JSON"),
+            ("fair_prob", "FLOAT"), ("market_prob", "FLOAT"), ("edge", "FLOAT"),
+        ):
             if name not in existing:
                 conn.execute(text(f"ALTER TABLE decisions ADD COLUMN {name} {ddl}"))
         conn.commit()

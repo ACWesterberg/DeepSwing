@@ -31,6 +31,17 @@ def scheduled_scan():
                 logger.error("Scan error for %s: %s", market, exc, exc_info=True)
 
 
+def scheduled_event_scan():
+    """Weather contracts do not follow exchange hours — this runs around the clock."""
+    if not settings.event_tracks:
+        return
+    from src.scheduler.event_loop import run_event_scan
+    try:
+        run_event_scan()
+    except Exception as exc:
+        logger.error("Event scan error: %s", exc, exc_info=True)
+
+
 def scheduled_watch_monitor():
     """Personal watchlist: move/news/insider alerts to Telegram. News and insider
     checks run around the clock (cached fetches keep it cheap); the move check
@@ -77,6 +88,17 @@ def start_scheduler() -> BackgroundScheduler:
         max_instances=1,
         coalesce=True,
     )
+
+    # Event contracts — no exchange hours, so a plain interval
+    if settings.event_tracks:
+        scheduler.add_job(
+            scheduled_event_scan,
+            "interval",
+            minutes=settings.event_scan_interval_minutes,
+            id="event_scan",
+            max_instances=1,
+            coalesce=True,
+        )
 
     # Personal watchlist monitor — light (one quote + cached news per ticker),
     # so it never takes the scan lock and can't be starved by a long scan
@@ -131,10 +153,14 @@ def main():
 
     # Ensure compiled + heuristic dirs exist
     settings.compiled_dir.mkdir(parents=True, exist_ok=True)
-    for track in settings.tracks:
+    for track in [*settings.tracks, *settings.event_tracks]:
         (settings.heuristics_dir / track).mkdir(parents=True, exist_ok=True)
 
     logger.info("Simulation tracks: %s", settings.tracks)
+    if settings.event_tracks:
+        logger.info(
+            "Event tracks: %s (dry run: %s)", settings.event_tracks, settings.event_dry_run
+        )
 
     # Log resolved model IDs, and optionally ping each so a bad ID/credential
     # surfaces now rather than at the next scan/ERL/MIPRO run.
