@@ -16,6 +16,7 @@ fails. Read-only — it opens no positions and needs no credentials.
 from __future__ import annotations
 
 import json
+import math
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -25,7 +26,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import httpx  # noqa: E402
 
 from config.settings import settings  # noqa: E402
-from src.analysis.event_model import bucket_bounds, build_candidates  # noqa: E402
+from src.analysis.event_model import (  # noqa: E402
+    bucket_bounds, build_candidates, forecast_sigma,
+)
 from src.data import kalshi, weather_forecast  # noqa: E402
 
 KALSHI_HOSTS = [
@@ -168,6 +171,83 @@ def check_nws() -> None:
     )
 
 
+
+def check_distribution() -> None:
+    """
+    Compare the model's distribution against the market's for one event.
+
+    The buckets of an event are exhaustive, so the market's own prices are a
+    probability distribution over the daily high. Setting it beside ours says
+    which knob is wrong: a shifted centre means the forecast (or the station it
+    comes from) is off, while a matching centre with a wider spread means sigma
+    is too large. A blanket "edge" on every bucket below the forecast is the
+    signature of one of those, not of a mispriced market.
+    """
+    print("\n=== Model vs market distribution ===")
+    contracts = kalshi.fetch_weather_markets()
+    forecasts = weather_forecast.get_forecast_highs(contracts)
+    if not contracts or not forecasts:
+        warn("Nothing to compare")
+        return
+
+    by_event: dict[str, list] = {}
+    for c in contracts:
+        if c.event_ticker in forecasts:
+            by_event.setdefault(c.event_ticker, []).append(c)
+    if not by_event:
+        warn("No event has both markets and a forecast")
+        return
+
+    event = max(by_event, key=lambda e: len(by_event[e]))
+    group = sorted(by_event[event], key=lambda c: (c.floor_strike or -999))
+    forecast = forecasts[event]
+    print(f"  {event} — NWS forecast high {forecast:.1f}F, {len(group)} buckets")
+
+    candidates = build_candidates(group, forecasts, now=datetime.utcnow())
+    by_ticker = {c.ticker: c for c in candidates}
+
+    print(f"    {'bucket':<26} {'model':>7} {'market':>7} {'diff':>7}")
+    weighted, total, mids = 0.0, 0.0, []
+    for contract in group:
+        cand = by_ticker.get(contract.ticker)
+        if cand is None:
+            continue
+        market = contract.mid
+        label = f"{contract.strike_type} {contract.floor_strike}-{contract.cap_strike}"
+        print(f"    {label:<26} {cand.fair_prob:>7.3f} {market:>7.3f} "
+              f"{cand.fair_prob - market:>+7.3f}")
+        # Only closed buckets have a defined midpoint for the moment estimate.
+        if contract.floor_strike is not None and contract.cap_strike is not None:
+            mid_temp = (contract.floor_strike + contract.cap_strike) / 2
+            weighted += mid_temp * market
+            total += market
+            mids.append((mid_temp, market))
+
+    if total <= 0:
+        warn("No two-sided closed buckets — cannot infer the market's distribution")
+        return
+
+    market_mean = weighted / total
+    market_sd = math.sqrt(sum(p * (m - market_mean) ** 2 for m, p in mids) / total)
+    print(f"\n  Market implies mean {market_mean:.1f}F, sd {market_sd:.2f}F")
+    print(f"  Model uses      mean {forecast:.1f}F, sd {forecast_sigma(1.0):.2f}F "
+          f"(forecast_sigma at 1 day)")
+
+    shift = market_mean - forecast
+    if abs(shift) >= 1.0:
+        bad(f"Centre is off by {shift:+.1f}F — the forecast or the station is wrong, "
+            f"and every bucket is mispriced as a result")
+    else:
+        ok(f"Centre agrees within {abs(shift):.1f}F")
+
+    if market_sd > 0 and forecast_sigma(1.0) > market_sd * 1.5:
+        bad(f"forecast_sigma is {forecast_sigma(1.0) / market_sd:.1f}x the market's "
+            f"spread — every bucket away from the centre looks underpriced")
+        warn("Lower FORECAST_SIGMA_DAY1 toward the market's sd before trading")
+    else:
+        ok("Spread is in the same range as the market's")
+
+
 def check_end_to_end() -> None:
     print("\n=== End to end ===")
     contracts = kalshi.fetch_weather_markets()
@@ -210,6 +290,13 @@ def check_end_to_end() -> None:
         )
 
 
+def print_rules(markets: list[dict]) -> None:
+    """Kalshi's own resolution rules — they name the station the series settles on."""
+    print("\n=== Resolution rules (confirm the station) ===")
+    rules = (markets[0].get("rules_primary") or "").strip() if markets else ""
+    print(f"  {rules[:600] or 'no rules_primary on the response'}")
+
+
 def main() -> int:
     print(f"DeepSwing event source check — {datetime.utcnow():%Y-%m-%d %H:%M} UTC")
     host, markets = check_kalshi()
@@ -218,6 +305,8 @@ def main() -> int:
     check_nws()
     if host:
         check_end_to_end()
+        check_distribution()
+        print_rules(markets)
     print("\nDone. Resolve every FAIL above before enabling event_dry_run=False.")
     return 0 if host else 1
 
