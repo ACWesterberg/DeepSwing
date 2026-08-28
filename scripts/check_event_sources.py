@@ -34,11 +34,17 @@ KALSHI_HOSTS = [
     "https://external-api.kalshi.com/trade-api/v2",
 ]
 
-EXPECTED_MARKET_FIELDS = [
-    "ticker", "event_ticker", "title", "yes_bid", "yes_ask", "last_price",
-    "volume", "open_interest", "close_time", "strike_type",
-    "floor_strike", "cap_strike",
-]
+# Fields the parser needs on every market, each as the list of names it accepts —
+# Kalshi serves prices as either `*_dollars` decimal strings or bare integer cents.
+REQUIRED_FIELDS = {
+    "ticker": ["ticker"],
+    "event ticker": ["event_ticker"],
+    "close time": ["close_time"],
+    "strike type": ["strike_type"],
+    "yes bid": ["yes_bid_dollars", "yes_bid"],
+    "yes ask": ["yes_ask_dollars", "yes_ask"],
+    "open interest": ["open_interest", "open_interest_fp"],
+}
 
 
 def ok(msg: str) -> None:
@@ -87,14 +93,15 @@ def check_market_schema(markets: list[dict]) -> None:
         return
 
     sample = markets[0]
-    print(f"  Raw first market:\n{json.dumps(sample, indent=4)[:1200]}")
+    print(f"  Keys on a sample market:\n    {sorted(sample)}")
 
-    missing = [f for f in EXPECTED_MARKET_FIELDS if f not in sample]
-    if missing:
-        bad(f"Fields the parser expects but the API did not return: {missing}")
-        warn("Update _parse_market in src/data/kalshi.py to the real names above.")
-    else:
-        ok("Every expected field is present")
+    for label, names in REQUIRED_FIELDS.items():
+        if not any(n in sample for n in names):
+            bad(f"No field for {label} — parser looks for {names}")
+            warn("Update _parse_market in src/data/kalshi.py to the real name above.")
+    # floor/cap are legitimately one-sided: a `greater` market has no cap_strike.
+    if "floor_strike" not in sample and "cap_strike" not in sample:
+        bad("Market has neither floor_strike nor cap_strike")
 
     strike_types = {(m.get("strike_type") or "?").lower() for m in markets}
     print(f"  strike_type values seen: {sorted(strike_types)}")
@@ -108,12 +115,29 @@ def check_market_schema(markets: list[dict]) -> None:
     usable = [c for c in parsed if c is not None]
     ok(f"Parsed {len(usable)}/{len(markets)} markets into contracts")
 
-    for contract in usable[:3]:
+    # The check that matters: a renamed price field parses as 0.00 rather than
+    # raising, so every market silently becomes "unquoted" and nothing trades.
+    quoted = [c for c in usable if c.yes_ask > 0]
+    if quoted:
+        ok(f"{len(quoted)}/{len(usable)} sampled markets have a non-zero ask")
+    else:
+        bad("Every sampled ask parsed as 0.00 — the price field names have changed")
+        warn("Compare the key list above against _price() in src/data/kalshi.py")
+
+    # Show a `between` market too — its raw floor/cap reveal whether Kalshi quotes
+    # whole degrees (needing the continuity correction) or half-degree boundaries.
+    shown = usable[:3]
+    between = next((c for c in usable if c.strike_type == "between"), None)
+    if between is not None and between not in shown:
+        shown.append(between)
+    for contract in shown:
         try:
             lo, hi = bucket_bounds(contract)
             print(
                 f"    {contract.ticker}: bid {contract.yes_bid:.2f} ask {contract.yes_ask:.2f} "
-                f"oi {contract.open_interest} -> YES on [{lo}, {hi}] degF"
+                f"oi {contract.open_interest} | {contract.strike_type} "
+                f"floor={contract.floor_strike} cap={contract.cap_strike} "
+                f"-> YES on [{lo}, {hi}] degF"
             )
         except ValueError as exc:
             bad(f"    {contract.ticker}: {exc}")
@@ -163,6 +187,12 @@ def check_end_to_end() -> None:
         bad("No candidates priced")
         return
     ok(f"{len(candidates)} contracts priced")
+
+    quoted = [c for c in candidates if c.market_prob > 0]
+    if quoted:
+        ok(f"{len(quoted)}/{len(candidates)} have a tradeable ask")
+    else:
+        bad("No contract has a tradeable ask — edges below are meaningless")
 
     from src.analysis.event_screener import screen_event_candidates
 

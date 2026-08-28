@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta
 
 import pytest
@@ -244,3 +245,86 @@ class TestFetchWeatherMarkets:
         )
         assert len(candidates) == 1
         assert 0.0 < candidates[0].fair_prob < 1.0
+
+# The exact shape the live API returned on 2026-08-28 (external-api.kalshi.com):
+# prices as `*_dollars` decimal strings, open interest as `open_interest_fp`, and
+# no cap_strike on a one-sided `greater` market.
+LIVE_MARKET = {
+    "ticker": "KXHIGHNY-26AUG28-T87",
+    "event_ticker": "KXHIGHNY-26AUG28",
+    "market_type": "binary",
+    "strike_type": "greater",
+    "floor_strike": 87,
+    "close_time": "2026-08-29T05:00:00Z",
+    "open_time": "2026-08-27T14:00:00Z",
+    "yes_bid_dollars": "0.0000",
+    "yes_ask_dollars": "0.0100",
+    "no_bid_dollars": "0.9900",
+    "no_ask_dollars": "1.0000",
+    "last_price_dollars": "0.0100",
+    "previous_price_dollars": "0.0000",
+    "open_interest_fp": "1396.94",
+    "liquidity_dollars": "0.0000",
+    "notional_value_dollars": "1.0000",
+    "no_sub_title": "88\u00b0 or above",
+    "result": "",
+}
+
+
+class TestLiveSchema:
+    def test_dollar_strings_are_not_divided_by_a_hundred(self):
+        # "0.0100" is one cent as a dollar amount. Treating it as integer cents
+        # would give 0.0001 and every market would look unquoted.
+        contract = kalshi._parse_market(LIVE_MARKET, "KXHIGHNY")
+        assert contract.yes_ask == pytest.approx(0.01)
+        assert contract.last_price == pytest.approx(0.01)
+        assert contract.yes_bid == 0.0
+
+    def test_open_interest_from_the_fp_field(self):
+        contract = kalshi._parse_market(LIVE_MARKET, "KXHIGHNY")
+        assert contract.open_interest == 1396
+
+    def test_missing_volume_is_not_fatal(self):
+        assert kalshi._parse_market(LIVE_MARKET, "KXHIGHNY").volume == 0
+
+    def test_one_sided_greater_market_parses(self):
+        contract = kalshi._parse_market(LIVE_MARKET, "KXHIGHNY")
+        assert contract.floor_strike == 87.0
+        assert contract.cap_strike is None
+
+    def test_greater_strike_matches_kalshis_own_wording(self):
+        # Kalshi describes this market as "88 degrees or above"; the bucket must
+        # therefore start above 87, not at it.
+        from src.analysis.event_model import bucket_bounds
+
+        lo, hi = bucket_bounds(kalshi._parse_market(LIVE_MARKET, "KXHIGHNY"))
+        assert (lo, hi) == (87.5, math.inf)
+
+    def test_legacy_integer_cents_still_parse(self):
+        legacy = {**LIVE_MARKET}
+        for key in ("yes_bid_dollars", "yes_ask_dollars", "last_price_dollars",
+                    "open_interest_fp"):
+            legacy.pop(key)
+        legacy.update({"yes_bid": 20, "yes_ask": 24, "last_price": 22,
+                       "open_interest": 4000, "volume": 150})
+        contract = kalshi._parse_market(legacy, "KXHIGHNY")
+        assert contract.yes_ask == pytest.approx(0.24)
+        assert contract.open_interest == 4000
+        assert contract.volume == 150
+
+    def test_dollar_field_wins_over_a_stale_cents_field(self):
+        both = {**LIVE_MARKET, "yes_ask": 99}
+        assert kalshi._parse_market(both, "KXHIGHNY").yes_ask == pytest.approx(0.01)
+
+    def test_unquoted_market_is_rejected_by_the_screener(self):
+        from src.analysis.event_model import build_candidates
+        from src.analysis.event_screener import screen_event_candidates
+
+        contract = kalshi._parse_market(
+            {**LIVE_MARKET, "yes_ask_dollars": "0.0000"}, "KXHIGHNY"
+        )
+        candidates = build_candidates(
+            [contract], {"KXHIGHNY-26AUG28": 82.0},
+            now=datetime(2026, 8, 28, 12, 0), normalize=False,
+        )
+        assert screen_event_candidates(candidates) == []

@@ -11,10 +11,12 @@ from src.analysis.event_model import EventContract
 
 logger = logging.getLogger(__name__)
 
-# UNVERIFIED AGAINST THE LIVE API. This parser was written from Kalshi's
-# documented v2 market schema but never exercised against a real response — the
-# session it was built in had no egress to Kalshi. Confirm field names and the
-# base URL on the Pi (see scripts/check_event_sources.py) before trusting output.
+# Verified against the live API on 2026-08-28 via scripts/check_event_sources.py:
+# host external-api.kalshi.com, prices served as `*_dollars` decimal strings and
+# open interest as `open_interest_fp`. Strike types in use are between/greater/
+# less. Re-run that script after any Kalshi API change — a renamed price field
+# parses as 0.00 and every market is then rejected as unquoted, which looks like
+# a quiet market rather than a broken parser.
 
 _CENTS = 100.0
 _PAGE_LIMIT = 200
@@ -187,11 +189,11 @@ def _parse_market(raw: dict, series_ticker: str) -> Optional[EventContract]:
         event_ticker=raw.get("event_ticker") or ticker.rsplit("-", 1)[0],
         series_ticker=series_ticker,
         title=raw.get("title") or raw.get("subtitle") or ticker,
-        yes_bid=_price(raw.get("yes_bid")),
-        yes_ask=_price(raw.get("yes_ask")),
-        last_price=_price(raw.get("last_price")),
-        volume=int(raw.get("volume") or 0),
-        open_interest=int(raw.get("open_interest") or 0),
+        yes_bid=_price(raw, "yes_bid_dollars", "yes_bid"),
+        yes_ask=_price(raw, "yes_ask_dollars", "yes_ask"),
+        last_price=_price(raw, "last_price_dollars", "last_price"),
+        volume=_count(raw, "volume", "volume_fp"),
+        open_interest=_count(raw, "open_interest", "open_interest_fp"),
         close_time=close_time,
         strike_type=(raw.get("strike_type") or "").lower(),
         floor_strike=floor_strike,
@@ -199,14 +201,40 @@ def _parse_market(raw: dict, series_ticker: str) -> Optional[EventContract]:
     )
 
 
-def _price(cents) -> float:
-    """Kalshi quotes integer cents; the rest of the pipeline works in probability."""
-    if cents is None:
-        return 0.0
-    try:
-        return max(0.0, min(1.0, float(cents) / _CENTS))
-    except (TypeError, ValueError):
-        return 0.0
+def _price(raw: dict, *names: str) -> float:
+    """
+    A quote as a probability (0..1), from whichever field name this API build uses.
+
+    Kalshi serves prices two ways: `*_dollars` as a decimal string already in
+    dollars ("0.9900"), and the older bare field as an integer count of cents.
+    Dividing a dollars field by 100 silently yields ~0 for every market, so the
+    unit is taken from the field name rather than guessed from the value.
+    """
+    for name in names:
+        value = raw.get(name)
+        if value is None or value == "":
+            continue
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            continue
+        if not name.endswith("_dollars"):
+            number /= _CENTS
+        return max(0.0, min(1.0, number))
+    return 0.0
+
+
+def _count(raw: dict, *names: str) -> int:
+    """Volume/open interest, which the `_fp` variants serve as decimal strings."""
+    for name in names:
+        value = raw.get(name)
+        if value is None or value == "":
+            continue
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            continue
+    return 0
 
 
 def _opt_float(value) -> Optional[float]:
