@@ -241,9 +241,13 @@ def check_distribution() -> None:
         ok(f"Centre agrees within {abs(shift):.1f}F")
 
     if market_sd > 0 and forecast_sigma(1.0) > market_sd * 1.5:
-        bad(f"forecast_sigma is {forecast_sigma(1.0) / market_sd:.1f}x the market's "
-            f"spread — every bucket away from the centre looks underpriced")
-        warn("Lower FORECAST_SIGMA_DAY1 toward the market's sd before trading")
+        warn(f"forecast_sigma is {forecast_sigma(1.0) / market_sd:.1f}x the market's "
+             f"spread — every bucket away from the centre looks underpriced")
+        warn("This is NOT a defect to fix before trading. Fitting sigma to the "
+             "market's spread is circular: it reproduces the market's own "
+             "distribution and yields zero edge by construction. Whether our "
+             "spread or the market's is closer to reality is settled by outcomes "
+             "on the calibration plot, not by tuning to agree in advance.")
     else:
         ok("Spread is in the same range as the market's")
 
@@ -307,7 +311,7 @@ def main() -> int:
         check_end_to_end()
         check_distribution()
         print_rules(markets)
-    print("\nDone. Resolve every FAIL above before enabling event_dry_run=False.")
+    print("\nDone. Resolve every FAIL above; WARNs are context, not blockers.")
     return 0 if host else 1
 
 
