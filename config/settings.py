@@ -195,6 +195,13 @@ class Settings(BaseSettings):
     event_book_depth_fraction: float = 0.25  # never take more than this share of resting size
     min_event_open_interest: int = 200      # thin-book reject
     max_event_spread: float = 0.05          # reject when ask-bid exceeds this (prob units)
+    # A resting 1c ask with no bid behind it is dust, not a market, and its narrow
+    # 0.00/0.01 "spread" sails through the spread gate. Require a real bid.
+    min_event_bid: float = 0.01
+    # No genuine edge this large exists on a quoted weather market. A number
+    # above it means the model is wrong — wrong day, wrong station, stale
+    # forecast — so it is rejected loudly rather than sized into a position.
+    max_plausible_edge: float = 0.35
     max_event_candidates_per_scan: int = 15
 
     # Forecast uncertainty for the daily-high distribution, in degrees F: sigma at

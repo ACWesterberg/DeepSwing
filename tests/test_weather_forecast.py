@@ -87,8 +87,15 @@ class TestTargetDate:
         assert wf.target_date(ny) == date(2026, 8, 28)
         assert wf.target_date(la) == date(2026, 8, 28)
 
-    def test_unknown_series_returns_none(self):
-        assert wf.target_date(contract(series_ticker="KXNOPE")) is None
+    def test_date_comes_from_the_ticker_not_the_station(self):
+        # The event date is in the ticker, so it resolves even for a series we
+        # have no station for; get_forecast_highs is what rejects those.
+        assert wf.target_date(contract(series_ticker="KXNOPE")) == date(2026, 8, 28)
+
+    def test_undated_ticker_on_unknown_series_returns_none(self):
+        assert wf.target_date(
+            contract(event_ticker="NOPE", series_ticker="KXNOPE")
+        ) is None
 
 
 class TestParsePeriods:
@@ -220,3 +227,49 @@ class TestForecastDiscussion:
 
     def test_unknown_series_returns_empty(self):
         assert wf.fetch_forecast_discussion("KXNOPE") == ""
+
+
+class TestTargetDateFromTicker:
+    """A market stays open past the day it covers — settlement waits on the next
+    morning's climate report — so close_time is not the event date."""
+
+    def test_uses_the_date_in_the_event_ticker(self):
+        c = contract(event_ticker="KXHIGHDEN-26AUG27", series_ticker="KXHIGHDEN",
+                     close_time=datetime(2026, 8, 28, 18, 0))
+        assert wf.target_date(c) == date(2026, 8, 27)
+
+    def test_close_time_on_the_following_day_does_not_shift_it(self):
+        # The exact live case: an AUG27 contract whose close_time lands on the
+        # 28th was being priced against the 28th's forecast.
+        early = contract(event_ticker="KXHIGHDEN-26AUG27", series_ticker="KXHIGHDEN",
+                         close_time=datetime(2026, 8, 28, 6, 0))
+        late = contract(event_ticker="KXHIGHDEN-26AUG27", series_ticker="KXHIGHDEN",
+                        close_time=datetime(2026, 8, 29, 14, 0))
+        assert wf.target_date(early) == wf.target_date(late) == date(2026, 8, 27)
+
+    def test_parses_every_month(self):
+        for code, month in (("JAN", 1), ("JUN", 6), ("SEP", 9), ("DEC", 12)):
+            c = contract(event_ticker=f"KXHIGHNY-26{code}05")
+            assert wf.target_date(c) == date(2026, month, 5)
+
+    def test_falls_back_to_close_time_without_a_dated_ticker(self):
+        c = contract(event_ticker="KXHIGHNY-SPECIAL", series_ticker="KXHIGHNY",
+                     close_time=datetime(2026, 8, 28, 23, 59))
+        assert wf.target_date(c) == date(2026, 8, 28)
+
+    def test_unknown_series_without_a_dated_ticker_is_none(self):
+        c = contract(event_ticker="NOPE", series_ticker="KXNOPE")
+        assert wf.target_date(c) is None
+
+    def test_impossible_date_falls_back(self):
+        c = contract(event_ticker="KXHIGHNY-26FEB30", series_ticker="KXHIGHNY",
+                     close_time=datetime(2026, 8, 28, 23, 59))
+        assert wf.target_date(c) == date(2026, 8, 28)
+
+    def test_yesterdays_contract_gets_no_forecast(self, monkeypatch):
+        # NWS only forecasts forward, so a past event day is simply absent —
+        # which is the behaviour that stops it being priced at all.
+        install_json(monkeypatch, {"/points/": POINTS_PAYLOAD, "/forecast": FORECAST_PAYLOAD})
+        past = contract(event_ticker="KXHIGHNY-26AUG26", series_ticker="KXHIGHNY",
+                        close_time=datetime(2026, 8, 27, 5, 0))
+        assert wf.get_forecast_highs([past]) == {}

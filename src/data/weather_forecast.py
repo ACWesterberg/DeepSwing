@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
@@ -72,19 +73,49 @@ def get_station(series_ticker: str) -> Optional[WeatherStation]:
     return _STATIONS.get(series_ticker.upper())
 
 
+_EVENT_DATE_RE = re.compile(r"-(\d{2})([A-Z]{3})(\d{2})$")
+_MONTHS = {m: i for i, m in enumerate(
+    ["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+     "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], start=1)}
+
+
 def target_date(contract: EventContract) -> Optional[date]:
     """
-    The local calendar day a contract resolves on.
+    The local calendar day a contract covers.
 
-    Daily-high markets close in the evening of the day they cover, so the local
-    date of close_time is the target day. An hour is trimmed first so a market
-    closing exactly at local midnight does not roll onto the following day.
+    Taken from the event ticker (KXHIGHDEN-26AUG27 -> 2026-08-27), which names
+    the day directly. close_time is only a fallback: a market stays open past
+    the day it covers — settlement waits on the official climate report the next
+    morning — so KXHIGHDEN-26AUG27 has a close_time on the 28th. Deriving the
+    day from it priced yesterday's contract against today's forecast, which
+    produced confident, badly wrong fair values (1.000 against a 1c market).
     """
+    from_ticker = _date_from_ticker(contract.event_ticker)
+    if from_ticker is not None:
+        return from_ticker
+
     station = get_station(contract.series_ticker)
     if station is None:
         return None
+    logger.debug("No date in event ticker %s — falling back to close_time",
+                 contract.event_ticker)
     utc = pytz.utc.localize(contract.close_time - timedelta(hours=1))
     return utc.astimezone(pytz.timezone(station.timezone)).date()
+
+
+def _date_from_ticker(event_ticker: str) -> Optional[date]:
+    """Parse the -YYMMMDD suffix Kalshi puts on daily event tickers."""
+    match = _EVENT_DATE_RE.search((event_ticker or "").upper())
+    if match is None:
+        return None
+    year, month_name, day = match.groups()
+    month = _MONTHS.get(month_name)
+    if month is None:
+        return None
+    try:
+        return date(2000 + int(year), month, int(day))
+    except ValueError:
+        return None
 
 
 def get_forecast_highs(contracts: list[EventContract]) -> dict[str, float]:
@@ -102,9 +133,12 @@ def get_forecast_highs(contracts: list[EventContract]) -> dict[str, float]:
     for contract in contracts:
         if contract.event_ticker in wanted:
             continue
+        if get_station(contract.series_ticker) is None:
+            logger.debug("No station configured for series %s", contract.series_ticker)
+            continue
         day = target_date(contract)
         if day is None:
-            logger.debug("No station configured for series %s", contract.series_ticker)
+            logger.debug("No target date for %s", contract.event_ticker)
             continue
         wanted[contract.event_ticker] = (contract.series_ticker, day)
 

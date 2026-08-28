@@ -52,7 +52,10 @@ def contract(
         last_price=(bid + ask) / 2,
         volume=2000,
         open_interest=open_interest,
-        close_time=NOW + timedelta(days=1),
+        # Relative to real now: the loop prices against utcnow(), so a fixed
+        # date would make lead time — and therefore sigma and the fair value —
+        # depend on when the suite happens to run.
+        close_time=datetime.utcnow() + timedelta(days=1),
         strike_type="between",
         floor_strike=floor_strike,
         cap_strike=cap_strike,

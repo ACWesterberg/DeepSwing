@@ -118,3 +118,49 @@ def test_rejection_tally_is_logged(caplog):
             make_candidate(open_interest=1),
         ])
     assert "rejected:" in caplog.text
+
+
+class TestOneSidedBook:
+    """A resting 1c ask with nothing bid behind it is dust, and its 0.00/0.01
+    'spread' passes the spread gate — so it needs its own rejection."""
+
+    def test_rejects_a_dust_ask_with_no_bid(self):
+        # The live KXHIGHNY-26AUG28-T87 book: bid 0.00, ask 0.01, oi 1396.
+        dust = make_candidate(fair_prob=0.40, ask=0.01, bid=0.0, open_interest=1396)
+        assert screen_event_candidates([dust]) == []
+
+    def test_a_dust_book_would_otherwise_pass_the_spread_gate(self):
+        dust = make_candidate(fair_prob=0.40, ask=0.01, bid=0.0)
+        assert dust.contract.spread <= settings.max_event_spread
+
+    def test_accepts_a_penny_market_with_a_real_bid(self):
+        quoted = make_candidate(fair_prob=0.10, ask=0.02, bid=0.01)
+        assert len(screen_event_candidates([quoted])) == 1
+
+
+class TestImplausibleEdge:
+    """No real edge this large exists on a quoted weather market; a number above
+    the cap means the model is wrong, not that the market is."""
+
+    def test_rejects_a_near_certainty_against_a_penny_market(self):
+        # The live artifact: yesterday's contract priced on today's forecast.
+        absurd = make_candidate(fair_prob=1.0, ask=0.01, bid=0.01)
+        assert screen_event_candidates([absurd]) == []
+
+    def test_logs_loudly_so_it_is_not_silently_swallowed(self, caplog):
+        with caplog.at_level("WARNING"):
+            screen_event_candidates([make_candidate(fair_prob=1.0, ask=0.01, bid=0.01)])
+        assert "IMPLAUSIBLE EDGE" in caplog.text
+
+    def test_edge_just_under_the_cap_still_passes(self):
+        ask = 0.20
+        ok = make_candidate(fair_prob=ask + settings.max_plausible_edge - 0.01, ask=ask)
+        assert len(screen_event_candidates([ok])) == 1
+
+    def test_edge_just_over_the_cap_is_rejected(self):
+        ask = 0.20
+        bad = make_candidate(fair_prob=ask + settings.max_plausible_edge + 0.01, ask=ask)
+        assert screen_event_candidates([bad]) == []
+
+    def test_ordinary_edges_are_unaffected(self):
+        assert len(screen_event_candidates([make_candidate(fair_prob=0.40, ask=0.25)])) == 1

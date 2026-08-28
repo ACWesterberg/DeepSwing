@@ -55,10 +55,20 @@ def _reject_reason(candidate: EventCandidate) -> str | None:
 
     if not 0.0 < candidate.market_prob < 1.0:
         return "no tradeable ask"
+    if contract.yes_bid < settings.min_event_bid:
+        return "no bid — one-sided book"
     if contract.open_interest < settings.min_event_open_interest:
         return "thin open interest"
     if contract.spread > settings.max_event_spread:
         return "spread too wide"
+    if candidate.edge > settings.max_plausible_edge:
+        logger.warning(
+            "IMPLAUSIBLE EDGE %s: fair %.3f vs ask %.3f (%+.3f) — forecast %.1fF, "
+            "%.2f days lead. Treating as a model fault, not an opportunity.",
+            candidate.ticker, candidate.fair_prob, candidate.market_prob,
+            candidate.edge, candidate.forecast_high, candidate.lead_days,
+        )
+        return "edge implausibly large"
     if candidate.edge < settings.min_event_edge:
         return "edge below floor"
     if _net_edge(candidate) <= 0:
