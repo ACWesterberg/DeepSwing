@@ -192,6 +192,11 @@ class Settings(BaseSettings):
     max_event_position_pct: float = 0.02    # cap one contract at 2% of equity
     max_event_positions: int = 20           # max concurrent open contracts per track
     max_event_family_pct: float = 0.05      # cap total exposure to one event's buckets
+    # Every open event position is the same underlying bet — that forecast_sigma
+    # is wider than the market's implied spread — expressed on different cities
+    # and days. They are near-perfectly correlated, so sizing them as independent
+    # 2% positions would put a fifth of the book on one unverified parameter.
+    max_event_total_pct: float = 0.10
     event_book_depth_fraction: float = 0.25  # never take more than this share of resting size
     min_event_open_interest: int = 200      # thin-book reject
     max_event_spread: float = 0.05          # reject when ask-bid exceeds this (prob units)

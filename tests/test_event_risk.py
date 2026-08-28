@@ -184,11 +184,14 @@ class TestValidateEventTrade:
         assert "exposure cap" in result.rejection_reason
 
     def test_other_events_do_not_consume_family_room(self):
+        # A position on a different event leaves this event's family budget
+        # untouched. It is kept small so the book-wide cap does not fire instead
+        # — that cap is exercised in TestAggregateExposure.
         candidate = make_candidate()
         open_positions = [{
             "contract_ticker": "OTHER",
             "event_ticker": "KXHIGHCHI-26AUG27",
-            "cost_usd": 10_000.0,
+            "cost_usd": 10.0,
         }]
         assert validate_event_trade(candidate, 10_000.0, open_positions).approved
 
@@ -215,3 +218,45 @@ class TestValidateEventTrade:
         small = validate_event_trade(make_candidate(fair_prob=0.30, ask=0.25), 10_000.0, [])
         large = validate_event_trade(make_candidate(fair_prob=0.45, ask=0.25), 10_000.0, [])
         assert large.contracts > small.contracts
+
+
+class TestAggregateExposure:
+    """Event positions across different cities and days are not diversified —
+    each is the same wager that forecast_sigma beats the market's spread."""
+
+    def _positions(self, count: int, cost_each: float) -> list[dict]:
+        return [
+            {"contract_ticker": f"T{i}", "event_ticker": f"KXHIGH{i}-26AUG28",
+             "cost_usd": cost_each}
+            for i in range(count)
+        ]
+
+    def test_book_wide_cap_blocks_further_entries(self):
+        equity = 10_000.0
+        spent = settings.max_event_total_pct * equity
+        result = validate_event_trade(make_candidate(), equity, self._positions(3, spent / 3))
+        assert not result.approved
+        assert "aggregate cap" in result.rejection_reason
+
+    def test_cap_applies_across_different_events(self):
+        # Each position is on its own event, so the family cap never fires; only
+        # the aggregate cap stops the book concentrating.
+        equity = 10_000.0
+        nearly = settings.max_event_total_pct * equity * 0.99
+        result = validate_event_trade(make_candidate(), equity, self._positions(5, nearly / 5))
+        assert result.total_usd <= settings.max_event_total_pct * equity + 0.10
+
+    def test_room_remaining_is_still_tradeable(self):
+        equity = 10_000.0
+        half = settings.max_event_total_pct * equity / 2
+        assert validate_event_trade(make_candidate(), equity, self._positions(1, half)).approved
+
+    def test_empty_book_is_unconstrained_by_the_aggregate_cap(self):
+        result = validate_event_trade(make_candidate(), 10_000.0, [])
+        assert result.approved
+        assert result.cost_usd <= settings.max_event_position_pct * 10_000.0 + 0.10
+
+    def test_aggregate_cap_is_tighter_than_naive_independent_sizing(self):
+        # 20 positions at the 2% per-position cap would be 40% of equity.
+        naive = settings.max_event_positions * settings.max_event_position_pct
+        assert settings.max_event_total_pct < naive

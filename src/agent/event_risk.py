@@ -161,7 +161,19 @@ def validate_event_trade(
             f"{settings.max_event_family_pct:.0%} exposure cap",
             **ctx,
         )
-    stake_usd = min(stake_usd, family_room)
+
+    # Cap the whole event book too. Positions across different cities and days
+    # are not diversified: each one is the same wager that our forecast spread
+    # beats the market's, so they rise and fall together.
+    total_spent = sum(p.get("cost_usd", 0.0) for p in open_positions)
+    total_room = settings.max_event_total_pct * equity_usd - total_spent
+    if total_room <= 0:
+        return _reject(
+            f"Event book already at the {settings.max_event_total_pct:.0%} "
+            f"aggregate cap — these positions are one correlated bet",
+            **ctx,
+        )
+    stake_usd = min(stake_usd, family_room, total_room)
 
     contracts = min(int(stake_usd // eff), depth_cap)
     if contracts < 1:

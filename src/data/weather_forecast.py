@@ -14,13 +14,18 @@ from src.analysis.event_model import EventContract
 
 logger = logging.getLogger(__name__)
 
-# UNVERIFIED AGAINST THE LIVE API — see the note in src/data/kalshi.py.
+# Station coordinates must match the station each Kalshi series actually settles
+# on. Confirmed 2026-08-28 for KXHIGHNY only: its rules_primary reads "the maximum
+# temperature recorded at New York City (CLINYC)", and CLINYC is the NWS climate
+# report for Central Park — so these coordinates are right. THE OTHER FIVE ARE
+# STILL UNCONFIRMED; scripts/check_event_sources.py prints rules_primary per
+# series. A wrong station is a silently biased model, not an error.
 #
-# The station coordinates below must match the station each Kalshi series
-# actually resolves against (its rules name one, e.g. NYC resolves on Central
-# Park, not "New York"). A forecast for the wrong station is a silently biased
-# model, not an error, so confirm each one against the series rules before
-# trusting any edge this produces.
+# Note the same rules settle "according to The Weather Company", not the NWS.
+# The underlying observation is the same Central Park climate report, but the
+# market is likely pricing off TWC's forecast while we forecast off the NWS.
+# Where the two providers disagree, that difference shows up as an apparent edge
+# that is really just a difference of opinion between forecasters.
 
 
 @dataclass(frozen=True)
