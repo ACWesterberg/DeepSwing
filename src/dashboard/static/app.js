@@ -173,6 +173,10 @@ try {
       },
       options: {
         responsive: true,
+        // Both axes are probabilities, so the plot must be square —
+        // a wide, short box renders the 45-degree diagonal nearly flat.
+        maintainAspectRatio: true,
+        aspectRatio: 1,
         plugins: {
           legend: { labels: { color: "#8b949e" } },
           tooltip: {
