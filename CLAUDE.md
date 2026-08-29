@@ -30,7 +30,6 @@ An AI-powered **swing trading simulator** running on a Raspberry Pi 5. Paper-tra
 - **Entries fill at a live quote, never the scan-time OHLCV close** — the daily close a candidate was screened on can be hours stale (Alpha Vantage is EOD; EU feeds are delayed), and booking it while exits fill live realized the gap as phantom P&L (0-day ±huge trades). If no live quote exists, or it deviates more than `max_entry_price_deviation` (3%) from the scan price, the entry is blocked. News-exit fills use the same live feed. Entry-side FX resolution is *strict* — a ticker whose quote currency can't be resolved from its suffix/market (e.g. an `.IS` listing in the US watchlist) is blocked instead of booked at a guessed rate; exit pricing of existing positions stays lenient so they can still close consistently.
 - **Volume is screened on the last *completed* daily bar** — intraday the latest bar is still forming, so `volume_ratio` from it reads ~0.1× and the `volume_spike_multiplier` gate would reject everything until near the close. `technical.py` computes the ratio from the previous full day vs its trailing 20-day average; `current_volume` still reports the live bar for display.
 
-- **Prediction-market track is a `market`, not a new AI axis** — Kalshi weather contracts run as `market="events"` with their own cash pools (`claude_events` / `gpt_events`), so event P&L never contaminates the Claude-vs-GPT equity comparison while both models still trade the same book. Emptying `settings.event_tracks` disables the whole track — every wiring point is guarded on it, the way the removed options tracks were. The edge is **arithmetic, not the LLM**: an NWS forecast distribution integrated over each strike bucket gives a fair probability, and the model's only job is to veto edges that are stale or artifacts. Never let it produce the probability. Binary contracts have no stop, ATR or RRR, so `risk.py` does not apply — `event_risk.py` sizes with fractional Kelly, and event positions never go through `update_prices()` (its ATR trailing stop would close winners). Kalshi's fee, `ceil(0.07·C·P·(1−P))` cents on entry only, is modelled exactly: at 50¢ it is 3.5% of stake and it is what decides whether a measured edge is real. Fills cross the real bid/ask rather than `simulated_slippage`. Settlement reads Kalshi's own `result` rather than re-deriving the observed high, at the FX rate the position opened at so P&L measures the edge and not USD/SEK drift. **The event date comes from the event ticker (`KXHIGHDEN-26AUG27`), never from `close_time`** — a market stays open past the day it covers while settlement waits on the next morning's climate report, and deriving the day from `close_time` priced yesterday's contract against today's forecast. Two gates exist because the live book produces artifacts the spread check misses: a resting 1c ask with no bid is dust (`min_event_bid`), and any edge above `max_plausible_edge` is treated as a model fault and logged, because no real edge that large exists on a quoted weather market. **The deliverable is the calibration plot on the Events tab, not the equity curve** — predicted-vs-realised frequency reveals whether the forecast model works long before P&L does. **Never fit `forecast_sigma` to the market's implied spread** — that is circular and yields zero edge by construction; the only valid calibration target is realised outcomes. Every open event position is the same wager that our spread beats the market's, expressed on different cities and days, so they are near-perfectly correlated: `max_event_total_pct` caps the whole book, not just per-contract and per-event. Verified 2026-08-28: `KXHIGHNY` settles on "New York City (CLINYC)" = NWS Central Park, so those coordinates are right, but settlement is "according to The Weather Company" — the market likely prices off TWC's forecast while we use the NWS, and that difference of opinion will look like edge.
 
 - **Personal watchlist alerts are decoupled from the trading tracks** — the dashboard Watchlist tab stores tickers in `watched_tickers`; a 15-min APScheduler job (`watch_monitor`, never takes `_scan_lock`) pings Telegram on day moves ≥ `watch_move_alert_pct` (3%, re-ping per extra 2% step or direction flip, once-per-day baseline, market-hours only), on fresh directional news, and on insider-summary changes. One shared `gpt-5-mini` call classifies news/insider events bullish/bearish/neutral — **neutral never pings** and the classifier fails closed to neutral. Dedupe state (seen headline hashes, insider hash, last alerted move) lives on the row, so restarts never re-ping; the first pass after adding a ticker baselines silently. Alerts log to `watch_alerts` (dashboard feed, capped at 500) with `delivered=False` when Telegram keys are unset — the whole feature is dormant-but-visible until `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` land in `.env`.
 
@@ -84,14 +83,6 @@ All model IDs are env-overridable (see `.env.example`). Scan/ERL models were upg
 config/settings.py          All config — API keys, risk params, model names, watchlists
 src/db.py                   SQLAlchemy models (PortfolioState, Decision) + in-place SQLite migrations
 src/portfolio/persistence.py  DB save/restore of live portfolio state (survives restarts)
-src/data/kalshi.py          Kalshi public market data (no auth) — UNVERIFIED against live API
-src/data/weather_forecast.py  NWS forecasts + AFD discussion — UNVERIFIED against live API
-src/analysis/event_model.py    Forecast distribution → fair probability per strike bucket
-src/analysis/event_screener.py Edge filter; rejects anything the fee eats
-src/agent/event_risk.py     Fractional Kelly + exact Kalshi fee formula
-src/agent/event_decision.py DSPy EventTradeDecision — vetoes edges, never forecasts
-src/scheduler/event_loop.py Event cycle: settle → price → screen → veto → size → open
-scripts/check_event_sources.py  Run on the Pi to verify both APIs before trusting output
 src/data/market_data.py     OHLCV fetch — yfinance + Alpha Vantage
 src/data/news_fetcher.py    NewsAPI + Swedish RSS; yfinance/Finnhub fallback + rate-limit breaker
 src/data/insider_fetcher.py SEC EDGAR + FI Insynsregistret
@@ -133,12 +124,6 @@ Manual scan (no need to wait for scheduler):
 ```bash
 curl -X POST http://localhost:8000/api/scan/nordic
 curl -X POST http://localhost:8000/api/scan/us
-curl -X POST http://localhost:8000/api/scan/events
-```
-
-Before the events track is trusted, verify its two public APIs on the Pi:
-```bash
-venv/bin/python scripts/check_event_sources.py
 ```
 
 ---
@@ -157,9 +142,6 @@ See [STATUS.md](STATUS.md) for the full To Do list. Priority items:
 
 1. **Flip `hurst_on_returns`** — the returns-based R/S estimator is implemented behind a settings flag (default off, because it reclassifies drifting walks as neutral and makes the screener stricter); enable deliberately and observe candidate volume
 2. **News summary quality** — monitor whether `gpt-5-mini` spends its budget on reasoning at the expense of the Swedish summaries
-3. **Verify the two event APIs on the Pi** — `src/data/kalshi.py` and `src/data/weather_forecast.py` were written from documented schemas without live access. Run `scripts/check_event_sources.py`; it confirms the working Kalshi host, flags any field the parser expects but does not get, and prints the strike types actually in use. **Also confirm each station in `weather_forecast._STATIONS` is the one its Kalshi series resolves on** — a wrong station is a silently biased model, not an error.
-4. **Recalibrate `forecast_sigma`** — `forecast_sigma_day1` / `forecast_sigma_per_day` are seeded from published NWS MAE, not measured. Once ~50 contracts have settled, read the calibration plot on the Events tab and fit sigma to observed error before turning `EVENT_DRY_RUN` off.
-5. **ERL + MIPRO for event trades** — `run_erl` and the optimizer are equity-shaped (`stop_hit`, RRR, `program_hash` on entries). Event trades currently learn nothing; they need a contract-shaped path before the tracks can improve.
 
 There is **no target auto-stretching**: a BUY whose own target gives RRR < 2.0 is rejected at risk validation and learned from counterfactually (blocked BUYs persist inputs like PASSes). Don't reintroduce `_fix_rrr`.
 

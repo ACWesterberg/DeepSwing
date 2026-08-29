@@ -152,69 +152,6 @@ class Settings(BaseSettings):
     # MIPRO programs are backed up offsite; this protects the portfolio DB itself.
     db_backup_keep: int = 7
 
-    # --- Prediction-market track (Kalshi weather contracts) ---
-    # Modelled as market="events" with its own cash pools, so event P&L never
-    # contaminates the claude-vs-gpt equity comparison. Empty the list to disable
-    # the track entirely — every wiring point is guarded on it.
-    event_tracks: list[str] = ["claude_events", "gpt_events"]
-    event_series: list[str] = Field(
-        default=["KXHIGHNY", "KXHIGHCHI", "KXHIGHMIA", "KXHIGHDEN", "KXHIGHLAX", "KXHIGHAUS"]
-    )
-    event_days_ahead: int = 10
-    event_scan_interval_minutes: int = 20
-    # Log and size every edge without opening anything. Leave on until the
-    # calibration plot on the Events tab looks sound.
-    event_dry_run: bool = True
-
-    # Kalshi market data is public and unauthenticated. Kalshi has served this
-    # under more than one host; if requests 404 or refuse, try the alternative
-    # "https://api.elections.kalshi.com/trade-api/v2" via KALSHI_API_BASE.
-    kalshi_api_base: str = "https://external-api.kalshi.com/trade-api/v2"
-    kalshi_timeout_seconds: float = 15.0
-    kalshi_cooldown_minutes: int = 10
-    # Contracts are USD; portfolios are SEK. A position settles at the rate it was
-    # opened at, so the measured P&L is the trading edge and not USD/SEK drift.
-    usd_sek_fallback: float = 10.5
-    # NWS asks API clients to identify themselves in the User-Agent.
-    nws_api_base: str = "https://api.weather.gov"
-    nws_user_agent: str = "DeepSwing/0.1 (paper-trading simulator)"
-    nws_timeout_seconds: float = 15.0
-    nws_forecast_ttl_minutes: int = 30
-
-    # Kalshi trading fee: ceil(rate * contracts * P * (1-P)) in cents, charged on
-    # entry only (no settlement fee). At P=0.50 that is 1.75c on a 50c contract —
-    # a 3.5% haircut on stake, and the term that decides whether an edge is real.
-    kalshi_fee_rate: float = 0.07
-    # Edge floor, in probability points. Deliberately above the ~0.05 the retail
-    # write-ups quote, because that figure ignores fees.
-    min_event_edge: float = 0.07
-    kelly_fraction: float = 0.25            # fractional Kelly (0.25 = quarter Kelly)
-    max_event_position_pct: float = 0.02    # cap one contract at 2% of equity
-    max_event_positions: int = 20           # max concurrent open contracts per track
-    max_event_family_pct: float = 0.05      # cap total exposure to one event's buckets
-    # Every open event position is the same underlying bet — that forecast_sigma
-    # is wider than the market's implied spread — expressed on different cities
-    # and days. They are near-perfectly correlated, so sizing them as independent
-    # 2% positions would put a fifth of the book on one unverified parameter.
-    max_event_total_pct: float = 0.10
-    event_book_depth_fraction: float = 0.25  # never take more than this share of resting size
-    min_event_open_interest: int = 200      # thin-book reject
-    max_event_spread: float = 0.05          # reject when ask-bid exceeds this (prob units)
-    # A resting 1c ask with no bid behind it is dust, not a market, and its narrow
-    # 0.00/0.01 "spread" sails through the spread gate. Require a real bid.
-    min_event_bid: float = 0.01
-    # No genuine edge this large exists on a quoted weather market. A number
-    # above it means the model is wrong — wrong day, wrong station, stale
-    # forecast — so it is rejected loudly rather than sized into a position.
-    max_plausible_edge: float = 0.35
-    max_event_candidates_per_scan: int = 15
-
-    # Forecast uncertainty for the daily-high distribution, in degrees F: sigma at
-    # one day of lead, widening per additional day. Seeded from published NWS MAE;
-    # recalibrate against observed error once contracts have settled.
-    forecast_sigma_day1: float = 2.5
-    forecast_sigma_per_day: float = 1.0
-
     # MIPRO artifact backup — path to a local git working copy of a standalone
     # backups repo (e.g. ~/Github/deepswing-mipro-backups). Set via env
     # MIPRO_BACKUP_REPO_DIR. Empty disables backup. The Pi must have push

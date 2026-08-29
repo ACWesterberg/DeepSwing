@@ -166,8 +166,6 @@ async def status():
         "eu_open": is_exchange_open("eu"),
         "us_open": is_exchange_open("us"),
         "tracks": settings.tracks,
-        "event_tracks": settings.event_tracks,
-        "event_dry_run": settings.event_dry_run,
         "claude_configured": bool(settings.anthropic_api_key),
         "gpt_configured": bool(settings.openai_api_key),
     }
@@ -289,79 +287,6 @@ async def programs(track: str):
     return {"track": track, "programs": metrics_by_program(get_portfolio(track))}
 
 
-@app.get("/api/events/comparison")
-async def events_comparison():
-    """
-    Side-by-side state for the event tracks, plus the calibration record.
-
-    Calibration is the point of this panel: P&L on a handful of binary contracts
-    is mostly noise, but predicted-vs-realised frequency says whether the forecast
-    model is right long before the equity curve does.
-    """
-    result: dict = {"dry_run": settings.event_dry_run, "tracks": {}}
-    settled: list[tuple[float, int]] = []
-
-    for track in settings.event_tracks:
-        portfolio = get_portfolio(track)
-        result["tracks"][track] = {
-            "metrics": compute_metrics(portfolio).to_dict(),
-            "snapshot": portfolio.snapshot(),
-            "open_positions": [_event_position(p) for p in portfolio.open_positions],
-            "equity_curve": build_equity_curve_chart_data(portfolio),
-        }
-        for trade in portfolio.closed_trades:
-            fair = (trade.entry_inputs or {}).get("fair_prob")
-            if fair is None:
-                continue
-            settled.append((float(fair), 1 if trade.exit_reason == "settled_yes" else 0))
-
-    result["calibration"] = _calibration(settled)
-    result["settled_count"] = len(settled)
-    return result
-
-
-def _event_position(position) -> dict:
-    inputs = position.entry_inputs or {}
-    payout = position.target or 0.0
-    return {
-        **position.to_dict(),
-        "contracts": position.quantity,
-        "event_ticker": inputs.get("event_ticker", ""),
-        "fair_prob": inputs.get("fair_prob"),
-        "entry_ask": inputs.get("ask"),
-        "net_edge": inputs.get("net_edge"),
-        "forecast_high": inputs.get("forecast_high"),
-        # Mark and payout are SEK; showing the mark as a probability makes the
-        # position readable against its fair probability.
-        "market_prob": round(position.current_price / payout, 4) if payout else None,
-    }
-
-
-def _calibration(settled: list[tuple[float, int]], bins: int = 10) -> list[dict]:
-    """Predicted probability decile vs realised YES frequency."""
-    buckets: list[dict] = []
-    for index in range(bins):
-        low, high = index / bins, (index + 1) / bins
-        in_bin = [
-            outcome for prob, outcome in settled
-            if (low <= prob < high) or (index == bins - 1 and prob == 1.0)
-        ]
-        buckets.append({
-            "bucket": f"{low:.1f}-{high:.1f}",
-            "predicted": round((low + high) / 2, 3),
-            "realised": round(sum(in_bin) / len(in_bin), 3) if in_bin else None,
-            "count": len(in_bin),
-        })
-    return buckets
-
-
-@app.get("/api/events/decisions")
-async def event_decisions():
-    """Latest event-scan decisions."""
-    from src.scheduler.event_loop import get_recent_event_decisions
-    return get_recent_event_decisions()
-
-
 @app.get("/api/heuristics/{track}")
 async def heuristics(track: str, page: int = 1, page_size: int = 20):
     if track not in settings.tracks:
@@ -479,9 +404,8 @@ async def reset_simulation(body: _ResetRequest):
     if not secrets.compare_digest(str(body.pin), settings.reset_pin):
         return {"error": "Invalid PIN"}
 
-    known_tracks = [*settings.tracks, *settings.event_tracks]
-    target_tracks = body.tracks if body.tracks else known_tracks
-    invalid = [t for t in target_tracks if t not in known_tracks]
+    target_tracks = body.tracks if body.tracks else list(settings.tracks)
+    invalid = [t for t in target_tracks if t not in settings.tracks]
     if invalid:
         return {"error": f"Unknown tracks: {invalid}"}
 
@@ -656,18 +580,13 @@ async def trigger_scan(market: str):
     request limit — so the POST returns immediately and the result arrives over
     the WebSocket as scan_complete (or scan_error), which the dashboard toast
     listens for. The scan still runs in a worker thread, never on the event loop."""
-    is_events = market == "events" and bool(settings.event_tracks)
-    if market not in SCAN_MARKETS and not is_events:
-        return {"error": f"market must be one of {SCAN_MARKETS} or 'events'"}
+    if market not in SCAN_MARKETS:
+        return {"error": f"market must be one of {SCAN_MARKETS}"}
     loop = asyncio.get_event_loop()
 
     async def _run_and_broadcast() -> None:
         try:
-            if is_events:
-                from src.scheduler.event_loop import run_event_scan
-                result = await loop.run_in_executor(None, run_event_scan)
-            else:
-                result = await loop.run_in_executor(None, run_scan, market)
+            result = await loop.run_in_executor(None, run_scan, market)
             await _broadcast({"event": "scan_complete", "data": result})
         except Exception as exc:
             logger.error("Manual %s scan failed: %s", market, exc, exc_info=True)

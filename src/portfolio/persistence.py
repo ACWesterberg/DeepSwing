@@ -37,7 +37,7 @@ def restore_portfolios() -> None:
     leave a track at its fresh starting capital."""
     session = get_session()
     try:
-        for track in [*settings.tracks, *settings.event_tracks]:
+        for track in settings.tracks:
             row = session.get(PortfolioState, track)
             if row is None:
                 continue

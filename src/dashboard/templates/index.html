@@ -19,7 +19,6 @@
       <button id="scan-nordic-btn" class="scan-btn" title="Run Nordic scan now">Scan Nordic</button>
       <button id="scan-eu-btn" class="scan-btn" title="Run EU scan now">Scan EU</button>
       <button id="scan-us-btn" class="scan-btn" title="Run US scan now">Scan US</button>
-      <button id="scan-events-btn" class="scan-btn" title="Run event-contract scan now">Scan Events</button>
       <button id="reset-btn" class="reset-btn" title="Reset all tracks to starting state">Reset Sim</button>
     </div>
   </header>
@@ -34,7 +33,6 @@
     <button class="tab active" data-tab="comparison">Comparison</button>
     <button class="tab" data-tab="claude">Claude Track</button>
     <button class="tab" data-tab="gpt">GPT Track</button>
-    <button class="tab" data-tab="events">Events</button>
     <button class="tab" data-tab="decisions">Decisions</button>
     <button class="tab" data-tab="watchlist">Watchlist</button>
     <button class="tab" data-tab="heuristics-claude">Heuristics (Claude)</button>
@@ -178,55 +176,6 @@
     <div class="panel">
       <h2>Recent Alerts</h2>
       <div id="watch-alerts"></div>
-    </div>
-  </div>
-
-  <!-- Events tab (Kalshi weather contracts) -->
-  <div id="tab-events" class="tab-content">
-    <div id="events-dryrun-banner" class="warning-banner" style="display:none">
-      Dry run — edges are logged and sized, but no contracts are opened.
-      Set <code>EVENT_DRY_RUN=false</code> once the calibration below looks sound.
-    </div>
-    <div class="panel">
-      <h2>Calibration <span id="events-calib-meta" class="panel-meta"></span></h2>
-      <p class="neutral">
-        Predicted probability vs. how often those contracts actually resolved YES.
-        Points on the diagonal mean the forecast model is honest; points below it
-        mean it is overconfident. This says whether there is an edge long before
-        P&amp;L does.
-      </p>
-      <div class="calib-wrap">
-        <canvas id="events-calibration-chart"></canvas>
-      </div>
-    </div>
-    <div class="panel">
-      <h2>Head-to-Head Metrics</h2>
-      <div class="table-scroll">
-        <table id="events-comparison-table" class="data-table">
-          <thead>
-            <tr><th>Metric</th><th>Claude Events</th><th>GPT Events</th></tr>
-          </thead>
-          <tbody id="events-comparison-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-    <div class="panel">
-      <h2>Open Contracts</h2>
-      <div class="table-scroll">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Track</th><th>Contract</th><th>Qty</th><th>Fair</th>
-              <th>Entry</th><th>Mark</th><th>Net edge</th><th>P&amp;L</th>
-            </tr>
-          </thead>
-          <tbody id="events-positions"></tbody>
-        </table>
-      </div>
-    </div>
-    <div class="panel">
-      <h2>Latest Event Decisions <span id="events-decisions-meta" class="panel-meta"></span></h2>
-      <div id="events-decisions-list"></div>
     </div>
   </div>
 

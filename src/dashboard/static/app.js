@@ -8,7 +8,6 @@ document.querySelectorAll(".tab").forEach(btn => {
     if (btn.dataset.tab === "decisions") refreshHistory();
     if (btn.dataset.tab === "watchlist") refreshWatchlist();
     if (btn.dataset.tab === "prompts") refreshPrompts();
-    if (btn.dataset.tab === "events") refreshEvents();
   });
 });
 
@@ -99,7 +98,6 @@ async function refreshAll() {
     refreshComparison(),
     refreshDecisions(),
     ...TRACKS.map(refreshTrack),
-    refreshEvents(),
   ]);
   document.getElementById("last-update").textContent =
     "Updated " + new Date().toLocaleTimeString();
@@ -143,171 +141,6 @@ async function refreshComparison() {
     const cells = TRACKS.map(t => `<td>${fmt(data[t]?.metrics?.[key] ?? "—")}</td>`).join("");
     tbody.innerHTML += `<tr><td>${label}</td>${cells}</tr>`;
   }
-}
-
-let calibChart = null;
-try {
-  const calibCtx = document.getElementById("events-calibration-chart");
-  if (calibCtx) {
-    calibChart = new Chart(calibCtx, {
-      type: "scatter",
-      data: {
-        datasets: [
-          {
-            label: "Perfect calibration",
-            data: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
-            borderColor: "#8b949e",
-            borderDash: [5, 5],
-            pointRadius: 0,
-            showLine: true,
-          },
-          {
-            label: "Realised",
-            data: [],
-            borderColor: "#7c3aed",
-            backgroundColor: "#7c3aed",
-            pointRadius: 5,
-            showLine: false,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        // Both axes are probabilities, so the plot must be square —
-        // a wide, short box renders the 45-degree diagonal nearly flat.
-        maintainAspectRatio: true,
-        aspectRatio: 1,
-        plugins: {
-          legend: { labels: { color: "#8b949e" } },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => {
-                const n = ctx.raw?.count;
-                return n === undefined
-                  ? `${ctx.parsed.x} → ${ctx.parsed.y}`
-                  : `predicted ${ctx.parsed.x} → realised ${ctx.parsed.y} (n=${n})`;
-              },
-            },
-          },
-        },
-        scales: {
-          x: {
-            min: 0, max: 1, title: { display: true, text: "Predicted", color: "#8b949e" },
-            ticks: { color: "#8b949e" }, grid: { color: "#21262d" },
-          },
-          y: {
-            min: 0, max: 1, title: { display: true, text: "Realised", color: "#8b949e" },
-            ticks: { color: "#8b949e" }, grid: { color: "#21262d" },
-          },
-        },
-      },
-    });
-  }
-} catch (err) {
-  console.warn("Calibration chart init failed:", err);
-}
-
-const EVENT_ACTION_CLASS = {
-  BUY: "act-buy", DRY_RUN: "act-hold", PASS: "act-pass",
-  BLOCKED: "act-blocked", ERROR: "act-blocked", SETTLED: "act-sell",
-};
-
-async function refreshEvents() {
-  const data = await fetchJSON("/api/events/comparison");
-  if (!data) return;
-
-  const banner = document.getElementById("events-dryrun-banner");
-  if (banner) banner.style.display = data.dry_run ? "block" : "none";
-
-  // Only bins with settled contracts carry information — an empty bin plotted at
-  // zero would read as a catastrophically overconfident model.
-  const points = (data.calibration || [])
-    .filter(b => b.realised !== null && b.count > 0)
-    .map(b => ({ x: b.predicted, y: b.realised, count: b.count }));
-  if (calibChart) {
-    calibChart.data.datasets[1].data = points;
-    calibChart.update();
-  }
-  const meta = document.getElementById("events-calib-meta");
-  if (meta) {
-    meta.textContent = data.settled_count
-      ? `${data.settled_count} settled contract(s)`
-      : "no settled contracts yet";
-  }
-
-  const tracks = Object.keys(data.tracks || {});
-  const tbody = document.getElementById("events-comparison-tbody");
-  if (tbody) {
-    tbody.innerHTML = "";
-    for (const [key, label] of Object.entries(METRIC_LABELS)) {
-      const cells = tracks.map(t => `<td>${fmt(data.tracks[t]?.metrics?.[key] ?? "—")}</td>`).join("");
-      tbody.innerHTML += `<tr><td>${label}</td>${cells}</tr>`;
-    }
-  }
-
-  const posBody = document.getElementById("events-positions");
-  if (posBody) {
-    const rows = [];
-    for (const track of tracks) {
-      for (const p of data.tracks[track].open_positions || []) {
-        const pnlClass = p.unrealised_pnl >= 0 ? "pos" : "neg";
-        rows.push(`<tr>
-          <td>${esc(track)}</td>
-          <td>${esc(p.ticker)}</td>
-          <td>${fmtNum(p.contracts)}</td>
-          <td>${fmt(p.fair_prob)}</td>
-          <td>${fmt(p.entry_ask)}</td>
-          <td>${fmt(p.market_prob)}</td>
-          <td>${fmt(p.net_edge)}</td>
-          <td class="${pnlClass}">${fmt(p.unrealised_pnl)}</td>
-        </tr>`);
-      }
-    }
-    posBody.innerHTML = rows.length
-      ? rows.join("")
-      : `<tr><td colspan="8" class="neutral">No open contracts.</td></tr>`;
-  }
-
-  await refreshEventDecisions();
-}
-
-async function refreshEventDecisions() {
-  const data = await fetchJSON("/api/events/decisions");
-  const list = document.getElementById("events-decisions-list");
-  if (!list) return;
-
-  const latest = data?.events;
-  const decisions = latest?.decisions || [];
-  const meta = document.getElementById("events-decisions-meta");
-  if (meta) {
-    meta.textContent = latest?.timestamp
-      ? new Date(latest.timestamp + "Z").toLocaleString()
-      : "";
-  }
-  if (!decisions.length) {
-    list.innerHTML = `<p class="neutral">No event decisions yet.</p>`;
-    return;
-  }
-
-  list.innerHTML = decisions.map(d => {
-    const cls = EVENT_ACTION_CLASS[d.action] || "act-hold";
-    const edge = (d.edge !== undefined && d.edge !== null) ? ` · edge ${fmt(d.edge)}` : "";
-    const fair = (d.fair_prob !== undefined && d.fair_prob !== null)
-      ? ` · fair ${fmt(d.fair_prob)} vs ask ${fmt(d.market_prob)}` : "";
-    const pill = d.track?.startsWith("claude") ? "track-claude" : "track-gpt";
-    const reason = d.reason ? `<div class="decision-blocked">${esc(d.reason)}</div>` : "";
-    const why = d.reasoning ? `<div class="decision-reason">${esc(d.reasoning)}</div>` : "";
-    return `<div class="decision-card">
-      <div class="decision-head">
-        <span class="track-pill ${pill}">${esc(d.track || "")}</span>
-        <strong>${esc(d.ticker)}</strong>
-        <span class="action-pill ${cls}">${esc(d.action)}</span>
-        <span class="decision-meta">EVENTS${fair}${edge}</span>
-      </div>
-      ${reason}
-      ${why}
-    </div>`;
-  }).join("");
 }
 
 const ACTION_CLASS = { BUY: "act-buy", PASS: "act-pass", HOLD: "act-hold", SELL: "act-sell", BLOCKED: "act-blocked", ERROR: "act-blocked" };
@@ -651,7 +484,6 @@ async function runScan(market) {
 document.getElementById("scan-nordic-btn").addEventListener("click", () => runScan("nordic"));
 document.getElementById("scan-eu-btn").addEventListener("click", () => runScan("eu"));
 document.getElementById("scan-us-btn").addEventListener("click", () => runScan("us"));
-document.getElementById("scan-events-btn")?.addEventListener("click", () => runScan("events"));
 
 document.getElementById("reset-btn").addEventListener("click", async () => {
   const pin = prompt("Enter PIN to reset all tracks:");
