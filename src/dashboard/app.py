@@ -429,6 +429,19 @@ async def reset_simulation(body: _ResetRequest):
             # Clear cached heuristic store so next call rebuilds from empty dir
             _memory._stores.pop(track, None)
 
+            # A compiled MIPRO program outlives the trades it was trained on,
+            # so without this a "clean" reset keeps driving entries from the
+            # old book. Archive rather than delete — it stays inspectable in
+            # the Prompts tab — then drop the engine back to baseline.
+            from src.agent.compiled_program import archive_compiled_program
+            programs_archived = archive_compiled_program(settings.compiled_dir, track)
+            try:
+                from src.agent.decision import DecisionEngine
+                if track in DecisionEngine._instances:
+                    DecisionEngine._instances[track].reload()
+            except Exception as exc:
+                logger.warning("Could not reload decision engine for %s: %s", track, exc)
+
             # Delete persisted decisions for this track
             db = get_session()
             try:
@@ -437,7 +450,11 @@ async def reset_simulation(body: _ResetRequest):
             finally:
                 db.close()
 
-            cleared[track] = {"heuristics_deleted": heuristic_count, "decisions_deleted": decision_count}
+            cleared[track] = {
+                "heuristics_deleted": heuristic_count,
+                "decisions_deleted": decision_count,
+                "programs_archived": programs_archived,
+            }
 
         # Reset in-memory portfolios, drop their persisted state (so a restart
         # doesn't resurrect them), and clear the latest-decisions cache.

@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from datetime import datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -38,3 +39,21 @@ def program_fingerprint(compiled_path: Path) -> str | None:
 
     canonical = json.dumps(data, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode()).hexdigest()[:12]
+
+
+def archive_compiled_program(compiled_dir: Path, track: str, program: str = "trade_decision") -> int:
+    """
+    Move a track's live compiled program aside, returning how many were moved.
+
+    A compiled program outlives the trades it was trained on, so a reset that
+    clears heuristics, decisions and portfolio state while leaving it in place
+    keeps driving entries from the book that was just wiped. Archive rather
+    than delete: the naming matches what the Prompts tab lists as history, so
+    the retired version stays inspectable.
+    """
+    current = Path(compiled_dir) / f"{track}_{program}.json"
+    if not current.exists():
+        return 0
+    stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    current.rename(Path(compiled_dir) / f"{track}_{program}_{stamp}.json")
+    return 1

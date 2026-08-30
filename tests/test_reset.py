@@ -177,3 +177,46 @@ class TestResetPin:
 
     def test_pin_is_from_settings(self):
         assert settings.reset_pin == "3821"
+
+
+class TestCompiledProgramArchiving:
+    """A reset that leaves the compiled program in place keeps driving entries
+    from the book it just wiped."""
+
+    def test_live_program_is_archived_not_deleted(self, tmp_path):
+        from src.agent.compiled_program import archive_compiled_program
+
+        live = tmp_path / "claude_trade_decision.json"
+        live.write_text('{"instructions": "compiled"}')
+
+        assert archive_compiled_program(tmp_path, "claude") == 1
+        assert not live.exists()
+
+        # Still listed by the Prompts tab's history glob, so it stays readable.
+        archived = list(tmp_path.glob("claude_trade_decision_*.json"))
+        assert len(archived) == 1
+        assert json.loads(archived[0].read_text())["instructions"] == "compiled"
+
+    def test_no_program_is_a_no_op(self, tmp_path):
+        from src.agent.compiled_program import archive_compiled_program
+        assert archive_compiled_program(tmp_path, "claude") == 0
+
+    def test_only_the_named_track_is_archived(self, tmp_path):
+        from src.agent.compiled_program import archive_compiled_program
+
+        (tmp_path / "claude_trade_decision.json").write_text("{}")
+        (tmp_path / "gpt_trade_decision.json").write_text("{}")
+
+        archive_compiled_program(tmp_path, "claude")
+        assert (tmp_path / "gpt_trade_decision.json").exists()
+
+    def test_existing_archives_are_not_disturbed(self, tmp_path):
+        from src.agent.compiled_program import archive_compiled_program
+
+        old = tmp_path / "claude_trade_decision_20260101_000000.json"
+        old.write_text('{"instructions": "older"}')
+        (tmp_path / "claude_trade_decision.json").write_text("{}")
+
+        archive_compiled_program(tmp_path, "claude")
+        assert json.loads(old.read_text())["instructions"] == "older"
+        assert len(list(tmp_path.glob("claude_trade_decision_*.json"))) == 2
