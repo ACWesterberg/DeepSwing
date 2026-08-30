@@ -6,6 +6,23 @@ Last updated: 2026-08-21
 
 ## Done ✅
 
+### MIPRO could never actually compile (2026-08-30)
+The 2026-08-30 02:00 run reached the end of `MIPROv2.compile()` on the gpt
+track — 35 trades, 30 counterfactuals, demos bootstrapped, three candidate
+instruction sets proposed, roughly seven minutes of heavy prompt-model calls —
+and then died on `ImportError: MIPROv2 requires optional dependency 'optuna'`.
+`optuna` was never in `requirements.txt`; `dspy-ai` does not pull it in, and
+MIPROv2 imports it at the *end* of compile, in `_optimize_prompt_parameters`.
+
+So no compiled program has ever existed on either track (confirmed at reset:
+`programs_archived: 0` for both, empty `compiled/`), and every weekly attempt
+past the trade threshold would have paid full proposer cost for nothing.
+
+Added `optuna>=3.6.0` to requirements, plus a guard at the top of
+`run_mipro_optimization` that checks importability before any LM is built, so
+a missing backend costs one log line rather than a proposer run.
+
+
 ### Heuristic quality for the learning loop (2026-08-30)
 Four structural problems in what feeds MIPRO, none of them sample size:
 

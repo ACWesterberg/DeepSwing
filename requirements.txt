@@ -6,6 +6,11 @@
 anthropic>=0.40.0
 openai>=1.50.0
 dspy-ai>=2.5.0
+# MIPROv2's Bayesian search backend. Not pulled in by dspy-ai, and the import
+# only fires at the end of compile() — after demo bootstrapping and instruction
+# proposal have already spent several minutes of heavy prompt-model calls. A
+# weekly run got that far and died there for want of this line.
+optuna>=3.6.0
 
 # Data
 yfinance>=0.2.40

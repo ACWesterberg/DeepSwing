@@ -166,3 +166,51 @@ class TestOptimizationGates:
             MIN_REAL_EXAMPLES,
         )
         assert 0 < MIN_REAL_EXAMPLES < MIN_EXAMPLES_FOR_OPTIMIZATION
+
+
+class TestOptunaGuard:
+    """MIPROv2 imports optuna deep inside compile(), after demo bootstrapping
+    and instruction proposal have already spent minutes of heavy prompt-model
+    calls. A live weekly run got that far and died there, weekly, silently."""
+
+    def test_missing_optuna_bails_with_that_reason(self, monkeypatch, caplog):
+        import builtins
+        import logging
+        import src.scheduler.optimizer as opt
+
+        real_import = builtins.__import__
+
+        def _no_optuna(name, *args, **kwargs):
+            if name == "optuna":
+                raise ImportError("MIPROv2 requires optional dependency 'optuna'")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", _no_optuna)
+        portfolio = SimpleNamespace(closed_trades=[SimpleNamespace()] * 40)
+        monkeypatch.setattr(opt, "get_portfolio", lambda track: portfolio)
+
+        with caplog.at_level(logging.ERROR, logger="src.scheduler.optimizer"):
+            assert opt.run_mipro_optimization("gpt") is False
+
+        # Must bail for THIS reason — a run that falls through to an empty
+        # trainset also returns False, which is what made an earlier version of
+        # this test pass with the guard removed.
+        assert any("optuna" in r.message for r in caplog.records)
+
+    def test_run_proceeds_past_the_guard_when_optuna_is_present(self, monkeypatch, caplog):
+        import logging
+        pytest.importorskip("optuna")
+        import src.scheduler.optimizer as opt
+
+        portfolio = SimpleNamespace(closed_trades=[SimpleNamespace()] * 40)
+        monkeypatch.setattr(opt, "get_portfolio", lambda track: portfolio)
+
+        with caplog.at_level(logging.INFO, logger="src.scheduler.optimizer"):
+            opt.run_mipro_optimization("gpt")
+
+        assert any("starting optimization" in r.message for r in caplog.records)
+
+    def test_optuna_is_declared_as_a_dependency(self):
+        from pathlib import Path
+        reqs = Path(__file__).resolve().parent.parent / "requirements.txt"
+        assert "optuna" in reqs.read_text()

@@ -374,6 +374,20 @@ def run_mipro_optimization(track: TrackType) -> bool:
         )
         return False
 
+    # Fail before spending anything. MIPROv2 imports optuna deep inside
+    # compile(), after bootstrapping demos and proposing instructions with the
+    # heavy prompt model — so a missing dependency costs a full proposer run
+    # every week and still produces nothing.
+    try:
+        import optuna  # noqa: F401
+    except ImportError:
+        logger.error(
+            "MIPRO [%s]: optuna is not installed — MIPROv2 cannot run. "
+            "Install it (pip install optuna) and the next weekly run will compile.",
+            track,
+        )
+        return False
+
     logger.info("MIPRO [%s]: starting optimization with %d trades", track, len(trades))
 
     # Build training examples from closed trades that captured their DSPy inputs
