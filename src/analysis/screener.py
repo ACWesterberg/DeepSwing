@@ -69,6 +69,14 @@ def _score_candidate(signals: TechnicalSignals, regime: RegimeResult) -> float |
     if signals.volume_ratio < settings.volume_spike_multiplier:
         _reject(f"volume {signals.volume_ratio:.2f}x < {settings.volume_spike_multiplier}x")
         return None
+    # Every level of the trade is denominated in ATR — the stop sits 1.5xATR
+    # below entry and the target min_rrr x that above it — so a low-ATR name
+    # can only ever pay a small win, and its stop is tight enough that the
+    # 25%-of-equity value cap shrinks the position below full risk anyway.
+    atr_pct = signals.atr_14 / signals.current_price if signals.current_price > 0 else 0.0
+    if settings.min_atr_pct > 0 and atr_pct < settings.min_atr_pct:
+        _reject(f"ATR {atr_pct:.2%} < {settings.min_atr_pct:.2%} — too little range to pay a target")
+        return None
 
     # Regime-specific filter: skip neutral regime
     if regime.regime == "neutral":
@@ -93,9 +101,11 @@ def _score_candidate(signals: TechnicalSignals, regime: RegimeResult) -> float |
     # Volume conviction
     score += min(signals.volume_ratio - 1.0, 2.0) * 20  # up to +40
 
-    # RSI quality (prefer mid-range 45-60)
-    rsi_mid = 52.5
-    score += max(0, 15 - abs(signals.rsi_14 - rsi_mid))  # up to +15
+    # RSI quality. Centred above the midpoint: a swing entry wants confirmed
+    # strength, and rewarding RSI 52.5 while paying zero by 67.5 scored
+    # hardest against exactly the names that were moving.
+    rsi_mid = 60.0
+    score += max(0, 15 - abs(signals.rsi_14 - rsi_mid) * 0.75)  # up to +15
 
     # Bullish trend alignment
     if signals.price_above_200sma:
@@ -105,5 +115,9 @@ def _score_candidate(signals: TechnicalSignals, regime: RegimeResult) -> float |
 
     # Regime confidence (Hurst distance from 0.5 = stronger trend signal)
     score += abs(regime.hurst_exponent - 0.5) * 40  # up to +20 each side
+
+    # Range. Rank up the names that can actually travel far enough to pay a
+    # full-size target inside a swing hold; capped so it can't dominate.
+    score += min(atr_pct * 100.0, 6.0) * 5  # up to +30
 
     return score

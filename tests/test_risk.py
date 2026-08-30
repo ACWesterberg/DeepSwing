@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pytest
 
+from config.settings import settings
+
 from src.agent.risk import RiskValidation, compute_position_size, validate_trade
 from src.analysis.technical import TechnicalSignals
 
@@ -147,7 +149,8 @@ class TestValidateTrade:
             action="BUY",
             entry_price=VALID_ENTRY,
             stop_loss=93.0,
-            target=115.0,  # RRR = 15/7 ≈ 2.14
+            # Comfortably clear of min_rrr so the sizing path is what's tested
+            target=VALID_ENTRY + (settings.min_rrr + 0.5) * (VALID_ENTRY - 93.0),
             portfolio_equity=EQUITY,
             open_positions=[],
         )
@@ -288,7 +291,7 @@ class TestValidateTrade:
 class TestComputePositionSize:
     def test_basic_sizing(self):
         qty = compute_position_size(entry_price=100.0, stop_loss=97.0, portfolio_equity=100_000.0)
-        assert qty == pytest.approx(100_000.0 * 0.01 / 3.0, rel=1e-6)
+        assert qty == pytest.approx(100_000.0 * settings.max_risk_per_trade / 3.0, rel=1e-6)
 
     def test_zero_risk_per_share_returns_zero(self):
         qty = compute_position_size(entry_price=100.0, stop_loss=100.0, portfolio_equity=100_000.0)

@@ -60,6 +60,11 @@ class RiskValidation:
     risk_amount: float    # SEK at risk
     rrr: float
     rejection_reason: str = ""
+    # Fraction of the risk-derived size that survived the value cap. The cap
+    # shrinks a position rather than rejecting it, so without this it binds
+    # invisibly — it appears in no rejection_reason and no block_reason, while
+    # quietly deploying less than max_risk_per_trade on every tight-stop name.
+    size_scale: float = 1.0
 
     def to_dict(self) -> dict:
         return {
@@ -68,6 +73,7 @@ class RiskValidation:
             "risk_amount": self.risk_amount,
             "rrr": self.rrr,
             "rejection_reason": self.rejection_reason,
+            "size_scale": self.size_scale,
         }
 
 
@@ -152,13 +158,14 @@ def validate_trade(
     if available_cash is not None:
         # Headroom for slippage + commission applied at execution
         max_value = min(max_value, available_cash * 0.98)
+    size_scale = 1.0
     if position_value > max_value and position_value > 0:
-        scale = max(max_value, 0.0) / position_value
-        quantity *= scale
-        risk_amount *= scale
+        size_scale = max(max_value, 0.0) / position_value
+        quantity *= size_scale
+        risk_amount *= size_scale
         logger.info(
             "Position for %s scaled to %.0f%% by value cap (%.0f SEK)",
-            signals.ticker, scale * 100, max_value,
+            signals.ticker, size_scale * 100, max_value,
         )
 
     # Duplicate ticker check
@@ -208,6 +215,7 @@ def validate_trade(
         quantity=round(quantity, 4),
         risk_amount=round(risk_amount, 2),
         rrr=round(rrr, 2),
+        size_scale=round(size_scale, 4),
     )
 
 

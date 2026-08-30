@@ -23,7 +23,7 @@ Each line is one candidate that already passed a technical screener, listed best
 {table}
 
 Pick the {keep} setups most worth a full analysis (news review + trade decision).
-Judge purely on setup quality: trend alignment, volume confirmation, room to a 2:1 reward/risk target, and regime fit. Prefer diversity of setups over near-duplicates.
+Judge purely on setup quality: trend alignment, volume confirmation, enough daily range (ATR%) to travel, room to run to a structural target well beyond the stop, and regime fit. Prefer diversity of setups over near-duplicates.
 
 Respond with ONLY a JSON array of the chosen tickers, e.g. ["ABC", "XYZ.ST"]."""
 

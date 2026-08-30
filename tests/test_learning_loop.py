@@ -153,7 +153,7 @@ class TestCounterfactualExamples:
 class TestCounterfactualPathSimulation:
     """With ATR persisted, the label comes from the simulated stop/target path,
     not the horizon close — a rally that traded through its stop first is a
-    correct PASS, not a missed BUY. ATR=2 → stop 97, target 106 (RRR 2.0)."""
+    correct PASS, not a missed BUY. ATR=2 → stop 97, target at min_rrr."""
 
     def _build(self):
         from src.scheduler.optimizer import _build_counterfactual_examples
@@ -171,7 +171,10 @@ class TestCounterfactualPathSimulation:
         examples = self._run([(101, 99, 100), (103, 100, 102), (107, 102, 106), (110, 106, 109)])
         assert len(examples) == 1
         assert examples[0]["action"] == "BUY"
-        assert examples[0]["pnl"] == pytest.approx(0.06)  # target return, not final close
+        # Target return, not the final close. Derived so a min_rrr change
+        # retunes the expectation instead of breaking the test.
+        target = 100.0 + settings.min_rrr * (100.0 - 97.0)
+        assert examples[0]["pnl"] == pytest.approx(target / 100.0 - 1.0)
 
     def test_stop_first_rally_is_correct_pass(self, tmp_db):
         # Dips through the stop (97) before rallying to 115 — horizon-close

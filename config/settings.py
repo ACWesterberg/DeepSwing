@@ -49,16 +49,16 @@ class Settings(BaseSettings):
     gpt_prompt_model: str = "gpt-5.6-sol"                    # MIPRO instruction proposer
 
     # Risk parameters
-    max_risk_per_trade: float = 0.01       # 1% of portfolio
+    max_risk_per_trade: float = 0.015      # 1.5% of portfolio
     hard_cap_risk_per_trade: float = 0.02  # 2% hard cap
-    min_rrr: float = 2.0
+    min_rrr: float = 2.5
     atr_stop_multiplier: float = 1.5
     # Risk-based sizing alone is unbounded (tight stop → huge position), so position
     # value is also capped as a fraction of equity — and at available cash.
     max_position_pct: float = 0.25
     # Trailing stop distance in ATRs once a position is in profit. Wider than the
     # entry stop (1.5×ATR) so ordinary daily noise doesn't knock out winners
-    # before the RRR>=2 target is reachable.
+    # before the min_rrr target is reachable.
     trailing_stop_atr_multiplier: float = 2.0
     # Because the trail is wider than the entry stop, `peak - 2×ATR` only clears
     # breakeven after price has run a full 2×ATR — everything below that exits at
@@ -87,7 +87,7 @@ class Settings(BaseSettings):
     dashboard_password: str = ""   # leave empty to disable auth
 
     # Screener thresholds — loosened to widen the funnel (more at-bats for MIPRO
-    # to learn from). The AI decision + RRR>=2 risk validation remain the quality
+    # to learn from). The AI decision + min_rrr risk validation remain the quality
     # gate downstream, so this raises trade volume without lowering standards.
     # Hurst estimation basis. R/S on price *levels* (legacy default) biases H
     # upward — a plain drifting random walk reads "trending". On *returns* H
@@ -96,8 +96,12 @@ class Settings(BaseSettings):
     hurst_on_returns: bool = False
 
     rsi_min: float = 35.0                  # was 40.0
-    rsi_max: float = 70.0                  # was 65.0
+    rsi_max: float = 78.0                  # was 70.0 — 70 rejected names mid-move
     volume_spike_multiplier: float = 1.2   # was 1.5 (20% above avg vol, not 50%)
+    # Every trade level is denominated in ATR, so a low-ATR name can only pay a
+    # small win and its tight stop makes the 25%-of-equity value cap bind before
+    # full risk is deployed. Screen them out rather than sizing around them.
+    min_atr_pct: float = 0.02              # reject ATR below 2% of price; 0 disables
     max_candidates_per_session: int = 15   # was 10
     earnings_buffer_days: int = 2          # exclude candidates within N days of earnings
     market_news_max_headlines: int = 20    # market-wide headlines injected into macro context

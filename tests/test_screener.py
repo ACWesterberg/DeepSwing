@@ -10,6 +10,7 @@ from src.analysis.technical import TechnicalSignals
 def _make_signals(
     ticker: str = "TEST",
     price: float = 100.0,
+    atr_14: float = 4.0,
     sma_50: float = 95.0,
     sma_200: float = 90.0,
     rsi_14: float = 52.0,
@@ -26,7 +27,7 @@ def _make_signals(
         price_above_50sma=price > sma_50,
         price_above_200sma=price > sma_200,
         ema_21_above_50sma=ema_21 > sma_50,
-        atr_14=2.0,
+        atr_14=atr_14,
         bb_upper=105.0,
         bb_middle=100.0,
         bb_lower=95.0,
@@ -169,3 +170,36 @@ class TestScreenCandidates:
         assert "price" in d
         assert "rsi" in d
         assert "regime" in d
+
+
+class TestRangeFloor:
+    def test_low_atr_is_rejected(self):
+        # Stop sits 1.5xATR below entry and the target min_rrr x that above, so
+        # a 1%-ATR name cannot travel far enough to pay a full-size target.
+        signals = _make_signals(atr_14=1.0)   # 1% of a 100 price
+        assert _score_candidate(signals, _make_regime()) is None
+
+    def test_adequate_atr_passes(self):
+        assert _score_candidate(_make_signals(atr_14=4.0), _make_regime()) is not None
+
+    def test_range_lifts_the_score(self):
+        wide = _score_candidate(_make_signals(atr_14=6.0), _make_regime())
+        narrow = _score_candidate(_make_signals(atr_14=2.5), _make_regime())
+        assert wide > narrow
+
+    def test_floor_disabled_by_zero(self, monkeypatch):
+        from config.settings import settings
+        monkeypatch.setattr(settings, "min_atr_pct", 0.0)
+        assert _score_candidate(_make_signals(atr_14=0.5), _make_regime()) is not None
+
+
+class TestMomentumScoring:
+    def test_confirmed_strength_outscores_midrange(self):
+        # RSI 60 is a swing entry with confirmation; 52.5 used to score highest
+        # while 67.5 scored zero, which ranked hardest against moving names.
+        strong = _score_candidate(_make_signals(rsi_14=60.0), _make_regime())
+        middling = _score_candidate(_make_signals(rsi_14=48.0), _make_regime())
+        assert strong > middling
+
+    def test_extended_names_are_no_longer_rejected(self):
+        assert _score_candidate(_make_signals(rsi_14=74.0), _make_regime()) is not None

@@ -522,6 +522,13 @@ def _run_scan(market: MarketType) -> dict:
                     "regime": candidate.regime.regime,
                     "sector": sector,
                 }
+                if risk.size_scale < 1.0:
+                    # The value cap shrank this below max_risk_per_trade. It
+                    # rejects nothing, so it is otherwise invisible.
+                    trade_event["reason"] = (
+                        f"Size capped to {risk.size_scale:.0%} of risk-based "
+                        f"({risk.risk_amount:.0f} SEK at risk)"
+                    )
                 decisions_log.append(trade_event)
                 _emit({"event": "trade_opened", "data": trade_event})
             else:

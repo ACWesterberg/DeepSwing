@@ -23,10 +23,22 @@ class TradeDecision(dspy.Signature):
     Return BUY only if there is a high-conviction bullish setup with clear risk/reward.
     Return PASS if the setup is unclear, bearish, or does not meet the criteria.
 
-    If action is BUY, you MUST ensure the risk/reward ratio (RRR) is at least 2.0:
-      RRR = (target - entry) / (entry - stop_loss) >= 2.0
-    Example: entry=100, stop_loss=95 (risk=5) → target must be >= 110 (reward >= 10).
-    A BUY with RRR below 2.0 will be automatically rejected — so set a wide enough target.
+    Set stop_loss and target from the chart, not from the minimum that passes.
+
+    Place stop_loss just beyond the structure that would invalidate the setup —
+    the swing low, the band, the moving average the move is riding. Place target
+    at the next real structural level: the prior swing high, a measured move, or
+    a projection of recent range. Then check the ratio.
+
+      RRR = (target - entry) / (entry - stop_loss)
+
+    A BUY whose RRR falls below the required minimum is rejected outright, and
+    the minimum is a floor, not a goal. Setups differ: some offer 3R or 5R to
+    the next level and those are the trades worth taking. Do not pull a target
+    in to the floor, and do not push one out past the level the chart supports —
+    an invented target is worse than a PASS, because position size is derived
+    from the stop and the payoff from the ratio. If the honest target does not
+    clear the floor, return PASS.
     """
     technicals: str = dspy.InputField(desc="Technical indicator summary for the stock")
     regime: str = dspy.InputField(desc="Market regime classification and recommended tactics")
@@ -41,10 +53,18 @@ class TradeDecision(dspy.Signature):
         desc="Confidence in the decision from 0.0 (no confidence) to 1.0 (maximum confidence)"
     )
     stop_loss: float = dspy.OutputField(
-        desc="Suggested stop-loss price level (must be below entry for BUY)"
+        desc=(
+            "Stop-loss price, below entry for a BUY, at the level that would "
+            f"invalidate the setup. Validation rejects a stop further than "
+            f"{settings.atr_stop_multiplier}x ATR from entry."
+        )
     )
     target: float = dspy.OutputField(
-        desc="Price target for the trade (must give RRR >= 2.0)"
+        desc=(
+            "Price target at the next structural level. Validation rejects the "
+            f"trade if the resulting RRR is below {settings.min_rrr} — that is a "
+            "rejection threshold, not the value to aim for."
+        )
     )
     reasoning: str = dspy.OutputField(
         desc="Concise explanation of why this action was chosen, referencing specific signals"
@@ -85,7 +105,7 @@ class ExitDecision(dspy.Signature):
     )
 
 
-def build_lm(track: TrackType, model: str, api_key: str, *, max_tokens: int = 1024) -> "dspy.LM":
+def build_lm(track: TrackType, model: str, api_key: str, *, max_tokens: int = 4096) -> "dspy.LM":
     """
     Build a dspy.LM for a track. OpenAI GPT-5-class reasoning models reject the
     usual params — they require temperature=1.0 and max_tokens>=16000 — so the
