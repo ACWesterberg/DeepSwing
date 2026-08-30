@@ -6,6 +6,35 @@ Last updated: 2026-08-21
 
 ## Done ✅
 
+### Prompt evaluation no longer requires a month of trading (2026-08-30)
+The only way to compare two prompts was to trade each for ~30 closed trades.
+The backtester cannot help — it contains no model at all and buys every
+candidate surviving the screener and risk check — and `metrics_by_program` can
+only compare programs that already ran sequentially against different markets.
+
+`src/agent/replay.py` closes it with machinery that already existed:
+`Decision.entry_inputs` stores exactly the five DSPy fields, and replay is the
+same `program(**entry_inputs)` call the live path makes; `_label_forward_path`
+supplies ground-truth R identical to the MIPRO trainset. Corpus building is
+network-bound and cached to JSON; scoring reads the cache, so comparing
+programs costs no further price data.
+
+`scripts/replay_decisions.py --reference` scores oracle / always-buy /
+always-pass using no LLM at all — the harness validating itself. On a corpus
+with real edge those must order oracle > always-buy > always-pass; if they
+don't, no verdict it gives about a real prompt is worth anything. `always-pass`
+scores exactly 0.500 on any corpus, so the report carries totalR, precision and
+recall alongside the metric to separate correct caution from inertia.
+
+`decision_metric` moved from `optimizer.py` to `metrics.py` so the scoring path
+imports no dspy; `optimizer._pnl_weighted_metric` is now an alias, keeping MIPRO
+and the harness on one scoring path by construction.
+
+**Build the first corpus from the pre-reset backup** — the reset deleted 5,551
+decision rows that are already past the counterfactual horizon, and the live DB
+will have nothing labellable for two weeks.
+
+
 ### Book capacity was the real ceiling on learning (2026-08-30)
 `max_position_pct = 0.25` against `market_allocation` (nordic 0.4 / eu 0.2 / us 0.4)
 pinned the book at **two concurrent positions** — and a 25% position could not fit

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+
+import math
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -183,3 +185,43 @@ def build_equity_curve_chart_data(portfolio: "Portfolio") -> list[dict]:
         })
     points.append({"date": datetime.utcnow().isoformat(), "equity": round(portfolio.equity, 2)})
     return points
+
+
+# Scales the realized R-multiple before the tanh squash. Chosen so the metric
+# still separates outcomes across the range a swing book actually produces
+# (-1R to +5R): a 2.5R and a 5R differ by 0.12 here, where the previous
+# formulation — raw pnl_pct at k=10 — put them 0.045 apart and treated a +15%
+# and a +30% trade as near-identical. Optimizing for a fatter right tail
+# requires a metric that can see one.
+#
+# Lives here rather than beside MIPRO so the offline replay harness can score a
+# program without importing dspy — that is what lets the harness be validated
+# with no model and no spend.
+R_METRIC_SCALE = 0.35
+
+
+def decision_metric(example, prediction, trace=None) -> float:
+    """
+    Reward a decision by the money it would have made, not just action-match.
+
+    Each training example carries the realized R-multiple of the trade — profit
+    per unit of risk taken, the unit the rest of the system already thinks in.
+    If the model would BUY it "earns" that R; if it passes it earns nothing.
+    Squashed to (0, 1):
+
+        take a +1R winner  → ~0.67     take a -1R loser → ~0.33
+        pass on anything   →  0.50     take a +5R winner → ~0.97
+
+    Scoring R rather than raw return matters because position size is already
+    risk-normalized: a 2% move on a tight stop and a 10% move on a wide one are
+    the same trade to the book, and a metric denominated in percent would
+    reward the volatile one for volatility alone.
+
+    Note passing always scores exactly 0.5. On a trainset of mostly losers the
+    do-nothing program therefore wins, and only the counterfactual "missed BUY"
+    examples pull against that — which is why they are not optional.
+    """
+    pred_action = str(getattr(prediction, "action", "")).upper()
+    r = float(getattr(example, "r_multiple", 0.0) or 0.0)
+    realized = r if pred_action == "BUY" else 0.0
+    return 0.5 + 0.5 * math.tanh(realized * R_METRIC_SCALE)
