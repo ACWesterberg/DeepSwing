@@ -14,6 +14,7 @@ from src.agent.risk import compute_return_correlations, validate_trade
 from src.analysis.regime import classify_regime
 from src.analysis.screener import screen_candidates
 from src.analysis.technical import TechnicalSignals, compute_signals
+from src.portfolio.simulator import breakeven_from_costs, resolve_exit
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class BacktestTrade:
     entry_price: float
     exit_date: Optional[date]
     exit_price: Optional[float]
-    exit_reason: str    # "stop_loss" | "trailing_stop" | "take_profit" | "end_of_window" | "open"
+    exit_reason: str    # stop_loss | breakeven_stop | trailing_stop | take_profit | end_of_window | open
     stop_loss: float
     target: float
     quantity: float
@@ -36,6 +37,7 @@ class BacktestTrade:
     trailing_stop: Optional[float] = None
     current_price: float = 0.0
     commission: float = 0.0   # entry + exit, accumulated at fill time
+    breakeven_armed: bool = False
 
     @property
     def pnl(self) -> float:
@@ -158,6 +160,11 @@ class _SimPortfolio:
     def has_ticker(self, ticker: str) -> bool:
         return ticker in self._positions
 
+    def _breakeven_floor(self, pos: "BacktestTrade") -> float:
+        if not pos.breakeven_armed:
+            return 0.0
+        return breakeven_from_costs(pos.entry_price, self.commission_rate, self.slippage)
+
     def open_position(
         self,
         ticker: str,
@@ -207,14 +214,13 @@ class _SimPortfolio:
             pos.current_price = c
 
             # Stop before target when both trade in one bar (conservative)
-            effective_stop = max(pos.stop_loss, pos.trailing_stop or 0.0)
-            if l <= effective_stop:
+            breakeven_floor = self._breakeven_floor(pos)
+            effective_stop = max(pos.stop_loss, breakeven_floor, pos.trailing_stop or 0.0)
+            reason = resolve_exit(
+                l, pos.entry_price, pos.stop_loss, pos.trailing_stop, breakeven_floor
+            )
+            if reason is not None:
                 fill = min(o, effective_stop)  # gap below the stop fills at the open
-                reason = (
-                    "trailing_stop"
-                    if (pos.trailing_stop or 0.0) > pos.stop_loss
-                    else "stop_loss"
-                )
                 self._close(ticker, fill, today, reason)
                 continue
             if h >= pos.target:
@@ -222,13 +228,22 @@ class _SimPortfolio:
                 self._close(ticker, fill, today, "take_profit")
                 continue
 
-            # Trail from the close AFTER exit checks — the intraday ordering of
-            # high vs low is unknown, so today's high must not be allowed to
-            # both raise the stop and trigger it (look-ahead within the bar).
+            # Trail and arm from the close AFTER exit checks — the intraday
+            # ordering of high vs low is unknown, so today's high must not be
+            # allowed to both raise the stop and trigger it (look-ahead).
             if pos.trail_distance > 0 and c > pos.entry_price:
                 candidate_stop = c - pos.trail_distance
                 if candidate_stop > (pos.trailing_stop or pos.stop_loss):
                     pos.trailing_stop = candidate_stop
+            atr = (
+                pos.trail_distance / settings.trailing_stop_atr_multiplier
+                if settings.trailing_stop_atr_multiplier > 0
+                else 0.0
+            )
+            arm_at = settings.breakeven_arm_atr_multiplier
+            if arm_at > 0 and atr > 0 and not pos.breakeven_armed:
+                if c >= pos.entry_price + arm_at * atr:
+                    pos.breakeven_armed = True
 
         if self.equity > self.peak_equity:
             self.peak_equity = self.equity
@@ -382,7 +397,7 @@ class BacktestEngine:
         self, ohlcv_map: dict[str, pd.DataFrame], window_idx: int, w_start: date, w_end: date
     ) -> WindowResult:
         commission_rate = settings.commission_pct + (
-            settings.fx_commission_pct if self.market == "us" else 0.0
+            settings.fx_commission_pct if self.market in ("us", "eu") else 0.0
         )
         portfolio = _SimPortfolio(
             self.initial_equity,
@@ -425,8 +440,7 @@ class BacktestEngine:
 
                 entry = candidate.signals.current_price
                 stop = entry - settings.atr_stop_multiplier * candidate.signals.atr_14
-                # Target: RRR of 2.5 (above the 2.0 minimum)
-                target = entry + 2.5 * (entry - stop)
+                target = entry + settings.min_rrr * (entry - stop)
 
                 open_pos_info = [{"ticker": t, "sector": ""} for t in portfolio.open_tickers]
                 correlations = compute_return_correlations(

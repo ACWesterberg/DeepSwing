@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     # entry stop (1.5×ATR) so ordinary daily noise doesn't knock out winners
     # before the RRR>=2 target is reachable.
     trailing_stop_atr_multiplier: float = 2.0
+    # Because the trail is wider than the entry stop, `peak - 2×ATR` only clears
+    # breakeven after price has run a full 2×ATR — everything below that exits at
+    # a loss. An independent breakeven floor arms at this many ATRs of profit and
+    # never falls back, so a trade that ran and reversed gives back the move, not
+    # the risk. Set to 0 to disable the floor entirely.
+    breakeven_arm_atr_multiplier: float = 1.0
     drawdown_pause_threshold: float = 0.10
     max_sector_correlation: float = 0.7
     max_positions_per_sector: int = 2

@@ -42,6 +42,59 @@ def persist_portfolio(portfolio: "Portfolio") -> None:
         logger.warning("Portfolio persistence error [%s]: %s", portfolio.track, exc)
 
 
+def round_trip_cost_frac(market: str) -> float:
+    """Commission fraction charged on each leg, incl. the FX surcharge."""
+    c = settings.commission_pct
+    if market in ("us", "eu"):
+        c += settings.fx_commission_pct
+    return c
+
+
+def breakeven_from_costs(entry_price: float, commission_rate: float, slippage: float) -> float:
+    """
+    Exit price that nets zero against `entry_price` (itself already a slipped
+    fill). Solves exit*(1-slip)*(1-c) == entry*(1+c), so the floor covers the
+    exit leg's slippage and both commission legs instead of only the gross move.
+    """
+    denom = (1 - slippage) * (1 - commission_rate)
+    if denom <= 0:
+        return entry_price
+    return entry_price * (1 + commission_rate) / denom
+
+
+def breakeven_price(entry_price: float, market: str) -> float:
+    return breakeven_from_costs(
+        entry_price, round_trip_cost_frac(market), settings.simulated_slippage
+    )
+
+
+def resolve_exit(
+    price: float,
+    entry_price: float,
+    stop_loss: float,
+    trailing_stop: Optional[float],
+    breakeven_floor: float,
+) -> Optional[str]:
+    """
+    Exit label for a price at/below the binding stop, or None if no stop is hit.
+
+    Labels name the level that actually bound, so ERL sees the true cause:
+    `trailing_stop` only when the trail locked a gain above entry, and
+    `breakeven_stop` when the armed floor caught a reversal. Anything else is a
+    plain `stop_loss` — a trail that merely ratcheted while still underwater is
+    not a trailed winner.
+    """
+    trail = trailing_stop or 0.0
+    effective_stop = max(stop_loss, breakeven_floor, trail)
+    if price > effective_stop:
+        return None
+    if effective_stop == trail and effective_stop > entry_price:
+        return "trailing_stop"
+    if breakeven_floor > 0 and effective_stop == breakeven_floor:
+        return "breakeven_stop"
+    return "stop_loss"
+
+
 @dataclass
 class OpenPosition:
     trade_id: int
@@ -69,6 +122,7 @@ class OpenPosition:
     trail_distance: float = 0.0   # trailing-stop distance in SEK (ATR-scaled at entry)
     entry_commission: float = 0.0  # SEK paid at open; folded into net P&L at close
     entry_fx_rate: float = 0.0     # native→SEK rate at entry; lets ERL see FX-driven P&L
+    breakeven_armed: bool = False  # price cleared the arming threshold; floor is live
 
     @property
     def unrealised_pnl(self) -> float:
@@ -128,6 +182,7 @@ class OpenPosition:
             "trail_distance": self.trail_distance,
             "entry_commission": self.entry_commission,
             "entry_fx_rate": self.entry_fx_rate,
+            "breakeven_armed": self.breakeven_armed,
         }
 
     @classmethod
@@ -154,6 +209,7 @@ class OpenPosition:
             trail_distance=d.get("trail_distance", 0.0),
             entry_commission=d.get("entry_commission", 0.0),
             entry_fx_rate=d.get("entry_fx_rate", 0.0),
+            breakeven_armed=d.get("breakeven_armed", False),
         )
 
 
@@ -172,7 +228,7 @@ class ClosedTrade:
     regime: str
     reasoning: str
     confidence: float
-    exit_reason: str  # "stop_loss" | "take_profit" | "trailing_stop" | "manual"
+    exit_reason: str  # stop_loss | breakeven_stop | trailing_stop | take_profit | news_exit
     technical_snapshot: str = ""
     entry_inputs: dict = field(default_factory=dict)
     # Fingerprint of the compiled program that decided this entry. Empty
@@ -474,16 +530,32 @@ class Portfolio:
             if price > position.entry_price and price - trail_dist > position.trailing_stop:
                 position.trailing_stop = price - trail_dist
 
-            effective_stop = max(position.stop_loss, position.trailing_stop or 0)
+            # The trail is wider than the entry stop, so `peak - trail_dist` sits
+            # below entry until price has run a full trailing_stop_atr_multiplier
+            # ATRs. An independent floor arms earlier and never retreats.
+            atr = (
+                trail_dist / settings.trailing_stop_atr_multiplier
+                if settings.trailing_stop_atr_multiplier > 0
+                else 0.0
+            )
+            arm_at = settings.breakeven_arm_atr_multiplier
+            if arm_at > 0 and atr > 0 and not position.breakeven_armed:
+                if price >= position.entry_price + arm_at * atr:
+                    position.breakeven_armed = True
+            breakeven_floor = (
+                breakeven_price(position.entry_price, position.market)
+                if position.breakeven_armed
+                else 0.0
+            )
 
-            if price <= effective_stop:
-                # Label correctly: a trailed stop above the original stop is a
-                # trailing_stop exit — ERL treats these very differently.
-                reason = (
-                    "trailing_stop"
-                    if (position.trailing_stop or 0) > position.stop_loss
-                    else "stop_loss"
-                )
+            reason = resolve_exit(
+                price,
+                position.entry_price,
+                position.stop_loss,
+                position.trailing_stop,
+                breakeven_floor,
+            )
+            if reason is not None:
                 closed = self.close_trade(position.trade_id, price, reason)
                 if closed:
                     closed_this_update.append(closed)

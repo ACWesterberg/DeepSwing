@@ -197,6 +197,7 @@ def _parse_heuristic(text: str) -> Optional[dict]:
 
 _EXIT_LABELS = {
     "stop_loss": "stop-loss hit",
+    "breakeven_stop": "breakeven stop after the move reversed",
     "take_profit": "target reached",
     "trailing_stop": "trailing stop",
     "news_exit": "news-driven exit on a large price move",
@@ -207,7 +208,7 @@ _EXIT_LABELS = {
 def _describe_outcome(trade: dict) -> str:
     pnl_pct = trade.get("pnl_pct", 0) * 100
     rrr = trade.get("rrr_achieved", 0)
-    reason = _EXIT_LABELS.get(trade.get("exit_reason", ""), "manual/target exit")
+    reason = _EXIT_LABELS.get(trade.get("exit_reason", ""), "unknown exit")
     if pnl_pct > 0:
         return f"PROFITABLE trade: +{pnl_pct:.2f}%, RRR achieved {rrr:.2f} (exit: {reason})"
     return f"LOSS: {pnl_pct:.2f}% via {reason}, RRR achieved {rrr:.2f}"
