@@ -49,13 +49,27 @@ class Settings(BaseSettings):
     gpt_prompt_model: str = "gpt-5.6-sol"                    # MIPRO instruction proposer
 
     # Risk parameters
-    max_risk_per_trade: float = 0.015      # 1.5% of portfolio
+    max_risk_per_trade: float = 0.01       # 1% of portfolio
     hard_cap_risk_per_trade: float = 0.02  # 2% hard cap
     min_rrr: float = 2.5
     atr_stop_multiplier: float = 1.5
     # Risk-based sizing alone is unbounded (tight stop → huge position), so position
     # value is also capped as a fraction of equity — and at available cash.
-    max_position_pct: float = 0.25
+    #
+    # This doubles as the throughput knob, and it is the binding one. Concurrent
+    # positions ≈ market_allocation ÷ position size, so at 0.25 the book held
+    # *two* positions total and a 25% position could not fit the 0.20 EU budget
+    # at all — EU was structurally untradeable and nothing logged it. At ~9-day
+    # holds that was 135 days to accumulate the 30 trades MIPRO needs. 0.10
+    # gives 10 slots (nordic 4 / eu 2 / us 4) and roughly a month.
+    #
+    # The cost is real but lands somewhere that doesn't matter here: with the
+    # cap binding, actual risk per trade falls to ~0.3–0.9% of equity and
+    # max_risk_per_trade rarely applies. The learning signal is untouched —
+    # the MIPRO metric and rrr_achieved are denominated in R, which is
+    # invariant to position size — but the equity curve is a weaker proxy for
+    # a book sized at a full 1% risk.
+    max_position_pct: float = 0.10
     # Trailing stop distance in ATRs once a position is in profit. Wider than the
     # entry stop (1.5×ATR) so ordinary daily noise doesn't knock out winners
     # before the min_rrr target is reachable.
@@ -99,8 +113,8 @@ class Settings(BaseSettings):
     rsi_max: float = 78.0                  # was 70.0 — 70 rejected names mid-move
     volume_spike_multiplier: float = 1.2   # was 1.5 (20% above avg vol, not 50%)
     # Every trade level is denominated in ATR, so a low-ATR name can only pay a
-    # small win and its tight stop makes the 25%-of-equity value cap bind before
-    # full risk is deployed. Screen them out rather than sizing around them.
+    # small win and its tight stop makes the value cap bind before full risk is
+    # deployed. Screen them out rather than sizing around them.
     min_atr_pct: float = 0.02              # reject ATR below 2% of price; 0 disables
     max_candidates_per_session: int = 15   # was 10
     earnings_buffer_days: int = 2          # exclude candidates within N days of earnings
@@ -152,7 +166,14 @@ class Settings(BaseSettings):
     # without this the trainset only contains taken trades (survivorship bias).
     counterfactual_horizon_days: int = 14        # calendar days of forward price data
     counterfactual_buy_threshold: float = 0.03   # fwd return >= 3% labels the PASS as a missed BUY
-    counterfactual_max_examples: int = 30        # cap so counterfactuals can't swamp real trades
+    counterfactual_max_examples: int = 200       # absolute ceiling on counterfactual volume
+    # Counterfactuals used to be capped at parity with real trades, which tied
+    # the trainset to the scarcest input: a live run discarded 60 of 90 labelled
+    # PASS decisions and left MIPRO selecting instructions on a 12-example
+    # validation split. PASS decisions accumulate far faster than closed trades
+    # and are labelled from price data alone, so cap them as a multiple instead.
+    # MIN_REAL_EXAMPLES already stops a trainset that is purely hindsight.
+    counterfactual_ratio_cap: float = 4.0        # max counterfactuals per real trade
 
     # Housekeeping: decisions accumulate ~1k rows/day at 15-min scans; prune rows
     # older than this during weekly maintenance (0 disables). Counterfactual

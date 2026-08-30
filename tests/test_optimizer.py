@@ -214,3 +214,38 @@ class TestOptunaGuard:
         from pathlib import Path
         reqs = Path(__file__).resolve().parent.parent / "requirements.txt"
         assert "optuna" in reqs.read_text()
+
+
+class TestCounterfactualCap:
+    """Counterfactuals used to be capped at parity with real trades, tying the
+    trainset to the one input that takes months to accumulate."""
+
+    def test_cap_scales_with_trainset_rather_than_matching_it(self):
+        from src.scheduler.optimizer import counterfactual_cap
+        from config.settings import settings
+
+        assert settings.counterfactual_ratio_cap > 1.0
+        # At the MIPRO threshold, the trainset should be several times the
+        # number of real trades, not double it.
+        assert counterfactual_cap(30) > 30
+        assert counterfactual_cap(30) == int(30 * settings.counterfactual_ratio_cap)
+
+    def test_cap_is_monotonic_in_real_examples(self):
+        from src.scheduler.optimizer import counterfactual_cap
+        assert counterfactual_cap(10) < counterfactual_cap(20) < counterfactual_cap(40)
+
+    def test_absolute_ceiling_still_applies(self):
+        from src.scheduler.optimizer import counterfactual_cap
+        from config.settings import settings
+        assert counterfactual_cap(10_000) == settings.counterfactual_max_examples
+
+    def test_no_real_examples_means_no_counterfactuals(self):
+        from src.scheduler.optimizer import counterfactual_cap
+        assert counterfactual_cap(0) == 0
+
+    def test_validation_split_is_large_enough_to_select_on(self):
+        from src.scheduler.optimizer import counterfactual_cap, MIN_TRADES_FOR_OPTIMIZATION
+        total = MIN_TRADES_FOR_OPTIMIZATION + counterfactual_cap(MIN_TRADES_FOR_OPTIMIZATION)
+        # MIPRO holds out 20% and picks the winning instructions on that slice.
+        # Parity gave 12 examples, which is noise.
+        assert int(total * 0.2) >= 25, f"val split of {int(total*0.2)} is too small to select on"

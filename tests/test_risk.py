@@ -143,23 +143,29 @@ class TestValidateTrade:
         assert "ATR" in result.rejection_reason
 
     def test_drawdown_mode_halves_quantity(self):
-        # Wide stop (7%) with matching ATR so the position-value cap doesn't bind
-        # and the halving is directly observable.
+        # The halving is only observable when the value cap does NOT bind, and
+        # the cap binds below stop_frac = max_risk / max_position_pct. Derive a
+        # stop clear of that boundary, with an ATR wide enough to permit it, so
+        # a future sizing change retunes this rather than breaking it.
+        stop_frac = settings.max_risk_per_trade / settings.max_position_pct * 1.2
+        stop_price = VALID_ENTRY * (1 - stop_frac)
+        atr = VALID_ENTRY * stop_frac / (settings.atr_stop_multiplier * 1.05)
         kwargs = dict(
             action="BUY",
             entry_price=VALID_ENTRY,
-            stop_loss=93.0,
+            stop_loss=stop_price,
             # Comfortably clear of min_rrr so the sizing path is what's tested
-            target=VALID_ENTRY + (settings.min_rrr + 0.5) * (VALID_ENTRY - 93.0),
+            target=VALID_ENTRY + (settings.min_rrr + 0.5) * (VALID_ENTRY - stop_price),
             portfolio_equity=EQUITY,
             open_positions=[],
         )
-        normal = validate_trade(**kwargs, signals=_make_signals(atr_14=5.0), is_drawdown_mode=False)
-        drawdown = validate_trade(**kwargs, signals=_make_signals(atr_14=5.0), is_drawdown_mode=True)
+        normal = validate_trade(**kwargs, signals=_make_signals(atr_14=atr), is_drawdown_mode=False)
+        drawdown = validate_trade(**kwargs, signals=_make_signals(atr_14=atr), is_drawdown_mode=True)
         assert normal.approved is True
         assert drawdown.approved is True
-        assert drawdown.quantity == pytest.approx(normal.quantity * 0.5, rel=1e-6)
-        assert drawdown.risk_amount == pytest.approx(normal.risk_amount * 0.5, rel=1e-6)
+        # rel loose enough to absorb the 4dp rounding applied to quantity
+        assert drawdown.quantity == pytest.approx(normal.quantity * 0.5, rel=1e-3)
+        assert drawdown.risk_amount == pytest.approx(normal.risk_amount * 0.5, rel=1e-3)
 
     def test_position_sizing_1_pct_risk(self):
         result = validate_trade(
@@ -172,10 +178,9 @@ class TestValidateTrade:
             signals=_make_signals(),
         )
         assert result.approved is True
-        # 1% of 100_000 = 1_000 SEK at risk; risk per share = 3.0 → qty 333.33,
-        # but position value (33_333) exceeds the 25%-of-equity cap → 250 shares.
-        risk_qty = (EQUITY * 0.01) / (VALID_ENTRY - VALID_STOP)
-        cap_qty = EQUITY * 0.25 / VALID_ENTRY
+        # Risk-based quantity, then the value cap — whichever binds first.
+        risk_qty = (EQUITY * settings.max_risk_per_trade) / (VALID_ENTRY - VALID_STOP)
+        cap_qty = EQUITY * settings.max_position_pct / VALID_ENTRY
         assert result.quantity == pytest.approx(min(risk_qty, cap_qty), rel=1e-3)
 
     def test_position_value_capped_at_max_position_pct(self):
@@ -190,7 +195,7 @@ class TestValidateTrade:
             signals=_make_signals(),
         )
         assert result.approved is True
-        assert result.quantity * VALID_ENTRY <= EQUITY * 0.25 * 1.001
+        assert result.quantity * VALID_ENTRY <= EQUITY * settings.max_position_pct * 1.001
 
     def test_position_value_capped_at_available_cash(self):
         result = validate_trade(

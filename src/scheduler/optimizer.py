@@ -84,6 +84,23 @@ def _pnl_weighted_metric(example, prediction, trace=None) -> float:
     return 0.5 + 0.5 * math.tanh(realized * _R_METRIC_SCALE)
 
 
+def counterfactual_cap(real_examples: int) -> int:
+    """How many counterfactual examples may join `real_examples` lived ones.
+
+    A multiple rather than parity. Parity tied the trainset to the scarcest
+    input — a live run discarded 60 of 90 available labelled PASS decisions and
+    left MIPRO selecting instructions on a 12-example validation split. PASS
+    decisions accumulate far faster than closed trades and are labelled from
+    price data alone, so the ratio lets the trainset grow with decisions while
+    keeping lived outcomes materially represented. MIN_REAL_EXAMPLES separately
+    stops a trainset that is purely hindsight.
+    """
+    return min(
+        settings.counterfactual_max_examples,
+        int(real_examples * settings.counterfactual_ratio_cap),
+    )
+
+
 def _make_example(inputs: dict, action: str, r_multiple: float) -> "dspy.Example":
     return dspy.Example(
         technicals=inputs.get("technicals", ""),
@@ -407,12 +424,17 @@ def run_mipro_optimization(track: TrackType) -> bool:
         )
         return False
 
-    # Augment with counterfactually-labeled PASS decisions, capped at the number
-    # of real-trade examples so hindsight labels can't dominate lived outcomes.
+    # Augment with counterfactually-labeled PASS decisions. Capped as a multiple
+    # of the real trades rather than at parity: parity tied the trainset to the
+    # scarcest input, and a live run discarded 60 of 90 available labelled PASS
+    # decisions, leaving MIPRO to pick instructions on a 12-example validation
+    # split. PASS decisions accumulate far faster than closed trades and are
+    # labelled from price data alone, so the ratio lets the trainset grow with
+    # decisions while keeping lived outcomes materially represented.
     counterfactuals: list = []
     try:
         counterfactuals = _build_counterfactual_examples(
-            track, min(settings.counterfactual_max_examples, len(trainset))
+            track, counterfactual_cap(len(trainset))
         )
     except Exception as exc:
         logger.warning("MIPRO [%s]: counterfactual build failed (continuing without): %s", track, exc)

@@ -33,7 +33,7 @@ SCREENER → 5-10 candidates — shared output
 FOR EACH CANDIDATE × EACH TRACK ("claude", "gpt"):
   1. HeuristicStore retrieves top-5 track-specific rules by relevance score
   2. claude-sonnet-5 / gpt-5 decide via DSPy TradeDecision (shared gpt-5-mini news analysis)
-  3. Risk Engine validates: ATR stop (currency-safe), RRR ≥ 2.5, 1.5% risk size,
+  3. Risk Engine validates: ATR stop (currency-safe), RRR ≥ 2.5, 1% risk size,
      position value ≤ 25% equity & ≤ cash, no duplicate ticker, sector cap,
      pairwise return correlation ≤ 0.7 vs open positions
   4. Portfolio Simulator records fill with 0.05% simulated slippage
@@ -156,6 +156,7 @@ Heuristic example:
 | Trailing stop | 2 × ATR once in profit (closes as `trailing_stop` only above entry) |
 | Breakeven floor | arms at 1 × ATR profit, net of costs, never retreats (closes as `breakeven_stop`) |
 | Minimum ATR | 2% of price — below that a name can't travel far enough to pay a target |
+| Max position | 10% of equity — also the throughput knob: slots ≈ allocation ÷ position size |
 | Slippage (simulated) | 0.05% |
 | Drawdown pause | >10% → halve position size + audit |
 | Max sector correlation | 0.7 |

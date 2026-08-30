@@ -6,6 +6,33 @@ Last updated: 2026-08-21
 
 ## Done ✅
 
+### Book capacity was the real ceiling on learning (2026-08-30)
+`max_position_pct = 0.25` against `market_allocation` (nordic 0.4 / eu 0.2 / us 0.4)
+pinned the book at **two concurrent positions** — and a 25% position could not fit
+the 20% EU budget at all, so **EU was structurally untradeable**, zero entries
+possible, nothing logging it. At ~9-day holds that was **135 days** to accumulate
+the 30 trades MIPRO needs.
+
+`max_position_pct` → 0.10 gives 10 slots (nordic 4 / eu 2 / us 4), ~33 trades per
+month per track, **~27 days** to 30 trades. `max_risk_per_trade` reverted 1.5% →
+1% since the value cap now binds nearly everywhere and 1.5% misstated what the
+system actually risks (effective risk is ~0.3–0.9% of equity).
+
+The trade is deliberate: a flatter equity curve and a `drawdown_pause_threshold`
+that rarely trips, in exchange for 5× the learning rate. R is invariant to
+position size, so the MIPRO metric, `rrr_achieved`, ERL and heuristic scoring all
+see identical signal.
+
+Counterfactuals were capped at parity with real trades — a live run discarded 60
+of 90 available labelled PASS decisions and left MIPRO picking instructions on a
+**12-example** validation split. Now capped at `counterfactual_ratio_cap` (4×),
+giving 150 examples and a 30-example split at the MIPRO threshold.
+
+**Watch:** with 10 concurrent positions, `max_positions_per_sector = 2` needs five
+distinct sectors to fill the book and the 0.7 correlation cap will bind more
+often. If those become the new ceiling, that is the next knob — not position size.
+
+
 ### MIPRO could never actually compile (2026-08-30)
 The 2026-08-30 02:00 run reached the end of `MIPROv2.compile()` on the gpt
 track — 35 trades, 30 counterfactuals, demos bootstrapped, three candidate
