@@ -33,7 +33,7 @@ SCREENER → 5-10 candidates — shared output
 FOR EACH CANDIDATE × EACH TRACK ("claude", "gpt"):
   1. HeuristicStore retrieves top-5 track-specific rules by relevance score
   2. claude-sonnet-5 / gpt-5 decide via DSPy TradeDecision (shared gpt-5-mini news analysis)
-  3. Risk Engine validates: ATR stop (currency-safe), RRR ≥ 2.0, 1% risk size,
+  3. Risk Engine validates: ATR stop (currency-safe), RRR ≥ 2.5, 1.5% risk size,
      position value ≤ 25% equity & ≤ cash, no duplicate ticker, sector cap,
      pairwise return correlation ≤ 0.7 vs open positions
   4. Portfolio Simulator records fill with 0.05% simulated slippage
@@ -41,7 +41,8 @@ FOR EACH CANDIDATE × EACH TRACK ("claude", "gpt"):
 POSITION MONITOR (every 15 min, per track)
   ├── Stop-loss hit → close + trigger ERL
   ├── Take-profit hit → close + trigger ERL
-  ├── Trailing stop update (2×ATR trail once in profit → exit_reason="trailing_stop")
+  ├── Stop sweep: breakeven floor (arms at 1×ATR profit) + 2×ATR trail;
+  │     labelled stop_loss | breakeven_stop | trailing_stop by which level bound
   └── News-exit review when a holding moves ≥5% since its last news check
   ↓
 DASHBOARD WebSocket push (both tracks)
@@ -94,7 +95,7 @@ class TradeDecision(dspy.Signature):
     action: Literal["BUY", "PASS"] = dspy.OutputField()
     confidence: float   = dspy.OutputField()   # 0.0 – 1.0
     stop_loss: float    = dspy.OutputField()   # must be below entry for BUY
-    target: float       = dspy.OutputField()   # must give RRR ≥ 2.0
+    target: float       = dspy.OutputField()   # structural level; RRR ≥ 2.5 or rejected
     reasoning: str      = dspy.OutputField()   # references specific signals
 ```
 
@@ -149,10 +150,12 @@ Heuristic example:
 | Starting capital (per track) | 100,000 SEK |
 | Max risk per trade | 1% of portfolio |
 | Hard cap per trade | 2% of portfolio |
-| Minimum RRR | 2.0 |
+| Minimum RRR | 2.5 |
 | Stop-loss | 1.5 × ATR below entry (validated as fraction of price) |
 | Position value cap | 25% of equity, and ≤ available cash |
-| Trailing stop | 2 × ATR once in profit (closes as `trailing_stop`) |
+| Trailing stop | 2 × ATR once in profit (closes as `trailing_stop` only above entry) |
+| Breakeven floor | arms at 1 × ATR profit, net of costs, never retreats (closes as `breakeven_stop`) |
+| Minimum ATR | 2% of price — below that a name can't travel far enough to pay a target |
 | Slippage (simulated) | 0.05% |
 | Drawdown pause | >10% → halve position size + audit |
 | Max sector correlation | 0.7 |

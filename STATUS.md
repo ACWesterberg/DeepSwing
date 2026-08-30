@@ -6,6 +6,50 @@ Last updated: 2026-08-21
 
 ## Done ✅
 
+### Breakeven floor + honest exit labels (2026-08-30)
+Live data showed `trailing_stop` exits averaging **−0.52R over 8 trades
+(claude)** and **−0.32R over 16 (gpt)** against `take_profit` at +2.46R/+3.44R
+— 24 of 56 closed trades exiting at a loss under a winning label, consuming the
+entire expectancy margin of the claude track.
+
+Cause: `trail_distance` (2.0×ATR) is always wider than the maximum permitted
+stop (1.65×ATR), so the ratchet clears `stop_loss` at ≈ entry+0.35 ATR while
+still sitting at a full-risk loss, and only guarantees breakeven at +2.0 ATR.
+
+Fix: an independent `breakeven_armed` floor on `OpenPosition` (arms at
+`breakeven_arm_atr_multiplier`, net of both commission legs and exit slippage,
+never retreats) plus `resolve_exit()`, which labels by the level that actually
+bound — `trailing_stop` only above entry, new `breakeven_stop` for the floor,
+`stop_loss` otherwise. Shared between the live simulator and the backtester;
+the backtester arms from the close *after* its exit checks so no-look-ahead
+holds. Also fixed the ERL fallback label, which narrated an empty
+`exit_reason` as a success-flavoured "manual/target exit".
+
+Note the floor rescues a trade only if its peak cleared the arming threshold;
+one that reversed from +0.6 ATR still books ≈−1R, but is now honestly labelled
+`stop_loss` so ERL attributes it to entry quality.
+
+### Re-tune for move-scaled payoffs (2026-08-30)
+A winner pays `risk × RRR`, independent of ATR or target distance, and both
+levers were suppressed. `min_rrr` 2.0 → 2.5; the `TradeDecision` docstring now
+places stop/target from structure with the numeric floor moved to the
+output-field description (three restatements plus a worked example at exactly
+2.0 anchored every target at the minimum). The screener never referenced
+`atr_14` at all and its RSI curve peaked at 52.5 while paying zero by 67.5 —
+added `min_atr_pct` (2%) plus a range score term, re-centred RSI on 60, raised
+`rsi_max` to 78. `max_risk_per_trade` 1% → 1.5%. `RiskValidation.size_scale`
+now reports when the 25% value cap shrank a position, which previously bound
+invisibly. Claude decision budget 1024 → 4096 tokens.
+
+Held tickers are dropped before the decision loop instead of after a news fetch
+and one decision call per track. Counterfactual labelling mirrors the breakeven
+floor, so hindsight and lived examples share an exit policy.
+
+`/api/reset` now archives the compiled MIPRO program — it previously survived a
+reset and kept driving entries from the wiped book. `scripts/purge_dead_tracks.py`
+clears the inert options/Kalshi rows that `/api/reset` cannot target.
+
+
 ### Options tracks — removed (2026-08-21)
 The `claude-opt` / `gpt-opt` options tracks were shut down and deleted. Gone:
 `options_math`, `options_chain`, `options_decision`, `options_risk`,
@@ -83,7 +127,7 @@ carries `portfolio_state` rows and `decisions` rows for `claude-opt`/`gpt-opt`,
 
 ### Correctness & security review fixes (2026-07-02)
 - [x] **VIX halt no longer abandons holdings** — a VIX ≥ 35 halt blocks new entries but falls through to the holdings monitor, so stops/targets/news exits still run during volatility spikes
-- [x] **ATR-scaled trailing stop + correct exit labels** — the fixed 2% trail (tighter than most tickers' daily ATR; killed winners long before the RRR 2.0 target) is now `trailing_stop_atr_multiplier` (2×ATR, SEK-converted at entry, persisted per position); trailed exits close as `exit_reason="trailing_stop"` instead of being mislabeled `"stop_loss"`, so ERL no longer analyzes profitable trailed exits as stop-outs
+- [x] **ATR-scaled trailing stop + correct exit labels** — the fixed 2% trail (tighter than most tickers' daily ATR; killed winners long before the RRR 2.0 target) is now `trailing_stop_atr_multiplier` (2×ATR, SEK-converted at entry, persisted per position); trailed exits close as `exit_reason="trailing_stop"` instead of being mislabeled `"stop_loss"`. **Superseded 2026-08-30** — that predicate ("did the trail ratchet above stop_loss") was true while the trail was still below entry, so it inverted the error: ≈−1R losses were labelled trailed winners. See the breakeven-floor entry below.
 - [x] **ATR stop-sanity check fixed** — `stop < atr_stop * 0.90` applied 10% of *price* as slack (toothless) and mixed SEK entry prices with native-currency ATR; now compares stop distance vs 1.5×ATR as fractions of price (currency-safe, 10% slack on the ATR distance)
 - [x] **Position-value cap** — risk-based sizing is unbounded with tight stops (position could exceed cash and the approved BUY silently vanished at execution); position value is now capped at `max_position_pct` (25%) of equity and at available cash; execution-time failures land in the decisions feed as BLOCKED
 - [x] **US market hours in ET** — the fixed 15:30–22:00 CET window missed the first NYSE hour (or overshot the close) during the ~3 weeks/year when US and EU DST are out of sync; US windows are now evaluated in America/New_York
@@ -135,6 +179,7 @@ carries `portfolio_state` rows and `decisions` rows for `claude-opt`/`gpt-opt`,
 ## To Do 🔲
 
 ### Improvements
+- [ ] **Backtest the re-tune before trusting it** — `POST /api/backtest` on a fixed window, comparing expectancy, exit-reason mix and the realised RRR distribution against the pre-change parameters. If `min_atr_pct` + RRR 2.5 collapse trade count rather than widening the right tail, back them off there rather than live
 - [ ] **Flip `hurst_on_returns`** — the returns-based estimator is implemented and tested but defaults off; enable on the Pi, watch screener candidate volume for a week, then commit or revert
 - [ ] **News model on reasoning tier** — `gpt-5-mini` may spend budget on reasoning; monitor Swedish news summary quality, bump model or tune `max_completion_tokens` if weak
 

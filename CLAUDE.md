@@ -63,14 +63,15 @@ All model IDs are env-overridable (see `.env.example`). Scan/ERL models were upg
 
 ## Risk rules (all enforced in `src/agent/risk.py` unless noted)
 
-- 1% max risk per trade (hard cap 2%)
-- Min RRR 2.0
+- 1.5% max risk per trade (hard cap 2%)
+- Min RRR 2.5
 - Stop-loss at 1.5× ATR below entry — validated as *fractions of price* so the check is currency-safe (entry/stop are SEK, ATR is native currency)
 - Position value capped at `max_position_pct` (25%) of equity **and** at available cash — risk-based sizing alone is unbounded when stops are tight
 - >10% portfolio drawdown → halve all position sizes
 - No duplicate tickers across open positions; max 2 positions per sector
 - Pairwise return-correlation cap: candidate vs each same-market open position (60-day daily returns from the scan's batch OHLCV); any pair > `max_sector_correlation` (0.7) rejects the entry — same rule in the backtester
-- Trailing stop trails at `trailing_stop_atr_multiplier` (2×) ATR once in profit (`simulator.py`); trailed exits close as `exit_reason="trailing_stop"`, not `"stop_loss"` — ERL depends on this distinction
+- **Exits are labelled by the level that actually bound.** The trail (`trailing_stop_atr_multiplier`, 2×ATR) is wider than the maximum permitted stop (1.65×ATR), so `peak − trail` sits *below* entry until price has run a full 2 ATR. Labelling a trailed exit by "did the trail ratchet above stop_loss" therefore called ≈−1R losses `trailing_stop` — it did, on 24 of the first 56 trades. An independent breakeven floor arms at `breakeven_arm_atr_multiplier` (1×) ATR of profit, is computed net of both commission legs and exit slippage, and never retreats. `resolve_exit()` labels `trailing_stop` only when the trail locked a gain **above entry**, `breakeven_stop` when the armed floor caught the reversal, `stop_loss` otherwise. ERL branches on this, so the old labels had it blaming trade management for entry-selection failures.
+- **A winner pays `risk × RRR`, not the size of the move** — sizing is risk-normalised, so payoff is independent of ATR and how far the target sits. Both levers are therefore load-bearing: the `TradeDecision` docstring places stop/target from *structure* and carries the numeric floor on the output-field description (stating it in the docstring anchored every target at the minimum), and the screener enforces `min_atr_pct` plus a range score term so candidates can actually travel. Don't reintroduce a floor-shaped worked example.
 - VIX ≥ 35 halts **new entries only** — open holdings still get the stop/target sweep and news-exit review (`scan_loop.py` falls through to the holdings monitor)
 - Non-SEK prices are never booked without FX conversion — `_to_sek_price` returns `None` on failure and callers skip; never fall back to raw native prices
 - US market hours are evaluated in **US Eastern Time** (`market_hours.py`), not fixed CET — the US/EU DST transitions are weeks apart
@@ -143,9 +144,9 @@ See [STATUS.md](STATUS.md) for the full To Do list. Priority items:
 1. **Flip `hurst_on_returns`** — the returns-based R/S estimator is implemented behind a settings flag (default off, because it reclassifies drifting walks as neutral and makes the screener stricter); enable deliberately and observe candidate volume
 2. **News summary quality** — monitor whether `gpt-5-mini` spends its budget on reasoning at the expense of the Swedish summaries
 
-There is **no target auto-stretching**: a BUY whose own target gives RRR < 2.0 is rejected at risk validation and learned from counterfactually (blocked BUYs persist inputs like PASSes). Don't reintroduce `_fix_rrr`.
+There is **no target auto-stretching**: a BUY whose own target gives RRR < `min_rrr` is rejected at risk validation and learned from counterfactually (blocked BUYs persist inputs like PASSes). Don't reintroduce `_fix_rrr`.
 
-The backtester now mirrors live execution (slippage/commissions, intraday High/Low exits, ATR trailing stop, mark-to-market equity, correlation cap); counterfactual labels simulate the stop/target path when ATR is available.
+The backtester now mirrors live execution (slippage/commissions, intraday High/Low exits, ATR trailing stop, mark-to-market equity, correlation cap); counterfactual labels simulate the stop/target path **and the breakeven floor** when ATR is available — without that mirror, hindsight BUY examples carried a clean +min_rrr while lived trades of the same setup carried a floored result, and the shared P&L metric rewarded BUY on the counterfactual half for free.
 
 ---
 
