@@ -5,6 +5,8 @@ import json
 import pytest
 
 from src.agent.replay import (
+    _batch_prices,
+    _select_rows,
     ReplayExample,
     always_buy,
     always_pass,
@@ -123,3 +125,85 @@ class TestCorpusRoundTrip:
         rows = json.loads(path.read_text())
         assert rows[0]["ticker"] == "AAPL"
         assert "entry_inputs" in rows[0]
+
+
+def _row(ticker: str, market: str = "us") -> dict:
+    return {"track": "claude", "ticker": ticker, "market": market,
+            "price": 100.0, "atr": 3.0, "timestamp": None, "entry_inputs": {}}
+
+
+class TestRowSelection:
+    """One blob per (track, ticker) per day means a name decided daily for six
+    weeks contributes ~45 correlated rows. Letting it dominate would inflate n
+    without adding independent evidence."""
+
+    def test_most_decided_tickers_come_first(self):
+        rows = [_row("RARE")] + [_row("COMMON")] * 20 + [_row("MID")] * 5
+        picked = _select_rows(rows, limit=100, max_per_ticker=99, max_tickers=2)
+        tickers = {r["ticker"] for r in picked}
+        assert tickers == {"COMMON", "MID"}
+        assert "RARE" not in tickers
+
+    def test_no_single_ticker_dominates(self):
+        rows = [_row("COMMON")] * 50 + [_row("OTHER")] * 50
+        picked = _select_rows(rows, limit=100, max_per_ticker=5, max_tickers=10)
+        counts = {}
+        for r in picked:
+            counts[r["ticker"]] = counts.get(r["ticker"], 0) + 1
+        assert all(c <= 5 for c in counts.values())
+
+    def test_distinct_tickers_are_capped(self):
+        rows = [_row(f"T{i}") for i in range(500)]
+        picked = _select_rows(rows, limit=500, max_per_ticker=5, max_tickers=20)
+        assert len({r["ticker"] for r in picked}) <= 20
+
+    def test_limit_is_respected(self):
+        rows = [_row(f"T{i}") for i in range(500)]
+        assert len(_select_rows(rows, limit=30, max_per_ticker=5, max_tickers=150)) == 30
+
+    def test_empty_input_is_empty_output(self):
+        assert _select_rows([], limit=10, max_per_ticker=5, max_tickers=10) == []
+
+
+class TestBatchFetching:
+    """One chunked download per market, not one call per ticker — the
+    per-ticker path routes Nordic through Alpha Vantage's 25/day free tier."""
+
+    def test_one_call_per_market_regardless_of_ticker_count(self, monkeypatch):
+        calls = {"nordic": 0, "eu": 0, "us": 0}
+
+        def _make(market):
+            def _fetch(tickers):
+                calls[market] += 1
+                return {t: "df" for t in tickers}
+            return _fetch
+
+        import src.data.market_data as md
+        monkeypatch.setattr(md, "fetch_batch_nordic", _make("nordic"))
+        monkeypatch.setattr(md, "fetch_batch_eu", _make("eu"))
+        monkeypatch.setattr(md, "fetch_batch_us", _make("us"))
+
+        rows = ([_row(f"N{i}", "nordic") for i in range(80)]
+                + [_row(f"U{i}", "us") for i in range(120)])
+        prices = _batch_prices(rows)
+
+        assert calls == {"nordic": 1, "eu": 0, "us": 1}
+        assert len(prices) == 200
+
+    def test_a_failing_market_does_not_abort_the_others(self, monkeypatch):
+        import src.data.market_data as md
+
+        def _boom(_):
+            raise RuntimeError("provider down")
+
+        monkeypatch.setattr(md, "fetch_batch_nordic", _boom)
+        monkeypatch.setattr(md, "fetch_batch_us", lambda t: {x: "df" for x in t})
+
+        prices = _batch_prices([_row("N1", "nordic"), _row("U1", "us")])
+        assert "U1" in prices and "N1" not in prices
+
+    def test_unknown_market_is_skipped_not_fatal(self, monkeypatch):
+        import src.data.market_data as md
+        monkeypatch.setattr(md, "fetch_batch_us", lambda t: {x: "df" for x in t})
+        prices = _batch_prices([_row("X1", "crypto"), _row("U1", "us")])
+        assert "U1" in prices and "X1" not in prices

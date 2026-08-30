@@ -88,17 +88,85 @@ def _session_for(db_path: Optional[Path]):
     return sessionmaker(bind=engine, autocommit=False, autoflush=False)()
 
 
+def _select_rows(
+    rows: list[dict],
+    limit: int,
+    max_per_ticker: int,
+    max_tickers: int,
+) -> list[dict]:
+    """
+    Pick a diverse subset: most-decided tickers first, but bounded per ticker.
+
+    `_persist_decisions` keeps one blob per (track, ticker) per day, so a name
+    decided daily for six weeks contributes ~45 rows per track. Those rows are
+    highly correlated — the same setup on consecutive days — so letting one
+    ticker dominate inflates `n` without adding independent evidence, and makes
+    a prompt look more precisely measured than it is. Frequency ordering keeps
+    the fetch bounded; the per-ticker cap keeps the sample broad.
+    """
+    by_ticker: dict[str, list[dict]] = {}
+    for row in rows:
+        by_ticker.setdefault(row["ticker"], []).append(row)
+
+    ranked = sorted(by_ticker.items(), key=lambda kv: len(kv[1]), reverse=True)
+    selected: list[dict] = []
+    for ticker, ticker_rows in ranked[:max_tickers]:
+        selected.extend(ticker_rows[:max_per_ticker])
+        if len(selected) >= limit:
+            break
+    return selected[:limit]
+
+
+def _batch_prices(rows: list[dict]) -> dict[str, object]:
+    """
+    One chunked download per market rather than one call per ticker.
+
+    The per-ticker path routes Nordic through Alpha Vantage, whose free tier
+    allows 25 requests a day — a few hundred tickers exhausts it and every
+    subsequent Nordic fetch fails. These are the same batch helpers the scan
+    loop uses to pull the whole Nordic universe, and they don't touch it.
+    """
+    from src.data.market_data import (
+        fetch_batch_eu, fetch_batch_nordic, fetch_batch_us,
+    )
+
+    fetchers = {"nordic": fetch_batch_nordic, "eu": fetch_batch_eu, "us": fetch_batch_us}
+    by_market: dict[str, set[str]] = {}
+    for row in rows:
+        by_market.setdefault(row["market"], set()).add(row["ticker"])
+
+    prices: dict[str, object] = {}
+    for market, tickers in by_market.items():
+        fetch = fetchers.get(market)
+        if fetch is None:
+            logger.warning("No batch fetcher for market %r — skipping %d tickers",
+                           market, len(tickers))
+            continue
+        logger.info("Fetching %d %s tickers...", len(tickers), market)
+        try:
+            got = fetch(sorted(tickers))
+        except Exception as exc:
+            logger.warning("Batch fetch failed for %s: %s", market, exc)
+            continue
+        logger.info("  %s: %d/%d returned", market, len(got), len(tickers))
+        prices.update(got)
+    return prices
+
+
 def build_corpus(
     track: Optional[str] = None,
     db_path: Optional[Path] = None,
     limit: int = 500,
     horizon_days: Optional[int] = None,
+    market: Optional[str] = None,
+    max_per_ticker: int = 5,
+    max_tickers: int = 150,
+    on_progress: Optional[Callable[[list["ReplayExample"]], None]] = None,
 ) -> list[ReplayExample]:
     """Label aged PASS/BLOCKED decisions from what the price actually did."""
     # Local: labelling needs the live pipeline, but scoring must not — keeping
     # these out of module scope is what lets the reference predictors below run
     # without dspy installed, so the harness can be validated with no model.
-    from src.data.market_data import fetch_ohlcv
     from src.db import Decision
     from src.scheduler.optimizer import _label_forward_path
 
@@ -115,50 +183,58 @@ def build_corpus(
         )
         if track:
             q = q.filter(Decision.track == track)
+        if market:
+            q = q.filter(Decision.market == market)
         rows = [
             {
                 "track": r.track, "ticker": r.ticker, "market": r.market,
                 "price": r.price, "atr": r.atr, "timestamp": r.timestamp,
                 "entry_inputs": r.entry_inputs,
             }
-            for r in q.order_by(Decision.timestamp.desc()).limit(limit * 3).all()
+            for r in q.order_by(Decision.timestamp.desc()).all()
         ]
     finally:
         session.close()
 
+    if not rows:
+        return []
+
+    selected = _select_rows(rows, limit, max_per_ticker, max_tickers)
+    logger.info("Selected %d decisions across %d tickers (from %d rows)",
+                len(selected), len({r["ticker"] for r in selected}), len(rows))
+
+    prices = _batch_prices(selected)
+
     corpus: list[ReplayExample] = []
-    ohlcv_cache: dict[str, object] = {}
-    for row in rows:
-        if len(corpus) >= limit:
-            break
-        ticker = row["ticker"]
-        if ticker not in ohlcv_cache:
-            try:
-                ohlcv_cache[ticker] = fetch_ohlcv(ticker, row["market"], period="1y")
-            except Exception as exc:
-                logger.debug("Replay price fetch failed for %s: %s", ticker, exc)
-                ohlcv_cache[ticker] = None
-        df = ohlcv_cache[ticker]
-        if df is None or getattr(df, "empty", True):
-            continue
+    try:
+        for row in selected:
+            df = prices.get(row["ticker"])
+            if df is None or getattr(df, "empty", True):
+                continue
 
-        start = row["timestamp"].date()
-        end = (row["timestamp"] + horizon).date()
-        window = df[(df.index.date > start) & (df.index.date <= end)]
-        if len(window) < 3 or window["Close"].dropna().empty:
-            continue
+            start = row["timestamp"].date()
+            end = (row["timestamp"] + horizon).date()
+            window = df[(df.index.date > start) & (df.index.date <= end)]
+            if len(window) < 3 or window["Close"].dropna().empty:
+                continue
 
-        labelled = _label_forward_path(window, row["price"], row["atr"])
-        if labelled is None:
-            continue  # ambiguous drift, or no risk denominator
-        label, r = labelled
-        corpus.append(ReplayExample(
-            track=row["track"], ticker=ticker, market=row["market"],
-            timestamp=row["timestamp"].isoformat(),
-            entry_inputs=row["entry_inputs"], label=label, r_multiple=r,
-        ))
+            labelled = _label_forward_path(window, row["price"], row["atr"])
+            if labelled is None:
+                continue  # ambiguous drift, or no risk denominator
+            label, r = labelled
+            corpus.append(ReplayExample(
+                track=row["track"], ticker=row["ticker"], market=row["market"],
+                timestamp=row["timestamp"].isoformat(),
+                entry_inputs=row["entry_inputs"], label=label, r_multiple=r,
+            ))
+            if on_progress and len(corpus) % 50 == 0:
+                on_progress(corpus)
+    except KeyboardInterrupt:
+        # Labelling a few hundred rows takes a while; keep what was earned.
+        logger.warning("Interrupted — keeping %d labelled examples", len(corpus))
 
-    logger.info("Replay corpus: %d labelled examples from %d decisions", len(corpus), len(rows))
+    logger.info("Replay corpus: %d labelled examples from %d selected decisions",
+                len(corpus), len(selected))
     return corpus
 
 

@@ -41,11 +41,24 @@ _DEFAULT_CACHE = Path("data/replay_corpus.json")
 
 
 def _build(args) -> int:
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    def _checkpoint(partial):
+        # Labelling a few hundred rows takes a while; a Ctrl-C should not
+        # discard everything already earned.
+        save_corpus(partial, out)
+        print(f"  ... {len(partial)} labelled (checkpointed)")
+
     corpus = build_corpus(
         track=args.track,
         db_path=Path(args.db) if args.db else None,
         limit=args.limit,
         horizon_days=args.horizon,
+        market=args.market,
+        max_per_ticker=args.max_per_ticker,
+        max_tickers=args.max_tickers,
+        on_progress=_checkpoint,
     )
     if not corpus:
         print("No labellable decisions found.\n"
@@ -53,10 +66,11 @@ def _build(args) -> int:
               "(default 14 days) and carry entry_inputs + price + atr.")
         return 1
 
-    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    n = save_corpus(corpus, Path(args.out))
+    n = save_corpus(corpus, out)
     payers = sum(1 for e in corpus if e.label == "BUY")
+    tickers = len({e.ticker for e in corpus})
     print(f"Wrote {n} labelled examples to {args.out}")
+    print(f"  {tickers} distinct tickers (one batch fetch per market, not per ticker)")
     print(f"  {payers} setups paid ({payers/n:.0%}), {n - payers} did not")
     print(f"  mean R if every one were taken: {sum(e.r_multiple for e in corpus)/n:+.2f}")
     return 0
@@ -114,6 +128,12 @@ def main() -> int:
                                 "backup to use decisions a reset deleted.")
     b.add_argument("--track", help="claude | gpt (default: both)")
     b.add_argument("--limit", type=int, default=500)
+    b.add_argument("--market", help="nordic | eu | us (default: all). US/EU are "
+                                    "pure yfinance if Nordic data is unavailable.")
+    b.add_argument("--max-per-ticker", type=int, default=5, dest="max_per_ticker",
+                   help="cap rows from any one ticker — consecutive days on the "
+                        "same name are correlated and inflate n (default 5)")
+    b.add_argument("--max-tickers", type=int, default=150, dest="max_tickers")
     b.add_argument("--horizon", type=int, help="forward days (default: settings)")
     b.add_argument("--out", default=str(_DEFAULT_CACHE))
     b.set_defaults(func=_build)
