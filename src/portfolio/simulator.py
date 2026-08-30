@@ -253,9 +253,16 @@ class ClosedTrade:
 
     @property
     def rrr_achieved(self) -> float:
-        risk = self.entry_price - self.stop_loss
-        reward = self.exit_price - self.entry_price
-        return reward / risk if risk > 0 else 0.0
+        """Realised R-multiple, net of commission.
+
+        The denominator is the ORIGINAL stop, never the trailing one, so a
+        trailed exit is measured against the risk actually taken. Net, because
+        pnl_pct, win_rate and the equity curve are all net — a gross R here
+        made avg_rrr and the optimization metric quietly optimistic relative to
+        every other number on the dashboard.
+        """
+        risk = (self.entry_price - self.stop_loss) * self.quantity
+        return self.pnl / risk if risk > 0 else 0.0
 
     @property
     def duration_days(self) -> float:

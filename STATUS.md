@@ -6,6 +6,36 @@ Last updated: 2026-08-21
 
 ## Done ✅
 
+### Heuristic quality for the learning loop (2026-08-30)
+Four structural problems in what feeds MIPRO, none of them sample size:
+
+- **Heuristics were scored on one side of their own influence.** `heuristic_ids`
+  rode only on opened positions, so a rule that argued for passing was never
+  credited when passing was right nor charged when it cost a winner. They now
+  ride on PASS/BLOCKED decisions too, and `score_heuristics_from_decisions`
+  scores aged ones from their counterfactual forward label (sign follows the
+  decision the rules informed). Idempotent via `decisions.heuristics_scored`.
+- **The MIPRO metric could not see the right tail.** `tanh(pnl_pct × 10)` put a
+  +30% trade 0.045 above a +15% one — the re-tune for bigger wins would have
+  been invisible to the optimizer. Now scores R-multiples at scale 0.35, where
+  2.5R and 5R differ by 0.12.
+- **Core status was popularity, not performance.** `promote_core` checked only
+  access count — how often a rule was *shown* — and granted a permanent +2.0
+  retrieval boost with no demotion. Now requires quality too, and revokes it.
+- **Single-trade rules ranked alongside proven ones.** ERL extracts one
+  heuristic per trade; new ones now carry a retrieval penalty until
+  `MIN_CORROBORATION` outcomes. Ranked down, not excluded — otherwise they
+  could never earn the outcomes that would prove them.
+
+Also made `rrr_achieved` net of commission, matching `pnl_pct`, `win_rate` and
+the equity curve. A full stop-out reads ≈ −1.05R rather than −1.00R.
+
+**Known and not fixed:** PASS scores exactly 0.5 on every example, so on a
+losing trainset the do-nothing program wins on the real-trade half.
+Counterfactual missed-BUY examples are the only counterweight, and they are
+capped at the real-trade count. Worth watching on the gpt track.
+
+
 ### Breakeven floor + honest exit labels (2026-08-30)
 Live data showed `trailing_stop` exits averaging **−0.52R over 8 trades
 (claude)** and **−0.32R over 16 (gpt)** against `take_profit` at +2.46R/+3.44R

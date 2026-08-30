@@ -48,40 +48,51 @@ MIN_REAL_EXAMPLES = 10
 # threshold, not the "can it run" one.
 MIN_EXAMPLES_FOR_OPTIMIZATION = 25
 
-# Scales realized return before the tanh squash. At k=10 a ±10% move lands
-# near the (0,1) extremes, which matches typical swing-trade magnitudes.
-_PNL_METRIC_SCALE = 10.0
+# Scales the realized R-multiple before the tanh squash. Chosen so the metric
+# still separates outcomes across the range a swing book actually produces
+# (-1R to +5R): a 2.5R and a 5R differ by 0.12 here, where the previous
+# formulation — raw pnl_pct at k=10 — put them 0.045 apart and treated a +15%
+# and a +30% trade as near-identical. Optimizing for a fatter right tail
+# requires a metric that can see one.
+_R_METRIC_SCALE = 0.35
 
 
 def _pnl_weighted_metric(example, prediction, trace=None) -> float:
     """
     Reward a decision by the money it would have made, not just action-match.
 
-    Each training example carries the realized `pnl_pct` (a fraction) of a trade
-    that was actually taken. If the model would BUY, it "earns" that return; if it
-    passes, it earns nothing. The result is squashed to (0, 1):
+    Each training example carries the realized R-multiple of the trade — profit
+    per unit of risk taken, the unit the rest of the system already thinks in.
+    If the model would BUY it "earns" that R; if it passes it earns nothing.
+    Squashed to (0, 1):
 
-        take a +5% winner  → ~0.73     take a −5% loser → ~0.27
-        pass on anything   →  0.50     take a +15% winner → ~0.95
+        take a +1R winner  → ~0.67     take a -1R loser → ~0.33
+        pass on anything   →  0.50     take a +5R winner → ~0.97
 
-    So passing beats taking a loser but loses to taking a winner, and the *size*
-    of each win/loss drives the optimization — which binary action-match ignored.
+    Scoring R rather than raw return matters because position size is already
+    risk-normalized: a 2% move on a tight stop and a 10% move on a wide one are
+    the same trade to the book, and a metric denominated in percent would
+    reward the volatile one for volatility alone.
+
+    Note passing always scores exactly 0.5. On a trainset of mostly losers the
+    do-nothing program therefore wins, and only the counterfactual "missed BUY"
+    examples pull against that — which is why they are not optional.
     """
     pred_action = str(getattr(prediction, "action", "")).upper()
-    pnl = float(getattr(example, "pnl_pct", 0.0) or 0.0)
-    realized = pnl if pred_action == "BUY" else 0.0
-    return 0.5 + 0.5 * math.tanh(realized * _PNL_METRIC_SCALE)
+    r = float(getattr(example, "r_multiple", 0.0) or 0.0)
+    realized = r if pred_action == "BUY" else 0.0
+    return 0.5 + 0.5 * math.tanh(realized * _R_METRIC_SCALE)
 
 
-def _make_example(inputs: dict, action: str, pnl_pct: float) -> "dspy.Example":
+def _make_example(inputs: dict, action: str, r_multiple: float) -> "dspy.Example":
     return dspy.Example(
         technicals=inputs.get("technicals", ""),
         regime=inputs.get("regime", ""),
         news_summary=inputs.get("news_summary", ""),
         macro_context=inputs.get("macro_context", ""),
         heuristics=inputs.get("heuristics", ""),
-        action=action,                # matches BUY/PASS signature
-        pnl_pct=float(pnl_pct),       # carried for the P&L-weighted metric
+        action=action,                    # matches BUY/PASS signature
+        r_multiple=float(r_multiple),     # carried for the R-weighted metric
     ).with_inputs("technicals", "regime", "news_summary", "macro_context", "heuristics")
 
 
@@ -94,15 +105,19 @@ def _label_forward_path(
     both-hit bar). A "missed winner" that would have traded through its stop
     first is a correct PASS, not a missed BUY. Falls back to the horizon-close
     return when ATR wasn't persisted or High/Low aren't available.
-    Returns (action, pnl_pct) or None to skip (ambiguous drift).
+    Returns (action, r_multiple) or None to skip (ambiguous drift, or a risk
+    denominator that can't be established). R rather than a raw return so
+    counterfactual examples are denominated the same way lived trades are.
     """
-    has_path = (
-        atr is not None and atr > 0
-        and "High" in window.columns and "Low" in window.columns
-    )
+    # Two separate requirements: ATR gives the risk denominator that makes an
+    # R-multiple meaningful at all; High/Low additionally allow simulating the
+    # intraday path. Without High/Low we can still label from the close.
+    has_atr = atr is not None and atr > 0
+    has_path = has_atr and "High" in window.columns and "Low" in window.columns
     if has_path:
         stop = price - settings.atr_stop_multiplier * atr
-        target = price + settings.min_rrr * (price - stop)
+        risk = price - stop
+        target = price + settings.min_rrr * risk
         arm_at = price + settings.breakeven_arm_atr_multiplier * atr
         floor = breakeven_from_costs(price, settings.commission_pct, settings.simulated_slippage)
         armed = False
@@ -113,21 +128,123 @@ def _label_forward_path(
             # counterfactual half of the trainset for free.
             effective_stop = max(stop, floor) if armed else stop
             if row["Low"] <= effective_stop:
-                return "PASS", effective_stop / price - 1.0
+                return "PASS", (effective_stop - price) / risk
             if row["High"] >= target:
-                return "BUY", target / price - 1.0    # missed winner
+                return "BUY", (target - price) / risk   # missed winner
             # Arm from the close after the exit checks — within a bar the
             # order of high and low is unknown (same rule as the backtester).
             if not armed and settings.breakeven_arm_atr_multiplier > 0 and row["Close"] >= arm_at:
                 armed = True
 
-    # No exit hit (or no path data): label from where the horizon closed
+    # No exit hit, or no High/Low to walk. Without ATR there is no risk to
+    # divide by, and inventing a denominator would hand hindsight examples a
+    # risk basis the lived half never got — the same bias the floor mirror
+    # above removes. PASS decisions have persisted their ATR since the
+    # counterfactual pipeline shipped, so this only skips pre-upgrade rows.
+    if not has_atr:
+        return None
+    risk_frac = settings.atr_stop_multiplier * atr / price
     fwd_return = float(window["Close"].dropna().iloc[-1]) / price - 1.0
     if fwd_return >= settings.counterfactual_buy_threshold:
-        return "BUY", fwd_return
+        return "BUY", fwd_return / risk_frac
     if fwd_return <= 0.0:
-        return "PASS", fwd_return
+        return "PASS", fwd_return / risk_frac
     return None  # ambiguous drift — noisy labels help nobody
+
+
+def score_heuristics_from_decisions(track: TrackType, max_decisions: int = 200) -> int:
+    """
+    Re-score heuristics against the setups they talked the model out of.
+
+    `record_outcome` only ever ran on closed trades, so a heuristic was judged
+    on the subset of its influence that produced a position. A rule that argued
+    for passing was never credited when passing was right, nor charged when it
+    cost a winner — the same survivorship bias the counterfactual trainset was
+    built to remove, one layer down in the thing that decides which rules reach
+    the prompt at all.
+
+    Sign follows the decision the heuristics informed, not the price move:
+    a PASS is right when the forward path went nowhere, a BLOCKED BUY was the
+    model wanting in, so it is scored like a taken trade.
+
+    Returns the number of decisions scored. Idempotent via `heuristics_scored`,
+    since `record_outcome` has no idempotency of its own and would double-count.
+    """
+    from datetime import datetime, timedelta
+
+    from src.agent.memory import get_store
+    from src.data.market_data import fetch_ohlcv
+    from src.db import Decision, get_session
+
+    horizon = timedelta(days=settings.counterfactual_horizon_days)
+    cutoff = datetime.utcnow() - horizon
+    store = get_store(track)
+
+    session = get_session()
+    scored = 0
+    try:
+        rows = (
+            session.query(Decision)
+            .filter(
+                Decision.track == track,
+                Decision.action.in_(("PASS", "BLOCKED")),
+                Decision.entry_inputs.isnot(None),
+                Decision.price.isnot(None),
+                Decision.timestamp <= cutoff,
+                Decision.heuristics_scored.isnot(True),
+            )
+            .order_by(Decision.timestamp.desc())
+            .limit(max_decisions)
+            .all()
+        )
+
+        ohlcv_cache: dict[str, object] = {}
+        for row in rows:
+            ids = (row.entry_inputs or {}).get("heuristic_ids") or []
+            if not ids:
+                # Predates heuristic_ids on skipped setups; nothing to score,
+                # but mark it so it isn't re-fetched on every weekly run.
+                row.heuristics_scored = True
+                continue
+
+            ticker = row.ticker
+            if ticker not in ohlcv_cache:
+                try:
+                    ohlcv_cache[ticker] = fetch_ohlcv(ticker, row.market, period="6mo")
+                except Exception as exc:
+                    logger.debug("Heuristic scoring fetch failed for %s: %s", ticker, exc)
+                    ohlcv_cache[ticker] = None
+            df = ohlcv_cache[ticker]
+            if df is None or df.empty:
+                continue
+
+            start = row.timestamp.date()
+            end = (row.timestamp + horizon).date()
+            window = df[(df.index.date > start) & (df.index.date <= end)]
+            if len(window) < 3 or window["Close"].dropna().empty:
+                continue
+
+            labeled = _label_forward_path(window, row.price, row.atr)
+            if labeled is None:
+                continue  # ambiguous drift — leave unscored, it may resolve
+            _, fwd_return = labeled
+
+            # A PASS is vindicated by a move that did not pay, so the signal is
+            # the negation of the forward return. A BLOCKED BUY carried the
+            # model's intent to buy, so it scores in the same direction a taken
+            # trade would have.
+            signal = fwd_return if row.action == "BLOCKED" else -fwd_return
+            store.record_outcome(ids, signal)
+            row.heuristics_scored = True
+            scored += 1
+
+        session.commit()
+    finally:
+        session.close()
+
+    if scored:
+        logger.info("Scored %d skipped setup(s) against %s heuristics", scored, track)
+    return scored
 
 
 def _build_counterfactual_examples(track: TrackType, max_examples: int) -> list:
@@ -265,7 +382,9 @@ def run_mipro_optimization(track: TrackType) -> bool:
         inputs = getattr(t, "entry_inputs", None)
         if not inputs:
             continue  # Only trades that stored their DSPy inputs can be used
-        trainset.append(_make_example(inputs, "BUY" if t.pnl_pct > 0 else "PASS", t.pnl_pct))
+        trainset.append(
+            _make_example(inputs, "BUY" if t.pnl_pct > 0 else "PASS", t.rrr_achieved)
+        )
 
     if len(trainset) < MIN_REAL_EXAMPLES:
         logger.info(
@@ -369,15 +488,23 @@ def run_mipro_optimization(track: TrackType) -> bool:
 
 
 def run_heuristic_refinement(track: str) -> None:
-    """Weekly maintenance: prune low-quality heuristics, promote core rules."""
+    """Weekly maintenance: score skipped setups, prune, promote and demote."""
     from src.agent.memory import get_store
     store = get_store(track)
-    # Dedupe first: a cluster's copies should be retired before pruning decides
+    # Score the setups these rules argued against before anything is pruned or
+    # promoted on the strength of a score that only counted opened trades.
+    try:
+        scored = score_heuristics_from_decisions(track)
+    except Exception as exc:
+        logger.warning("Skipped-setup scoring failed for %s: %s", track, exc)
+        scored = 0
+    # Dedupe next: a cluster's copies should be retired before pruning decides
     # what has earned its place, so survivors are judged against distinct rules.
     deduped = store.dedupe()
     pruned = store.prune()
-    promoted = store.promote_core()
+    promoted, demoted = store.promote_core()
     logger.info(
-        "Heuristic refinement [%s]: deduped=%d, pruned=%d, promoted_to_core=%d",
-        track, deduped, pruned, promoted,
+        "Heuristic refinement [%s]: scored=%d, deduped=%d, pruned=%d, "
+        "promoted_to_core=%d, demoted=%d",
+        track, scored, deduped, pruned, promoted, demoted,
     )

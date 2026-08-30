@@ -69,6 +69,12 @@ class Decision(Base):
     # none_as_null: Python None must become SQL NULL (not the JSON string 'null')
     # or the isnot(None) filters in the counterfactual builder match empty rows
     entry_inputs = Column(JSON(none_as_null=True))
+    # Heuristics were only ever re-scored on trades that were opened, so a rule
+    # that talked the model out of a setup was never credited when skipping was
+    # right nor charged when it cost a winner. Aged PASS/BLOCKED decisions are
+    # scored from their counterfactual forward label; this marks the ones
+    # already counted, since record_outcome has no idempotency of its own.
+    heuristics_scored = Column(Boolean, default=False)
 
     __table_args__ = (
         Index("ix_decisions_time", "timestamp"),
@@ -167,7 +173,12 @@ def _migrate_decisions(engine) -> None:
 
     with engine.connect() as conn:
         existing = {row[1] for row in conn.execute(text("PRAGMA table_info(decisions)"))}
-        for name, ddl in (("price", "FLOAT"), ("atr", "FLOAT"), ("entry_inputs", "JSON")):
+        for name, ddl in (
+            ("price", "FLOAT"),
+            ("atr", "FLOAT"),
+            ("entry_inputs", "JSON"),
+            ("heuristics_scored", "BOOLEAN DEFAULT 0"),
+        ):
             if name not in existing:
                 conn.execute(text(f"ALTER TABLE decisions ADD COLUMN {name} {ddl}"))
         conn.commit()

@@ -142,7 +142,9 @@ class TestRegression:
         closed = portfolio.update_prices({"AAPL": 94.0})
 
         assert closed[0].exit_reason == "stop_loss"
-        assert closed[0].rrr_achieved == pytest.approx(-1.0, abs=0.05)
+        # Slightly worse than -1R: rrr_achieved is net, so a stop-out also
+        # carries both commission legs and both slippage legs.
+        assert -1.15 < closed[0].rrr_achieved < -1.0
 
 
 class TestPersistence:

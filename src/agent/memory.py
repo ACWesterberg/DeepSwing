@@ -89,6 +89,13 @@ SIMILARITY_THRESHOLD = 0.70
 # seat in the prompt without ever conflating two families.
 DIVERSITY_THRESHOLD = 0.45
 
+# Outcomes a heuristic needs before it counts as tested. Below this it still
+# gets retrieved — it cannot be measured otherwise — but ranks under rules that
+# have been. Now that skipped setups are scored too, outcomes accrue from both
+# sides of a decision rather than only from trades that opened.
+MIN_CORROBORATION = 2
+UNCORROBORATED_PENALTY = 1.5
+
 
 class HeuristicStore:
     """
@@ -158,6 +165,12 @@ class HeuristicStore:
                 score += 1.0
             if h.get("is_core"):
                 score += 2.0
+            # A heuristic is extracted from a single trade, so a brand new one
+            # is an untested guess carrying whatever quality ERL assigned it.
+            # Rank it under rules that have actually been measured rather than
+            # blocking it outright — it still has to be used to be tested.
+            if h.get("outcome_count", 0) < MIN_CORROBORATION:
+                score -= UNCORROBORATED_PENALTY
             scored.append((score, h))
 
         scored.sort(key=lambda x: x[0], reverse=True)
@@ -348,21 +361,44 @@ class HeuristicStore:
             logger.info("Pruned %d heuristics from %s track", removed, self.track)
         return removed
 
-    def promote_core(self, access_threshold: int = 10) -> int:
-        """Mark frequently-used heuristics as core rules."""
-        promoted = 0
+    def promote_core(
+        self,
+        access_threshold: int = 10,
+        quality_threshold: float = 6.0,
+        demote_below: float = 4.0,
+    ) -> tuple[int, int]:
+        """Promote proven rules to core; demote core rules that stopped working.
+
+        Access count measures how often a rule was *shown* to the model, not
+        whether it helped — it rises with any rule tagged to a common regime.
+        Promoting on that alone handed a permanent +2.0 retrieval boost to
+        whatever appeared most, which then made it appear more still. Require
+        quality as well, and take the flag back when quality decays, or a rule
+        that earned core status once keeps it through any amount of subsequent
+        evidence against it.
+        """
+        promoted = demoted = 0
         for path in self._dir.glob("*.json"):
             try:
                 h = json.loads(path.read_text())
-                if not h.get("is_core") and h.get("access_count", 0) >= access_threshold:
+                quality = h.get("quality_score", 5.0)
+                if h.get("is_core"):
+                    if quality < demote_below:
+                        h["is_core"] = False
+                        path.write_text(json.dumps(h, indent=2))
+                        demoted += 1
+                elif h.get("access_count", 0) >= access_threshold and quality >= quality_threshold:
                     h["is_core"] = True
                     path.write_text(json.dumps(h, indent=2))
                     promoted += 1
             except Exception:
                 pass
-        if promoted:
-            logger.info("Promoted %d heuristics to core in %s track", promoted, self.track)
-        return promoted
+        if promoted or demoted:
+            logger.info(
+                "Core rules in %s track: +%d promoted, -%d demoted",
+                self.track, promoted, demoted,
+            )
+        return promoted, demoted
 
     def all_as_list(self) -> list[dict]:
         return self._load_all()

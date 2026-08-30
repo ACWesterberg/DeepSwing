@@ -30,7 +30,7 @@ def tmp_heuristics(tmp_path, monkeypatch):
 
 
 def _seed_decision(ticker: str, price: float, days_ago: int, entry_inputs=None,
-                   track: str = "claude", action: str = "PASS", atr=None):
+                   track: str = "claude", action: str = "PASS", atr=2.0):
     from src.db import Decision, get_session
     session = get_session()
     try:
@@ -81,7 +81,8 @@ class TestCounterfactualExamples:
             examples = self._build()
         assert len(examples) == 1
         assert examples[0]["action"] == "BUY"
-        assert examples[0]["pnl"] == pytest.approx(0.10)
+        # R, not raw return: +10% against a 1.5xATR = 3% risk basis
+        assert examples[0]["pnl"] == pytest.approx(0.10 / 0.03)
         assert examples[0]["inputs"] == _INPUTS
 
     def test_correct_pass_labeled_pass(self, tmp_db):
@@ -91,7 +92,7 @@ class TestCounterfactualExamples:
             examples = self._build()
         assert len(examples) == 1
         assert examples[0]["action"] == "PASS"
-        assert examples[0]["pnl"] == pytest.approx(-0.06)
+        assert examples[0]["pnl"] == pytest.approx(-0.06 / 0.03)
 
     def test_ambiguous_drift_skipped(self, tmp_db):
         # +1% forward return: between 0 and the 3% threshold → no clean label
@@ -171,10 +172,8 @@ class TestCounterfactualPathSimulation:
         examples = self._run([(101, 99, 100), (103, 100, 102), (107, 102, 106), (110, 106, 109)])
         assert len(examples) == 1
         assert examples[0]["action"] == "BUY"
-        # Target return, not the final close. Derived so a min_rrr change
-        # retunes the expectation instead of breaking the test.
-        target = 100.0 + settings.min_rrr * (100.0 - 97.0)
-        assert examples[0]["pnl"] == pytest.approx(target / 100.0 - 1.0)
+        # Denominated in R, so the expectation is min_rrr itself.
+        assert examples[0]["pnl"] == pytest.approx(settings.min_rrr)
 
     def test_stop_first_rally_is_correct_pass(self, tmp_db):
         # Dips through the stop (97) before rallying to 115 — horizon-close
@@ -182,7 +181,7 @@ class TestCounterfactualPathSimulation:
         examples = self._run([(100, 96, 98), (105, 98, 104), (116, 104, 115), (116, 114, 115)])
         assert len(examples) == 1
         assert examples[0]["action"] == "PASS"
-        assert examples[0]["pnl"] == pytest.approx(-0.03)  # stop return
+        assert examples[0]["pnl"] == pytest.approx(-1.0)  # a full unit of risk
 
     def test_both_hit_same_bar_stop_wins(self, tmp_db):
         examples = self._run([(107, 96, 105), (108, 104, 107), (108, 105, 107)])
@@ -194,7 +193,8 @@ class TestCounterfactualPathSimulation:
         examples = self._run([(102, 99, 101), (103, 100, 102), (105, 102, 104), (105, 103, 104)])
         assert len(examples) == 1
         assert examples[0]["action"] == "BUY"
-        assert examples[0]["pnl"] == pytest.approx(0.04)
+        # +4% against a 1.5xATR = 3% risk basis
+        assert examples[0]["pnl"] == pytest.approx(0.04 / 0.03)
 
 
 class TestDecisionPersistenceDedupe:

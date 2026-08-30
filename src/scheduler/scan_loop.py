@@ -382,7 +382,14 @@ def _run_scan(market: MarketType) -> dict:
                 if decision and decision["action"] == "PASS":
                     entry["price"] = candidate.signals.current_price
                     entry["atr"] = candidate.signals.atr_14
-                    entry["entry_inputs"] = decision.get("entry_inputs")
+                    # heuristic_ids ride along on skipped setups too, so the
+                    # rules that argued for passing can be scored against what
+                    # the price went on to do. Without this a heuristic is only
+                    # ever judged on the trades it helped open.
+                    entry["entry_inputs"] = {
+                        **(decision.get("entry_inputs") or {}),
+                        "heuristic_ids": [h["id"] for h in heuristics_list],
+                    }
                 decisions_log.append(entry)
                 continue
 
@@ -474,7 +481,10 @@ def _run_scan(market: MarketType) -> dict:
                     "reason": risk.rejection_reason,
                     "price": candidate.signals.current_price,
                     "atr": candidate.signals.atr_14,
-                    "entry_inputs": decision.get("entry_inputs"),
+                    "entry_inputs": {
+                        **(decision.get("entry_inputs") or {}),
+                        "heuristic_ids": [h["id"] for h in heuristics_list],
+                    },
                 })
                 continue
 
