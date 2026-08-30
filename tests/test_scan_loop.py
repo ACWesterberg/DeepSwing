@@ -208,6 +208,21 @@ class TestRunScanTradeExecution:
             assert pos.regime == "trending"
             assert pos.technical_snapshot != ""
 
+    def test_held_ticker_skips_news_and_decision_calls(self):
+        mocks = _apply_patches(SCAN_PATCHES)
+        from src.scheduler.scan_loop import run_scan
+        run_scan("us")   # opens AAPL on both tracks
+        assert all(get_portfolio(t).has_ticker("AAPL") for t in ("claude", "gpt"))
+
+        news_before = mocks["fetch_news_for_ticker"].call_count
+        decisions_before = mocks["get_decision"].call_count
+        run_scan("us")   # same candidate, now held everywhere
+
+        # validate_trade would have rejected it anyway; don't pay a news fetch
+        # plus one decision call per track to find that out every 15 minutes.
+        assert mocks["fetch_news_for_ticker"].call_count == news_before
+        assert mocks["get_decision"].call_count == decisions_before
+
     def test_hold_decision_opens_no_position(self):
         _apply_patches(SCAN_PATCHES, get_decision={"action": "HOLD"})
         from src.scheduler.scan_loop import run_scan

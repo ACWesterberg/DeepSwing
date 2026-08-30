@@ -303,6 +303,18 @@ def _run_scan(market: MarketType) -> dict:
     # --- Cheap shared triage: only the top-K reach news + per-track decisions ---
     candidates = triage_candidates(candidates, market)
 
+    # A held ticker keeps re-winning the screener every 15 minutes and is only
+    # rejected in validate_trade, after a news fetch and one decision call per
+    # track. Drop it here when every funded track already holds it (the
+    # per-track skip below covers the partial case), as the backtester does.
+    candidates = [
+        c for c in candidates
+        if not all(get_portfolio(t).has_ticker(c.ticker) for t in funded_tracks)
+    ]
+    if not candidates:
+        logger.info("All candidates for %s are already held by every funded track", market)
+        return _monitor_holdings(market)
+
     # Live quotes for entry fills. The OHLCV close a candidate was screened on
     # can be hours stale (Alpha Vantage is end-of-day, EU feeds are delayed);
     # booking entries at it while exits fill at live prices realizes the gap as
@@ -334,6 +346,8 @@ def _run_scan(market: MarketType) -> dict:
         # Only tracks with cash to deploy get an entry decision this scan.
         for track in funded_tracks:
             portfolio = get_portfolio(track)
+            if portfolio.has_ticker(candidate.ticker):
+                continue  # validate_trade would reject it; don't pay for the call
 
             # Retrieve heuristics
             store = get_store(track)

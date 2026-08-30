@@ -377,6 +377,9 @@ class Portfolio:
         allowed = cap * self.equity
         return max(0.0, min(self.cash, allowed - self.market_exposure(market)))
 
+    def has_ticker(self, ticker: str) -> bool:
+        return any(p.ticker == ticker for p in self.open_positions)
+
     def can_open_in_market(self, market: str) -> bool:
         """True when this track has enough investable headroom in `market` — both
         free cash and remaining market-allocation budget — to fund a new position."""

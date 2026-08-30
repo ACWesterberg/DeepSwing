@@ -25,7 +25,7 @@ from config.settings import settings
 from src.agent.compiled_program import BASELINE, program_fingerprint
 from src.agent.decision import TradeDecision, build_lm
 from src.portfolio.metrics import compute_metrics
-from src.portfolio.simulator import get_portfolio
+from src.portfolio.simulator import breakeven_from_costs, get_portfolio
 
 logger = logging.getLogger(__name__)
 
@@ -103,11 +103,23 @@ def _label_forward_path(
     if has_path:
         stop = price - settings.atr_stop_multiplier * atr
         target = price + settings.min_rrr * (price - stop)
+        arm_at = price + settings.breakeven_arm_atr_multiplier * atr
+        floor = breakeven_from_costs(price, settings.commission_pct, settings.simulated_slippage)
+        armed = False
         for _, row in window.iterrows():
-            if row["Low"] <= stop:
-                return "PASS", stop / price - 1.0     # would have stopped out
+            # Mirror the live exit policy, or hindsight examples carry a clean
+            # +min_rrr while real trades of the same setup carry a floored or
+            # trailed result — the metric would then reward BUY on the
+            # counterfactual half of the trainset for free.
+            effective_stop = max(stop, floor) if armed else stop
+            if row["Low"] <= effective_stop:
+                return "PASS", effective_stop / price - 1.0
             if row["High"] >= target:
                 return "BUY", target / price - 1.0    # missed winner
+            # Arm from the close after the exit checks — within a bar the
+            # order of high and low is unknown (same rule as the backtester).
+            if not armed and settings.breakeven_arm_atr_multiplier > 0 and row["Close"] >= arm_at:
+                armed = True
 
     # No exit hit (or no path data): label from where the horizon closed
     fwd_return = float(window["Close"].dropna().iloc[-1]) / price - 1.0
