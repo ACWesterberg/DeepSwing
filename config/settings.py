@@ -53,6 +53,20 @@ class Settings(BaseSettings):
     hard_cap_risk_per_trade: float = 0.02  # 2% hard cap
     min_rrr: float = 2.5
     atr_stop_multiplier: float = 1.5
+    # The ATR gate used to bound the model's stop from one side only, on the
+    # assumption that "too tight a stop is fine". It isn't. A stop inside
+    # ordinary intraday noise is a coin flip on the next tick — one live trade
+    # was handed a 0.26% stop and was gone in 72 minutes — and because trading
+    # costs are fixed, a stop that small is dominated by commission: the round
+    # trip on an LSE name is 0.5%, so that stop-out booked -2.77R instead of
+    # -1R. Two independent floors, whichever binds harder:
+    #   noise — the stop must sit outside normal daily movement
+    #   cost  — a stop-out must be dominated by the move, not by commission
+    # Neither costs anything in position size: sizing is
+    # min(risk/stop_frac, max_position_pct) and the value cap already binds for
+    # any stop tighter than max_position_pct.
+    min_stop_atr_multiplier: float = 0.5   # >= this many ATRs from entry
+    min_stop_cost_multiple: float = 3.0    # >= this many round trips
     # Risk-based sizing alone is unbounded (tight stop → huge position), so position
     # value is also capped as a fraction of equity — and at available cash.
     #

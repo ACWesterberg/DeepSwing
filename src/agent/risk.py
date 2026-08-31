@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Optional
 
 from config.settings import settings
 from src.analysis.technical import TechnicalSignals
+from src.portfolio.simulator import round_trip_cost_frac
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -89,6 +90,7 @@ def validate_trade(
     candidate_sector: str = "",
     available_cash: float | None = None,
     position_correlations: Optional[dict[str, float]] = None,
+    market: str = "",
 ) -> RiskValidation:
     """
     Validate a proposed trade against all risk rules.
@@ -109,13 +111,40 @@ def validate_trade(
             rejection_reason=f"Target {target:.4f} must be above entry {entry_price:.4f}",
         )
 
-    # Check stop-loss is within ATR-based range. Compared as fractions of price so
-    # the check is currency-safe: entry/stop arrive in SEK while signals.atr_14 is
-    # in the ticker's native currency. Slack is 10% of the ATR distance — too
-    # tight a stop is fine, too loose is not.
+    # Bound the model's stop from BOTH sides. Compared as fractions of price so
+    # the check is currency-safe: entry/stop arrive in SEK while signals.atr_14
+    # is in the ticker's native currency. Slack on the ceiling is 10% of the ATR
+    # distance.
+    #
+    # The floor exists because "too tight a stop is fine" was wrong. A stop
+    # inside ordinary noise is a coin flip on the next tick, and trading costs
+    # are fixed, so once the stop approaches the round trip the trade cannot
+    # book -1R even in principle — it is the commission that decides the loss.
+    stop_frac = (entry_price - stop_loss) / entry_price if entry_price > 0 else 0.0
+    if entry_price > 0:
+        cost_floor = settings.min_stop_cost_multiple * round_trip_cost_frac(market)
+        atr_floor = (
+            settings.min_stop_atr_multiplier * signals.atr_14 / signals.current_price
+            if signals.current_price > 0 and signals.atr_14 > 0
+            else 0.0
+        )
+        floor = max(cost_floor, atr_floor)
+        if stop_frac < floor:
+            binding = "cost" if cost_floor >= atr_floor else "ATR"
+            return RiskValidation(
+                approved=False, quantity=0.0, risk_amount=0.0, rrr=0.0,
+                rejection_reason=(
+                    f"Stop {stop_loss:.4f} is only {stop_frac:.2%} from entry — "
+                    f"inside the {binding} floor of {floor:.2%}. A stop-out there "
+                    f"would book roughly "
+                    f"{-(stop_frac + round_trip_cost_frac(market)) / stop_frac:.1f}R "
+                    f"rather than -1R." if stop_frac > 0 else
+                    f"Stop {stop_loss:.4f} is not below entry {entry_price:.4f}"
+                ),
+            )
+
     if signals.current_price > 0 and signals.atr_14 > 0 and entry_price > 0:
         atr_frac = settings.atr_stop_multiplier * signals.atr_14 / signals.current_price
-        stop_frac = (entry_price - stop_loss) / entry_price
         if stop_frac > atr_frac * 1.10:
             suggested = entry_price * (1 - atr_frac)
             return RiskValidation(

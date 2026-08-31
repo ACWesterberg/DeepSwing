@@ -457,6 +457,7 @@ class BacktestEngine:
                     is_drawdown_mode=portfolio.is_drawdown_mode,
                     available_cash=portfolio.cash,
                     position_correlations=correlations,
+                    market=self.market,
                 )
 
                 if risk.approved:

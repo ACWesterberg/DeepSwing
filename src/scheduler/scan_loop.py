@@ -463,6 +463,7 @@ def _run_scan(market: MarketType) -> dict:
                 candidate_sector=sector,
                 available_cash=investable,
                 position_correlations=correlations,
+                market=market,
             )
 
             if not risk.approved:

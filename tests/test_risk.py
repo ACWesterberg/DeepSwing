@@ -305,3 +305,65 @@ class TestComputePositionSize:
     def test_stop_above_entry_returns_zero(self):
         qty = compute_position_size(entry_price=100.0, stop_loss=105.0, portfolio_equity=100_000.0)
         assert qty == 0.0
+
+
+class TestMinimumStopDistance:
+    """A live trade was handed a 0.26% stop, was gone in 72 minutes, and booked
+    -2.77R instead of -1R: the round trip on an LSE name is 0.5%, so commission
+    decided the loss rather than the move. The ATR gate only bounded the stop
+    from above."""
+
+    def _validate(self, stop_frac: float, market: str = "eu", atr_pct: float = 0.03):
+        return validate_trade(
+            action="BUY",
+            entry_price=VALID_ENTRY,
+            stop_loss=VALID_ENTRY * (1 - stop_frac),
+            target=VALID_ENTRY * (1 + stop_frac * (settings.min_rrr + 0.5)),
+            portfolio_equity=EQUITY,
+            open_positions=[],
+            signals=_make_signals(atr_14=VALID_ENTRY * atr_pct),
+            market=market,
+        )
+
+    def test_the_stop_that_caused_this_is_now_rejected(self):
+        result = self._validate(0.00264)
+        assert result.approved is False
+        assert "floor" in result.rejection_reason
+
+    def test_rejection_names_the_binding_floor_and_the_R_it_would_book(self):
+        reason = self._validate(0.00264).rejection_reason
+        assert "cost" in reason or "ATR" in reason
+        assert "R" in reason      # the consequence, not just the threshold
+
+    def test_a_stop_clear_of_both_floors_is_accepted(self):
+        assert self._validate(0.03).approved is True
+
+    def test_cost_floor_scales_with_the_market_s_fees(self):
+        # Nordic pays no FX surcharge, so its floor is half the eu/us one and a
+        # stop that is too tight for an LSE name can be fine for a Swedish one.
+        from src.portfolio.simulator import round_trip_cost_frac
+        assert round_trip_cost_frac("nordic") < round_trip_cost_frac("eu")
+        tight = 0.004
+        assert self._validate(tight, market="eu").approved is False
+        assert self._validate(tight, market="nordic", atr_pct=0.004).approved is True
+
+    def test_atr_floor_binds_on_a_volatile_name(self):
+        # 1% stop is clear of the 0.6% cost floor but well inside half an ATR
+        # on an 8%-ATR name — that stop sits in the noise.
+        assert self._validate(0.01, atr_pct=0.08).approved is False
+
+    def test_the_maximum_gate_still_rejects_a_stop_that_is_too_loose(self):
+        # The two bounds must not interfere: 20% stop on a 3% ATR name is far
+        # past 1.65xATR and must still be caught.
+        result = self._validate(0.20, atr_pct=0.03)
+        assert result.approved is False
+        assert "too far" in result.rejection_reason
+
+    def test_live_stop_distances_all_pass(self):
+        # The seven positions open when this was found ran stops of 3.2%-16.5%.
+        # The floor must not quietly tighten normal trades. ATR is derived from
+        # each stop so the pairing is realistic: the stop sits at 1.2x ATR,
+        # between the 0.5x floor and the 1.65x ceiling.
+        for stop_frac in (0.032, 0.049, 0.034, 0.093, 0.046, 0.037, 0.165):
+            result = self._validate(stop_frac, atr_pct=stop_frac / 1.2)
+            assert result.approved is True, f"{stop_frac}: {result.rejection_reason}"
