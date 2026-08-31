@@ -33,8 +33,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.agent.replay import (  # noqa: E402
-    always_buy, always_pass, build_corpus, dspy_program, load_corpus,
-    oracle, save_corpus, score_program,
+    always_buy, always_pass, build_corpus, dspy_program, headroom,
+    load_corpus, oracle, save_corpus, score_program,
 )
 
 _DEFAULT_CACHE = Path("data/replay_corpus.json")
@@ -101,8 +101,14 @@ def _score(args) -> int:
     print(f"\n{len(corpus)} examples from {args.corpus}\n")
     for r in results:
         print("  " + r.summary())
-    print("\nmetric is what MIPRO optimises; always-pass scores exactly 0.500 on any")
-    print("corpus, so read totalR and precision/recall to tell caution from inertia.")
+    gap = headroom(results)
+    if gap is not None:
+        print(f"\n  headroom (oracle - best trivial): {gap:+.4f}")
+        print("  ^ the entire band a prompt can compete in on this corpus.")
+        print("    Near zero means no prompt can be distinguished here, however")
+        print("    many examples it holds.")
+    print("\nA PASS earns the R it avoided, so there is no fixed 0.500 baseline —")
+    print("read headroom, and read totalR/precision/recall to tell caution from inertia.")
     return 0
 
 

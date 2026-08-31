@@ -6,6 +6,34 @@ Last updated: 2026-08-21
 
 ## Done ✅
 
+### The objective had almost nothing to optimise against (2026-08-30)
+First real run of the replay harness (395 examples, 129 tickers, three batch
+fetches) passed its gate — oracle 0.5484 > always-pass 0.5000 > always-buy
+0.4625 — and immediately showed something the live system never could:
+**perfect foresight beat doing nothing by only 0.052.**
+
+81% of the corpus are non-payers, and a correct PASS scored a flat 0.5, so the
+best achievable score on four-fifths of the data was exactly the do-nothing
+score. Every point of the oracle's edge came from the 19% that paid, while the
+expectancy problem lives in the losers. MIPRO would have been selecting
+instruction sets inside a 0.052 band, on a validation split, against noise.
+
+A PASS now earns the R it avoided. Verified on the real distribution: oracle
+0.6403, always-pass 0.5363, always-buy 0.4637 — **headroom 0.1041**, double.
+The harness reports that gap directly, since a flat 0.5 baseline no longer
+exists to read results against.
+
+This does not fix the inertia degenerate: always-pass still beats always-buy on
+a corpus with no edge, and should. What it fixes is the oracle pulling clearly
+ahead of both.
+
+MIPRO's counterfactual rows now go through the same `select_decision_rows`
+sampler the harness uses (frequency-ordered, ≤5 per ticker). The composition
+cap — hindsight vs lived, `counterfactual_ratio_cap` — is a separate concern
+and deliberately unchanged: at 30 real trades, letting all ~395 counterfactuals
+in would be a 13:1 ratio and would undo it.
+
+
 ### Prompt evaluation no longer requires a month of trading (2026-08-30)
 The only way to compare two prompts was to trade each for ~30 closed trades.
 The backtester cannot help — it contains no model at all and buys every

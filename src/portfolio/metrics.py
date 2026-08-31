@@ -206,22 +206,31 @@ def decision_metric(example, prediction, trace=None) -> float:
 
     Each training example carries the realized R-multiple of the trade — profit
     per unit of risk taken, the unit the rest of the system already thinks in.
-    If the model would BUY it "earns" that R; if it passes it earns nothing.
-    Squashed to (0, 1):
+    A BUY earns that R; a PASS earns the R it avoided. Squashed to (0, 1):
 
-        take a +1R winner  → ~0.67     take a -1R loser → ~0.33
-        pass on anything   →  0.50     take a +5R winner → ~0.97
+        buy a +1R winner   → ~0.67     buy a -1R loser    → ~0.33
+        pass a -1R loser   → ~0.67     pass a +1R winner  → ~0.33
+        anything at 0R     →  0.50     buy a +5R winner   → ~0.97
 
     Scoring R rather than raw return matters because position size is already
     risk-normalized: a 2% move on a tight stop and a 10% move on a wide one are
     the same trade to the book, and a metric denominated in percent would
     reward the volatile one for volatility alone.
 
-    Note passing always scores exactly 0.5. On a trainset of mostly losers the
-    do-nothing program therefore wins, and only the counterfactual "missed BUY"
-    examples pull against that — which is why they are not optional.
+    PASS used to score a flat 0.5 — no credit for avoiding a loser — which left
+    almost nothing to optimize against. Measured on a real 395-example corpus,
+    an oracle with 100% precision AND recall beat do-nothing by 0.052, because
+    81% of setups don't pay and the best available score on those was exactly
+    0.5. MIPRO would have been selecting inside that band against sampling
+    noise. Crediting the avoided loss doubles it to 0.104. It is also the
+    capacity argument: with ~10 slots at ~9-day holds, declining a loser frees
+    one, so refusing a bad trade is half of what the program is for.
+
+    This does NOT make the do-nothing program lose. On a trainset with no edge
+    always-pass still outscores always-buy, and should. What it fixes is that
+    the *oracle* now pulls clearly ahead of both, which is what selection needs.
     """
     pred_action = str(getattr(prediction, "action", "")).upper()
     r = float(getattr(example, "r_multiple", 0.0) or 0.0)
-    realized = r if pred_action == "BUY" else 0.0
+    realized = r if pred_action == "BUY" else -r
     return 0.5 + 0.5 * math.tanh(realized * R_METRIC_SCALE)

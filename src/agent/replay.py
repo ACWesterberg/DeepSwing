@@ -88,7 +88,7 @@ def _session_for(db_path: Optional[Path]):
     return sessionmaker(bind=engine, autocommit=False, autoflush=False)()
 
 
-def _select_rows(
+def select_decision_rows(
     rows: list[dict],
     limit: int,
     max_per_ticker: int,
@@ -199,7 +199,7 @@ def build_corpus(
     if not rows:
         return []
 
-    selected = _select_rows(rows, limit, max_per_ticker, max_tickers)
+    selected = select_decision_rows(rows, limit, max_per_ticker, max_tickers)
     logger.info("Selected %d decisions across %d tickers (from %d rows)",
                 len(selected), len({r["ticker"] for r in selected}), len(rows))
 
@@ -256,6 +256,23 @@ class _Prediction:
 
     def __init__(self, action: str):
         self.action = action
+
+
+def headroom(results: list[ReplayResult]) -> Optional[float]:
+    """Oracle minus the best trivial strategy: how much room a prompt has.
+
+    PASS no longer scores a flat 0.5, so there is no fixed baseline to read a
+    result against — this gap is the replacement. On the first real corpus it
+    came to ~0.05 under the old metric, meaning perfect foresight beat doing
+    nothing by almost nothing and MIPRO would have been selecting on noise.
+    A corpus whose headroom is near zero cannot distinguish prompts, however
+    many examples it holds.
+    """
+    named = {r.program.split()[0]: r.mean_metric for r in results}
+    if "oracle" not in named:
+        return None
+    trivial = [v for k, v in named.items() if k in ("always-buy", "always-pass")]
+    return named["oracle"] - max(trivial) if trivial else None
 
 
 def score_program(

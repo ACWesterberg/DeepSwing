@@ -16,9 +16,18 @@ def _example(r_multiple: float) -> SimpleNamespace:
 
 
 class TestPnlWeightedMetric:
-    def test_passing_is_neutral_regardless_of_outcome(self):
-        assert _pnl_weighted_metric(_example(2.0), _pred("PASS")) == pytest.approx(0.5)
-        assert _pnl_weighted_metric(_example(-2.0), _pred("PASS")) == pytest.approx(0.5)
+    def test_passing_is_rewarded_for_what_it_avoided(self):
+        # A PASS used to score a flat 0.5 whatever it declined, so the model got
+        # no credit for dodging a loser — which left an oracle with perfect
+        # foresight only 0.052 above do-nothing on a real 395-example corpus.
+        dodged = _pnl_weighted_metric(_example(-2.0), _pred("PASS"))
+        missed = _pnl_weighted_metric(_example(2.0), _pred("PASS"))
+        assert dodged > 0.5 > missed
+
+    def test_avoiding_a_loser_scores_like_catching_a_winner(self):
+        assert _pnl_weighted_metric(_example(-1.0), _pred("PASS")) == pytest.approx(
+            _pnl_weighted_metric(_example(1.0), _pred("BUY"))
+        )
 
     def test_taking_a_winner_beats_passing(self):
         assert _pnl_weighted_metric(_example(1.0), _pred("BUY")) > 0.5
@@ -54,7 +63,9 @@ class TestPnlWeightedMetric:
         assert _pnl_weighted_metric(SimpleNamespace(), _pred("BUY")) == pytest.approx(0.5)
 
     def test_missing_action_treated_as_pass(self):
-        assert _pnl_weighted_metric(_example(2.0), SimpleNamespace()) == pytest.approx(0.5)
+        assert _pnl_weighted_metric(_example(2.0), SimpleNamespace()) == pytest.approx(
+            _pnl_weighted_metric(_example(2.0), _pred("PASS"))
+        )
 
     def test_case_insensitive_action(self):
         assert _pnl_weighted_metric(_example(1.0), _pred("buy")) > 0.5

@@ -278,6 +278,17 @@ def _build_counterfactual_examples(track: TrackType, max_examples: int) -> list:
     finally:
         session.close()
 
+    # Same frequency-ordered, per-ticker-capped sampling the replay harness
+    # uses. Taking the most recent N instead let a handful of frequently
+    # decided tickers supply most of the counterfactual half — one blob per
+    # (track, ticker) per day means a name decided daily for six weeks
+    # contributes ~45 near-identical rows. The composition cap (hindsight vs
+    # lived) is a separate concern and stays with counterfactual_ratio_cap.
+    from src.agent.replay import select_decision_rows
+    decisions = select_decision_rows(
+        decisions, limit=max_examples, max_per_ticker=5, max_tickers=150,
+    )
+
     examples: list = []
     ohlcv_cache: dict[str, object] = {}
     for d in decisions:

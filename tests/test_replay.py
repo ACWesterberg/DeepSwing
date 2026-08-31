@@ -6,7 +6,8 @@ import pytest
 
 from src.agent.replay import (
     _batch_prices,
-    _select_rows,
+    headroom,
+    select_decision_rows,
     ReplayExample,
     always_buy,
     always_pass,
@@ -52,11 +53,19 @@ class TestHarnessCanDistinguishPrograms:
         b = score_program(_LOSING, always_buy, "always_buy")
         p = score_program(_LOSING, always_pass, "always_pass")
         assert p.mean_metric > b.mean_metric
-        assert p.mean_metric == pytest.approx(0.5)
 
-    def test_always_pass_scores_exactly_half_on_any_corpus(self):
-        for corpus in (_PROFITABLE, _LOSING):
-            assert score_program(corpus, always_pass).mean_metric == pytest.approx(0.5)
+    def test_passing_now_tracks_the_loss_it_avoided(self):
+        # A PASS earns the R it avoided, so there is no fixed 0.5 baseline any
+        # more. On a corpus of losers, declining them scores above neutral.
+        assert score_program(_LOSING, always_pass).mean_metric > 0.5
+        # And on one where most setups paid, declining them scores below it.
+        rich = [_ex("BUY", 3.0), _ex("BUY", 2.5), _ex("BUY", 2.0), _ex("PASS", -1.0)]
+        assert score_program(rich, always_pass).mean_metric < 0.5
+
+    def test_avoiding_a_loser_scores_like_catching_a_winner(self):
+        caught = score_program([_ex("BUY", 1.0)], always_buy).mean_metric
+        avoided = score_program([_ex("PASS", -1.0)], always_pass).mean_metric
+        assert caught == pytest.approx(avoided)
 
 
 class TestRealisedROutrunsTheMetric:
@@ -64,7 +73,6 @@ class TestRealisedROutrunsTheMetric:
 
     def test_do_nothing_captures_no_r_despite_a_respectable_metric(self):
         p = score_program(_PROFITABLE, always_pass)
-        assert p.mean_metric == pytest.approx(0.5)   # looks unremarkable, not bad
         assert p.buys == 0
         assert p.total_r_taken == 0.0
         assert p.recall == 0.0                        # this is what gives it away
@@ -88,7 +96,9 @@ class TestScoringMechanics:
     def test_unknown_action_is_treated_as_pass(self):
         r = score_program(_PROFITABLE, lambda e: "HOLD")
         assert r.buys == 0
-        assert r.mean_metric == pytest.approx(0.5)
+        assert r.mean_metric == pytest.approx(
+            score_program(_PROFITABLE, always_pass).mean_metric
+        )
 
     def test_empty_corpus_is_an_error_not_a_score(self):
         with pytest.raises(ValueError):
@@ -139,14 +149,14 @@ class TestRowSelection:
 
     def test_most_decided_tickers_come_first(self):
         rows = [_row("RARE")] + [_row("COMMON")] * 20 + [_row("MID")] * 5
-        picked = _select_rows(rows, limit=100, max_per_ticker=99, max_tickers=2)
+        picked = select_decision_rows(rows, limit=100, max_per_ticker=99, max_tickers=2)
         tickers = {r["ticker"] for r in picked}
         assert tickers == {"COMMON", "MID"}
         assert "RARE" not in tickers
 
     def test_no_single_ticker_dominates(self):
         rows = [_row("COMMON")] * 50 + [_row("OTHER")] * 50
-        picked = _select_rows(rows, limit=100, max_per_ticker=5, max_tickers=10)
+        picked = select_decision_rows(rows, limit=100, max_per_ticker=5, max_tickers=10)
         counts = {}
         for r in picked:
             counts[r["ticker"]] = counts.get(r["ticker"], 0) + 1
@@ -154,15 +164,15 @@ class TestRowSelection:
 
     def test_distinct_tickers_are_capped(self):
         rows = [_row(f"T{i}") for i in range(500)]
-        picked = _select_rows(rows, limit=500, max_per_ticker=5, max_tickers=20)
+        picked = select_decision_rows(rows, limit=500, max_per_ticker=5, max_tickers=20)
         assert len({r["ticker"] for r in picked}) <= 20
 
     def test_limit_is_respected(self):
         rows = [_row(f"T{i}") for i in range(500)]
-        assert len(_select_rows(rows, limit=30, max_per_ticker=5, max_tickers=150)) == 30
+        assert len(select_decision_rows(rows, limit=30, max_per_ticker=5, max_tickers=150)) == 30
 
     def test_empty_input_is_empty_output(self):
-        assert _select_rows([], limit=10, max_per_ticker=5, max_tickers=10) == []
+        assert select_decision_rows([], limit=10, max_per_ticker=5, max_tickers=10) == []
 
 
 class TestBatchFetching:
@@ -207,3 +217,31 @@ class TestBatchFetching:
         monkeypatch.setattr(md, "fetch_batch_us", lambda t: {x: "df" for x in t})
         prices = _batch_prices([_row("X1", "crypto"), _row("U1", "us")])
         assert "U1" in prices and "X1" not in prices
+
+
+class TestHeadroom:
+    """PASS no longer scores a flat 0.5, so there is no fixed baseline to read a
+    result against. The oracle gap is the replacement, and it is the number that
+    says whether a corpus can distinguish prompts at all."""
+
+    def test_positive_when_the_corpus_has_edge(self):
+        results = [
+            score_program(_PROFITABLE, oracle, "oracle"),
+            score_program(_PROFITABLE, always_buy, "always-buy"),
+            score_program(_PROFITABLE, always_pass, "always-pass"),
+        ]
+        assert headroom(results) > 0
+
+    def test_near_zero_when_every_setup_is_identical(self):
+        # Nothing to discriminate: every example carries the same outcome, so
+        # perfect foresight is worth nothing over the right blanket rule.
+        flat = [_ex("PASS", -1.0) for _ in range(20)]
+        results = [
+            score_program(flat, oracle, "oracle"),
+            score_program(flat, always_buy, "always-buy"),
+            score_program(flat, always_pass, "always-pass"),
+        ]
+        assert headroom(results) == pytest.approx(0.0, abs=1e-9)
+
+    def test_none_without_an_oracle_to_compare_against(self):
+        assert headroom([score_program(_PROFITABLE, always_buy, "always-buy")]) is None
