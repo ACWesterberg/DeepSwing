@@ -244,6 +244,25 @@ def _emit(event: dict) -> None:
 _scan_lock = threading.Lock()
 
 
+def run_holdings_monitor(market: MarketType) -> dict:
+    """Price-only holdings sweep, on its own timer.
+
+    Nothing in the stop/target sweep needs the candidate pipeline or a model, so
+    it has no reason to run at the scan's cadence — and it shouldn't, because
+    `update_prices` books an exit at the price it *observes*, making the gap
+    between sweeps the exit latency. Takes the same lock as a scan: a running
+    scan ends with this sweep anyway, so skipping is correct, not a loss.
+    """
+    if not _scan_lock.acquire(blocking=False):
+        logger.debug("Holdings monitor for %s skipped — a scan holds the lock", market)
+        return {"market": market, "mode": "holdings_monitor", "skipped": True,
+                "candidates": [], "decisions": []}
+    try:
+        return _monitor_holdings(market)
+    finally:
+        _scan_lock.release()
+
+
 def run_scan(market: MarketType) -> dict:
     """Run a scan, but never concurrently with another scan (see _scan_lock)."""
     if not _scan_lock.acquire(blocking=False):
@@ -692,7 +711,16 @@ def _monitor_holdings(market: MarketType) -> dict:
     stop-loss/take-profit sweep. No watchlist fetch, no candidate/entry pipeline.
     """
     decisions_log: list[dict] = []
-    macro_context = get_macro_context(market)
+
+    # Fetched on first use, not up front: this sweep now runs on its own faster
+    # timer and most passes have nothing to review, so an unconditional macro
+    # pull would be the sweep's dominant cost.
+    macro_cache: list[str] = []
+
+    def macro_context() -> str:
+        if not macro_cache:
+            macro_cache.append(get_macro_context(market))
+        return macro_cache[0]
 
     for track in settings.tracks:
         portfolio = get_portfolio(track)
@@ -707,14 +735,14 @@ def _monitor_holdings(market: MarketType) -> dict:
         # the exit review reuses the entry-time technical snapshot.
         for position in list(positions):
             price = prices.get(position.ticker)
-            if price is None:
+            if price is None or not _news_review_due(position, price):
                 continue
             event = _maybe_news_exit(
                 track, portfolio, position, price, market,
                 signals_str=position.technical_snapshot or "No live technicals (holdings-only monitor).",
                 regime_str=position.regime,
                 regime_label=position.regime,
-                macro_context=macro_context,
+                macro_context=macro_context(),
             )
             if event:
                 decisions_log.append(event)
@@ -744,6 +772,14 @@ def _monitor_holdings(market: MarketType) -> dict:
     }
 
 
+def _news_review_due(position, current_price_sek: float) -> bool:
+    """Has this position moved far enough since its last review to justify one?"""
+    ref = position.last_news_price or position.entry_price
+    if ref <= 0:
+        return False
+    return abs((current_price_sek - ref) / ref) >= settings.holdings_news_jump_pct
+
+
 def _maybe_news_exit(
     track: str,
     portfolio,
@@ -761,12 +797,10 @@ def _maybe_news_exit(
     pull news and run the AI exit review; a SELL closes it as 'news_exit'. All
     prices are SEK. Returns a decisions_log event if closed, else None.
     """
+    if not _news_review_due(position, current_price_sek):
+        return None
     ref = position.last_news_price or position.entry_price
-    if ref <= 0:
-        return None
     move = (current_price_sek - ref) / ref
-    if abs(move) < settings.holdings_news_jump_pct:
-        return None
 
     position.last_news_price = current_price_sek
     position.current_price = current_price_sek

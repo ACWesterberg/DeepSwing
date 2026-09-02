@@ -38,7 +38,7 @@ FOR EACH CANDIDATE × EACH TRACK ("claude", "gpt"):
      pairwise return correlation ≤ 0.7 vs open positions
   4. Portfolio Simulator records fill with 0.05% simulated slippage
   ↓
-POSITION MONITOR (every scan, per track)
+POSITION MONITOR (every 15 min on its own timer, per track)
   ├── Stop-loss hit → close + trigger ERL
   ├── Take-profit hit → close + trigger ERL
   ├── Stop sweep: breakeven floor (arms at 1×ATR profit) + 2×ATR trail;
@@ -173,7 +173,7 @@ Heuristic example:
 
 *US hours are evaluated in **US Eastern Time** (9:30–16:00 ET); the CET equivalents shift during the ~3 weeks/year when US and EU DST are out of sync.
 
-Scheduler: APScheduler, 30-min interval (`scan_interval_minutes`), `Europe/Stockholm` timezone; nightly SQLite snapshot 23:45, weekly MIPRO + housekeeping Sunday 02:00.
+Scheduler: APScheduler — 30-min scan (`scan_interval_minutes`) plus an independent 15-min stop/target sweep (`holdings_interval_minutes`, no LLM calls), `Europe/Stockholm` timezone; nightly SQLite snapshot 23:45, weekly MIPRO + housekeeping Sunday 02:00.
 
 ---
 

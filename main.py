@@ -11,7 +11,7 @@ from src.db import init_db
 from src.scheduler.market_hours import is_market_open
 from src.scheduler.markets import SCAN_MARKETS
 from src.scheduler.optimizer import run_heuristic_refinement, run_mipro_optimization
-from src.scheduler.scan_loop import run_scan
+from src.scheduler.scan_loop import run_holdings_monitor, run_scan
 
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
@@ -29,6 +29,21 @@ def scheduled_scan():
                 run_scan(market)
             except Exception as exc:
                 logger.error("Scan error for %s: %s", market, exc, exc_info=True)
+
+
+def scheduled_holdings_check():
+    """Stop/target sweep on its own faster timer than the scan.
+
+    Exits fill at the price we observe, so this interval is the exit latency —
+    and none of it needs the candidate pipeline or a model, so there is no
+    reason to pay the scan's cadence for it.
+    """
+    for market in SCAN_MARKETS:
+        if is_market_open(market):
+            try:
+                run_holdings_monitor(market)
+            except Exception as exc:
+                logger.error("Holdings check error for %s: %s", market, exc, exc_info=True)
 
 
 def scheduled_watch_monitor():
@@ -78,6 +93,19 @@ def start_scheduler() -> BackgroundScheduler:
         coalesce=True,
     )
 
+    # Stop/target sweep — faster than the scan and independent of it, so a cheap
+    # scan cadence doesn't become a sloppy exit cadence. Shares _scan_lock, so a
+    # tick that lands mid-scan simply skips (the scan ends with this sweep).
+    if settings.holdings_interval_minutes > 0:
+        scheduler.add_job(
+            scheduled_holdings_check,
+            "interval",
+            minutes=settings.holdings_interval_minutes,
+            id="holdings_check",
+            max_instances=1,
+            coalesce=True,
+        )
+
     # Personal watchlist monitor — light (one quote + cached news per ticker),
     # so it never takes the scan lock and can't be starved by a long scan
     scheduler.add_job(
@@ -111,7 +139,12 @@ def start_scheduler() -> BackgroundScheduler:
     )
 
     scheduler.start()
-    logger.info("Scheduler started (scan every %dm, weekly maintenance Sunday 02:00 CET)", settings.scan_interval_minutes)
+    logger.info(
+        "Scheduler started (scan every %dm, holdings sweep every %dm, "
+        "weekly maintenance Sunday 02:00 CET)",
+        settings.scan_interval_minutes,
+        settings.holdings_interval_minutes,
+    )
     return scheduler
 
 

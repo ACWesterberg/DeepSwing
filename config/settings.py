@@ -193,6 +193,14 @@ class Settings(BaseSettings):
     # a 3%-of-price stop. Note that this is an artifact of polling, not of the
     # strategy: a real broker's stop order fills at the level regardless.
     scan_interval_minutes: int = 30
+    # The stop/target sweep is price arithmetic — no candidates, no model — so it
+    # has no reason to share the scan's timer. Exits fill at the price we
+    # *observe*, so this interval is the exit latency; keeping it short is what
+    # makes a slow scan cheap rather than sloppy. It costs no API spend: the
+    # news-exit review is gated on a move since the *last review*, so checking
+    # more often detects that move sooner without adding calls. Set to 0 to fold
+    # the sweep back into the scan.
+    holdings_interval_minutes: int = 15
     news_refresh_interval_minutes: int = 60  # also the per-ticker news cache TTL
 
     # NewsAPI rate-limit resilience: if a per-ticker fetch stalls longer than

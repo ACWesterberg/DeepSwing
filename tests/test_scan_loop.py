@@ -708,3 +708,114 @@ class TestPassReuse:
         before = self.mocks["get_decision"].call_count
         self._scan()
         assert self.mocks["get_decision"].call_count == before + len(settings.tracks)
+
+
+class TestHoldingsMonitorJob:
+    """The stop sweep runs on its own faster timer: exits fill at the price we
+    observe, so the gap between sweeps is the exit latency — and none of it
+    needs the candidate pipeline or a model."""
+
+    def setup_method(self):
+        reset_portfolios()
+        self.mocks = _apply_patches(SCAN_PATCHES)
+
+    def teardown_method(self):
+        patch.stopall()
+        reset_portfolios()
+
+    def _hold(self, entry=100.0, stop=95.0):
+        for track in ("claude", "gpt"):
+            get_portfolio(track).open_trade(
+                ticker="AAPL", market="us", quantity=10.0, entry_price=entry,
+                stop_loss=stop, target=120.0, regime="trending",
+                reasoning="held", confidence=0.8,
+            )
+
+    def test_sweep_closes_a_stopped_out_position(self):
+        from src.scheduler.scan_loop import run_holdings_monitor
+        self._hold()
+        self.mocks["get_current_price"].return_value = 94.0  # through the stop
+
+        run_holdings_monitor("us")
+
+        for track in ("claude", "gpt"):
+            assert get_portfolio(track).open_positions == []
+            assert len(get_portfolio(track).closed_trades) == 1
+
+    def test_sweep_runs_no_candidate_pipeline(self):
+        """This is the whole point — the sweep must cost no LLM calls."""
+        from src.scheduler.scan_loop import run_holdings_monitor
+        self._hold()
+        self.mocks["get_current_price"].return_value = 101.0  # nothing triggers
+
+        run_holdings_monitor("us")
+
+        assert self.mocks["get_decision"].call_count == 0
+        assert self.mocks["analyze_news"].call_count == 0
+        assert self.mocks["screen_candidates"].call_count == 0
+        assert self.mocks["fetch_batch_us"].call_count == 0
+
+    def test_sweep_skips_while_a_scan_holds_the_lock(self):
+        import src.scheduler.scan_loop as sl
+        self._hold()
+        sl._scan_lock.acquire()
+        try:
+            result = sl.run_holdings_monitor("us")
+        finally:
+            sl._scan_lock.release()
+        assert result.get("skipped") is True
+        # The scan that holds the lock ends with this same sweep, so the
+        # position must not have been touched by the skipped tick.
+        assert len(get_portfolio("claude").open_positions) == 1
+
+    def test_macro_is_not_fetched_when_no_position_is_due_for_review(self):
+        """The sweep now runs on a fast timer; an unconditional macro pull would
+        become its dominant cost."""
+        from src.scheduler.scan_loop import run_holdings_monitor
+        self._hold()
+        self.mocks["get_current_price"].return_value = 101.0  # +1%, under the jump gate
+
+        run_holdings_monitor("us")
+        assert self.mocks["get_macro_context"].call_count == 0
+
+    def test_macro_is_fetched_once_when_a_review_is_due(self):
+        from src.scheduler.scan_loop import run_holdings_monitor
+        self._hold()
+        self.mocks["get_current_price"].return_value = 110.0  # +10%, past the 5% gate
+        self.mocks["get_exit_decision"] = patch(
+            "src.scheduler.scan_loop.get_exit_decision"
+        ).start()
+        self.mocks["get_exit_decision"].return_value = {
+            "action": "HOLD", "confidence": 0.6, "reasoning": "thesis intact",
+        }
+
+        run_holdings_monitor("us")
+        assert self.mocks["get_macro_context"].call_count == 1
+
+
+class TestNewsReviewDue:
+    def _position(self, entry=100.0, last_news=None):
+        pos = MagicMock()
+        pos.entry_price = entry
+        pos.last_news_price = last_news
+        return pos
+
+    def test_small_move_is_not_due(self):
+        from src.scheduler.scan_loop import _news_review_due
+        assert _news_review_due(self._position(), 102.0) is False
+
+    def test_large_move_is_due_in_both_directions(self):
+        from src.scheduler.scan_loop import _news_review_due
+        assert _news_review_due(self._position(), 110.0) is True
+        assert _news_review_due(self._position(), 90.0) is True
+
+    def test_measured_from_the_last_review_not_the_entry(self):
+        """Checking more often must not mean reviewing more often — the gate is
+        the move since the last review, which is why the faster sweep is free."""
+        from src.scheduler.scan_loop import _news_review_due
+        pos = self._position(entry=100.0, last_news=110.0)
+        assert _news_review_due(pos, 111.0) is False
+
+    def test_unusable_reference_is_never_due(self):
+        from src.scheduler.scan_loop import _news_review_due
+        assert _news_review_due(self._position(entry=0.0), 50.0) is False
