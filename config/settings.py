@@ -181,7 +181,18 @@ class Settings(BaseSettings):
     ohlcv_batch_chunk_size: int = 150
 
     # Scheduler intervals (minutes)
-    scan_interval_minutes: int = 15
+    # Every LLM cost scales linearly with this, and 15 minutes was far denser
+    # than the strategy needs: decisions are computed off *daily* bars and the
+    # book holds for ~9 days, so 30 buys the same information for half the calls.
+    #
+    # It is not free, and the cost is not in the decisions. This timer also
+    # drives the stop/target sweep, and `update_prices` books an exit at the
+    # price it *observes*, not at the level that was breached — so the sampling
+    # gap is the exit latency. A stop-out now fills up to 30 minutes past the
+    # stop instead of 15, worth roughly 0.05-0.15R of extra loss per stop-out on
+    # a 3%-of-price stop. Note that this is an artifact of polling, not of the
+    # strategy: a real broker's stop order fills at the level regardless.
+    scan_interval_minutes: int = 30
     news_refresh_interval_minutes: int = 60  # also the per-ticker news cache TTL
 
     # NewsAPI rate-limit resilience: if a per-ticker fetch stalls longer than

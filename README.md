@@ -33,7 +33,7 @@ AI-powered swing trading simulator running on a Raspberry Pi 5. Paper-trades Nor
 | Data | `yfinance` (US + Nordic fallback), `alpha_vantage` (Nordic primary) |
 | Database | SQLite via `sqlalchemy` |
 | Web | `fastapi` + `uvicorn` + Chart.js |
-| Scheduler | `apscheduler` (market-hours-aware, 15 min scan interval) |
+| Scheduler | `apscheduler` (market-hours-aware, 30 min scan interval) |
 | Deployment | Raspberry Pi 5, systemd service, Cloudflare Tunnel for custom domain |
 
 ---
