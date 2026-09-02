@@ -683,8 +683,12 @@ def _run_scan(market: MarketType) -> dict:
         # positions that didn't close (opens/closes already persisted inline).
         persist_portfolio(portfolio)
 
-    logger.info("=== Scan complete: %s | %d candidates | %d decisions ===",
-                market, len(candidates), len(decisions_log))
+    # Reuse count rides on the INFO summary: it is the main cost lever, and the
+    # per-decision line is debug, so at the default log level there would be no
+    # way to tell a working gate from a dead one.
+    reused = sum(1 for d in decisions_log if d.get("cached"))
+    logger.info("=== Scan complete: %s | %d candidates | %d decisions (%d reused) ===",
+                market, len(candidates), len(decisions_log), reused)
 
     # Dashboard/WebSocket payloads don't need the multi-KB DSPy input blobs —
     # those only exist for the counterfactual trainset and go to the DB.

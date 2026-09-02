@@ -314,7 +314,7 @@ carries `portfolio_state` rows and `decisions` rows for `claude-opt`/`gpt-opt`,
 - [ ] **Flip `hurst_on_returns`** — the returns-based estimator is implemented and tested but defaults off; enable on the Pi, watch screener candidate volume for a week, then commit or revert
 - [x] **News model on reasoning tier** — root cause was that no OpenAI call set `reasoning_effort` at all, so every one ran at the API default (`medium`) and spent its budget thinking. `light_completion` now applies `gpt_light_reasoning_effort` (default `low`) to news, triage and watch classification; the token caps stayed generous so putting the effort back to default can't starve an answer. Still worth eyeballing the Swedish summaries for a week
 - [ ] **Confirm the decision-effort drop held quality** — `gpt_decision_reasoning_effort` defaults to `low`. Group closed trades by `program_hash` (and replay the corpus with `scripts/replay_decisions.py`) before and after; put it back to `medium` in `.env` if expectancy moved
-- [ ] **Watch the PASS reuse rate** — grep the scan logs for `PASS (reused)`. If reuse is near zero the price gate (`decision_recheck_move_pct`) is too tight to help; if a setup is being reused across a genuine intraday break, tighten it
+- [ ] **Watch the PASS reuse rate** — the scan summary carries it at INFO: `Scan complete: us | 5 candidates | 10 decisions (4 reused)`. If reuse is near zero the price gate (`decision_recheck_move_pct`) is too tight to help; if a setup is being reused across a genuine intraday break, tighten it
 
 ### Pi Deployment / Ops
 - [ ] Verify APScheduler fires correctly across DST changes (Stockholm CET↔CEST)

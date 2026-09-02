@@ -819,3 +819,45 @@ class TestNewsReviewDue:
     def test_unusable_reference_is_never_due(self):
         from src.scheduler.scan_loop import _news_review_due
         assert _news_review_due(self._position(entry=0.0), 50.0) is False
+
+
+class TestReuseIsObservable:
+    """The per-decision reuse line is debug, but LOG_LEVEL defaults to INFO —
+    so the scan summary has to carry the count or a working gate is
+    indistinguishable from a dead one."""
+
+    def setup_method(self):
+        reset_portfolios()
+        self.mocks = _apply_patches(SCAN_PATCHES)
+        self.mocks["get_decision"].return_value = {
+            "action": "PASS", "confidence": 0.4, "reasoning": "no edge",
+            "stop_loss": 97.0, "target": 110.0, "entry_inputs": {"technicals": "t"},
+        }
+
+    def teardown_method(self):
+        patch.stopall()
+        reset_portfolios()
+
+    def test_scan_summary_reports_the_reuse_count(self, caplog, monkeypatch):
+        import logging
+        from src.scheduler.scan_loop import run_scan
+
+        monkeypatch.setattr(settings, "decision_cache_minutes", 60)
+        run_scan("us")  # first pass populates the memo
+        with caplog.at_level(logging.INFO, logger="src.scheduler.scan_loop"):
+            run_scan("us")
+
+        summary = [r for r in caplog.records if "Scan complete" in r.getMessage()]
+        assert summary, "scan summary was not logged at INFO"
+        assert f"({len(settings.tracks)} reused)" in summary[-1].getMessage()
+
+    def test_summary_reports_zero_when_nothing_is_reused(self, caplog, monkeypatch):
+        import logging
+        from src.scheduler.scan_loop import run_scan
+
+        monkeypatch.setattr(settings, "decision_cache_minutes", 0)
+        with caplog.at_level(logging.INFO, logger="src.scheduler.scan_loop"):
+            run_scan("us")
+
+        summary = [r for r in caplog.records if "Scan complete" in r.getMessage()]
+        assert "(0 reused)" in summary[-1].getMessage()
