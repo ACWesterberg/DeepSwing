@@ -18,12 +18,20 @@ def log_model_config() -> None:
         settings.claude_prompt_model,
     )
     logger.info(
-        "GPT — decision=%s | news=%s (shared) | erl=%s (effort=%s) | prompt=%s",
+        "GPT — decision=%s | news=%s (shared) | erl=%s | prompt=%s",
         settings.gpt_decision_model,
         settings.gpt_news_model,
         settings.gpt_erl_model,
-        settings.gpt_erl_reasoning_effort or "off",
         settings.gpt_prompt_model,
+    )
+    # Reasoning effort is billed as output tokens and is settable from .env, so
+    # an override silently changes the bill. "provider default" is the honest
+    # label for unset: it means medium, not off.
+    logger.info(
+        "GPT reasoning effort — decision=%s | light (triage/news/watch)=%s | erl=%s",
+        settings.gpt_decision_reasoning_effort or "provider default",
+        settings.gpt_light_reasoning_effort or "provider default",
+        settings.gpt_erl_reasoning_effort or "provider default",
     )
 
 

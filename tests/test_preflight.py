@@ -52,3 +52,34 @@ class TestCheckModels:
         results = preflight.check_models()
         assert results  # openai models were attempted
         assert not any(results.values())  # all failed
+
+
+class TestEffortIsLogged:
+    """Reasoning effort is billed as output tokens and is settable from .env, so
+    an override has to be visible at boot rather than inferred."""
+
+    def test_configured_efforts_are_reported(self, caplog, monkeypatch):
+        import logging
+        from config.settings import settings
+        from src.scheduler.preflight import log_model_config
+
+        monkeypatch.setattr(settings, "gpt_decision_reasoning_effort", "low")
+        monkeypatch.setattr(settings, "gpt_light_reasoning_effort", "low")
+        with caplog.at_level(logging.INFO):
+            log_model_config()
+
+        line = [m for m in caplog.messages if "reasoning effort" in m]
+        assert line and "decision=low" in line[0]
+
+    def test_unset_effort_reads_as_provider_default_not_off(self, caplog, monkeypatch):
+        """Empty means medium, which is the expensive case — never label it 'off'."""
+        import logging
+        from config.settings import settings
+        from src.scheduler.preflight import log_model_config
+
+        monkeypatch.setattr(settings, "gpt_decision_reasoning_effort", "")
+        with caplog.at_level(logging.INFO):
+            log_model_config()
+
+        line = [m for m in caplog.messages if "reasoning effort" in m]
+        assert "decision=provider default" in line[0]
