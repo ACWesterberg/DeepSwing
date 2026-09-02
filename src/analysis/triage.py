@@ -4,9 +4,8 @@ import json
 import logging
 import re
 
-import openai
-
 from config.settings import settings
+from src.agent.openai_client import light_completion
 from src.analysis.screener import ScreenerCandidate
 
 logger = logging.getLogger(__name__)
@@ -45,13 +44,11 @@ def _digest(candidate: ScreenerCandidate) -> str:
 
 
 def _call_triage_model(prompt: str) -> str:
-    client = openai.OpenAI(api_key=settings.openai_api_key)
-    resp = client.chat.completions.create(
-        model=settings.triage_model,
-        max_completion_tokens=2000,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return (resp.choices[0].message.content or "").strip()
+    # Ranking a table of one-line digests is not a reasoning task; the shared
+    # helper keeps the effort low so the answer isn't dwarfed by its thinking.
+    # The token cap stays generous — it is a ceiling, not a spend, and it has to
+    # leave room for the answer if the effort setting is put back to default.
+    return light_completion(settings.triage_model, prompt, max_completion_tokens=2000)
 
 
 def _parse_tickers(raw: str) -> list[str]:

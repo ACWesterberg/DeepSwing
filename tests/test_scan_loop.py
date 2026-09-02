@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from config.settings import settings
 from src.analysis.regime import RegimeResult
 from src.analysis.screener import ScreenerCandidate
 from src.analysis.technical import TechnicalSignals
@@ -42,6 +43,14 @@ def _make_candidate(ticker: str = "AAPL") -> ScreenerCandidate:
     return ScreenerCandidate(
         ticker=ticker, market="us",
         signals=_make_signals(ticker),
+        regime=_make_regime(),
+    )
+
+
+def _moved_candidate(ticker: str, price: float) -> ScreenerCandidate:
+    return ScreenerCandidate(
+        ticker=ticker, market="us",
+        signals=_make_signals(ticker, price=price),
         regime=_make_regime(),
     )
 
@@ -607,3 +616,95 @@ class TestRunScanEventCallback:
         closed = [e for e in events if e.get("event") == "trade_closed"]
         assert len(closed) == 2
         assert all(c["data"]["exit_reason"] == "stop_loss" for c in closed)
+
+
+class TestPassReuse:
+    """A candidate keeps clearing the screener every 15 minutes, so the same
+    PASS was re-bought all session. It is reused until the setup changes."""
+
+    def setup_method(self):
+        reset_portfolios()
+        self.mocks = _apply_patches(SCAN_PATCHES)
+        self.mocks["get_decision"].return_value = {
+            "action": "PASS",
+            "confidence": 0.4,
+            "reasoning": "No edge here",
+            "stop_loss": 97.0,
+            "target": 110.0,
+            "entry_inputs": {"technicals": "t", "regime": "r"},
+        }
+
+    def teardown_method(self):
+        patch.stopall()
+        reset_portfolios()
+
+    def _scan(self):
+        from src.scheduler.scan_loop import run_scan
+        return run_scan("us")
+
+    def test_unchanged_setup_is_not_re_decided(self, monkeypatch):
+        monkeypatch.setattr(settings, "decision_cache_minutes", 60)
+        monkeypatch.setattr(settings, "decision_recheck_move_pct", 0.015)
+
+        self._scan()
+        calls_after_first = self.mocks["get_decision"].call_count
+        assert calls_after_first == len(settings.tracks)
+
+        self._scan()
+        assert self.mocks["get_decision"].call_count == calls_after_first
+
+    def test_reused_pass_still_reports_the_decision(self, monkeypatch):
+        monkeypatch.setattr(settings, "decision_cache_minutes", 60)
+        self._scan()
+        result = self._scan()
+        reused = [d for d in result["decisions"] if d.get("cached")]
+        assert len(reused) == len(settings.tracks)
+        assert all(d["action"] == "PASS" for d in reused)
+
+    def test_price_move_forces_a_fresh_decision(self, monkeypatch):
+        monkeypatch.setattr(settings, "decision_cache_minutes", 60)
+        monkeypatch.setattr(settings, "decision_recheck_move_pct", 0.015)
+
+        self._scan()
+        before = self.mocks["get_decision"].call_count
+
+        self.mocks["screen_candidates"].return_value = [_moved_candidate("AAPL", 103.0)]
+        self._scan()
+        assert self.mocks["get_decision"].call_count == before + len(settings.tracks)
+
+    def test_news_change_forces_a_fresh_decision(self, monkeypatch):
+        monkeypatch.setattr(settings, "decision_cache_minutes", 60)
+        self._scan()
+        before = self.mocks["get_decision"].call_count
+
+        self.mocks["analyze_news"].return_value = "Profit warning issued."
+        self._scan()
+        assert self.mocks["get_decision"].call_count == before + len(settings.tracks)
+
+    def test_expired_entry_forces_a_fresh_decision(self, monkeypatch):
+        monkeypatch.setattr(settings, "decision_cache_minutes", 60)
+        self._scan()
+        before = self.mocks["get_decision"].call_count
+
+        import src.scheduler.scan_loop as sl
+        for memo in sl._pass_memo.values():
+            memo["expires_at"] = 0.0
+        self._scan()
+        assert self.mocks["get_decision"].call_count == before + len(settings.tracks)
+
+    def test_buy_is_never_reused(self, monkeypatch):
+        """A cached BUY would open a position against a stop and target placed
+        at an older price."""
+        monkeypatch.setattr(settings, "decision_cache_minutes", 60)
+        self.mocks["get_decision"].return_value = _buy_decision(100.0)
+
+        self._scan()
+        import src.scheduler.scan_loop as sl
+        assert sl._pass_memo == {}
+
+    def test_zero_minutes_disables_reuse(self, monkeypatch):
+        monkeypatch.setattr(settings, "decision_cache_minutes", 0)
+        self._scan()
+        before = self.mocks["get_decision"].call_count
+        self._scan()
+        assert self.mocks["get_decision"].call_count == before + len(settings.tracks)

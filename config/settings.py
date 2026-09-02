@@ -48,6 +48,27 @@ class Settings(BaseSettings):
     gpt_erl_reasoning_effort: str = "high"                   # GPT "thinking" for ERL; "" disables
     gpt_prompt_model: str = "gpt-5.6-sol"                    # MIPRO instruction proposer
 
+    # Reasoning effort on the GPT-5 family. Reasoning tokens are billed as output
+    # tokens, and the API default is "medium" — so leaving this unset was the
+    # single largest line on the OpenAI bill: every scan decision quietly paid
+    # for a thousand-plus invisible tokens on top of its answer.
+    #
+    # Two tiers, because the tasks are not comparable:
+    #   decision — the scan decision (and the MIPRO task model that replays it).
+    #     "low" is deliberate, not a downgrade by default: the model is handed a
+    #     pre-computed indicator digest, an explicit placement rule and a typed
+    #     output, and every BUY is independently re-validated by risk.py. If a
+    #     compiled program regresses it shows up grouped by program_hash.
+    #   light — triage / news analysis / watch classification. These return a
+    #     ticker list, three sentences and a one-word verdict; medium reasoning
+    #     on them is pure waste, and on the news model it was spending the
+    #     answer budget on thinking (the summary-quality item in STATUS.md).
+    #
+    # "" sends no parameter at all (provider default) — use it for a
+    # non-reasoning model, which rejects the field outright.
+    gpt_decision_reasoning_effort: str = "low"    # minimal|low|medium|high; "" = provider default
+    gpt_light_reasoning_effort: str = "low"       # triage / news / watch classifier
+
     # Risk parameters
     max_risk_per_trade: float = 0.01       # 1% of portfolio
     hard_cap_risk_per_trade: float = 0.02  # 2% hard cap
@@ -141,6 +162,19 @@ class Settings(BaseSettings):
     triage_enabled: bool = True
     triage_model: str = "gpt-5-mini"
     triage_keep_top: int = 5
+
+    # Re-decision gate. A candidate that survives the screener keeps surviving it
+    # every 15 minutes, so the same ticker was sent to the decision model ~36
+    # times a session for an answer driven by *daily* bars. DSPy's own cache
+    # never catches this: the live price makes every prompt unique by a few
+    # decimals. So gate on materiality instead — a PASS is reused until it goes
+    # stale, the price moves, or the news changes underneath it.
+    #
+    # Only PASS is ever reused. A cached BUY would open a position against a
+    # stop and target placed at an older price; re-asking costs one call and is
+    # the rare case anyway.
+    decision_cache_minutes: int = 60        # 0 disables reuse entirely
+    decision_recheck_move_pct: float = 0.015  # re-ask once price moves this far
 
     # yfinance batch downloads fail above ~200 symbols — chunk large universe
     # watchlists so cold-cache scans still populate every ticker.

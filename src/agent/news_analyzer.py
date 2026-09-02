@@ -1,14 +1,23 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
+import time
 from typing import Optional
 
-import openai
-
 from config.settings import settings
+from src.agent.openai_client import light_completion
 
 logger = logging.getLogger(__name__)
+
+# The article *fetch* is TTL-cached (news_refresh_interval_minutes) but the
+# analysis of it was not, so four consecutive scans paid four identical calls to
+# summarise the same headlines. Cache the summary on the article set itself:
+# identical articles can only produce the same summary, so this is free.
+# (ticker, market, articles hash) -> (expires_at, summary)
+_SUMMARY_CACHE: dict[tuple[str, str, str], tuple[float, str]] = {}
+_SUMMARY_CACHE_MAX = 500
 
 # Share-class / listing suffixes that appear in universe names but not headlines
 _NAME_SUFFIX_RE = re.compile(r"\s+(a|b|c|sdb|ser\.?\s*[abc])$", re.IGNORECASE)
@@ -54,6 +63,7 @@ def analyze_news(
     current_price: float,
     technicals_brief: str,
     articles: list[dict],
+    use_cache: bool = True,
 ) -> str:
     """
     Pre-filter articles then call the shared news model (GPT) for per-ticker
@@ -70,6 +80,13 @@ def analyze_news(
         for a in relevant[:8]  # cap at 8 articles to control tokens
     )
 
+    key = (ticker, market, _sha(articles_text))
+    if use_cache:
+        cached = _cache_get(key)
+        if cached is not None:
+            logger.debug("News analysis cache hit for %s", ticker)
+            return cached
+
     prompt = _ANALYSIS_PROMPT.format(
         ticker=ticker,
         price=current_price,
@@ -79,18 +96,48 @@ def analyze_news(
     )
 
     try:
-        client = openai.OpenAI(api_key=settings.openai_api_key)
-        resp = client.chat.completions.create(
-            model=settings.gpt_news_model,
-            # max_completion_tokens works across the GPT-5 family (reasoning or not);
-            # generous headroom so reasoning tokens don't starve the short answer.
-            max_completion_tokens=2000,
-            messages=[{"role": "user", "content": prompt}],
+        # The cap stays generous (it is a ceiling, not a spend); what stopped the
+        # thinking budget from crowding out the summary is the reasoning effort
+        # light_completion applies.
+        summary = light_completion(
+            settings.gpt_news_model, prompt, max_completion_tokens=2000
         )
-        return (resp.choices[0].message.content or "").strip()
     except Exception as exc:
         logger.error("News analysis error for %s: %s", ticker, exc)
         return "News analysis unavailable."
+
+    if not summary:
+        return "News analysis unavailable."
+    _cache_put(key, summary)
+    return summary
+
+
+def _sha(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
+
+
+def _cache_get(key: tuple[str, str, str]) -> Optional[str]:
+    entry = _SUMMARY_CACHE.get(key)
+    if entry is None:
+        return None
+    expires_at, summary = entry
+    if time.monotonic() >= expires_at:
+        _SUMMARY_CACHE.pop(key, None)
+        return None
+    return summary
+
+
+def _cache_put(key: tuple[str, str, str], summary: str) -> None:
+    ttl = settings.news_refresh_interval_minutes * 60
+    if ttl <= 0:
+        return
+    if len(_SUMMARY_CACHE) >= _SUMMARY_CACHE_MAX:
+        now = time.monotonic()
+        for stale in [k for k, (exp, _) in _SUMMARY_CACHE.items() if now >= exp]:
+            _SUMMARY_CACHE.pop(stale, None)
+        if len(_SUMMARY_CACHE) >= _SUMMARY_CACHE_MAX:
+            _SUMMARY_CACHE.pop(next(iter(_SUMMARY_CACHE)), None)
+    _SUMMARY_CACHE[key] = (time.monotonic() + ttl, summary)
 
 
 def _company_name_term(ticker: str) -> str:

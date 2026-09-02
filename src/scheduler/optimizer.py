@@ -435,7 +435,17 @@ def run_mipro_optimization(track: TrackType) -> bool:
         task_lm = build_lm(track, settings.claude_decision_model, settings.anthropic_api_key)
         prompt_lm = build_lm(track, settings.claude_prompt_model, settings.anthropic_api_key, max_tokens=4096)
     else:
-        task_lm = build_lm(track, settings.gpt_decision_model, settings.openai_api_key)
+        # The task model replays the program over the whole trainset — hundreds
+        # of calls — so it carries the same reasoning budget as the live scan
+        # decision it stands in for. The proposer writes a handful of candidate
+        # instructions and keeps the provider default: that is where the quality
+        # of the compiled prompt actually comes from.
+        task_lm = build_lm(
+            track,
+            settings.gpt_decision_model,
+            settings.openai_api_key,
+            reasoning_effort=settings.gpt_decision_reasoning_effort,
+        )
         prompt_lm = build_lm(track, settings.gpt_prompt_model, settings.openai_api_key, max_tokens=4096)
 
     program = dspy.Predict(TradeDecision)

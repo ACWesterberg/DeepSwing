@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import threading
 import time
@@ -115,6 +116,18 @@ def _to_sek_price(price: float, ticker: str, market: str, strict: bool = False) 
 # Most recent scan decisions per market — ephemeral, in-memory, for dashboard display.
 _recent_decisions: dict[str, dict] = {}
 
+# Reused PASS decisions, keyed (track, ticker). A candidate that clears the
+# screener keeps clearing it, so the same ticker was sent to the decision model
+# every 15 minutes for an answer computed off *daily* bars — the single largest
+# line on the LLM bill. DSPy's own cache never catches this because the live
+# price makes each prompt unique by a few decimals, so gate on materiality
+# instead: reuse until the entry goes stale, the price moves, or the news
+# changes underneath it.
+#
+# PASS only. A reused BUY would open a position against a stop and target
+# placed at an older price, and re-asking on the rare BUY costs one call.
+_pass_memo: dict[tuple[str, str], dict] = {}
+
 
 def get_recent_decisions() -> dict:
     """Return the latest scan decisions keyed by market."""
@@ -123,6 +136,41 @@ def get_recent_decisions() -> dict:
 
 def clear_recent_decisions() -> None:
     _recent_decisions.clear()
+    _pass_memo.clear()
+
+
+def _news_fingerprint(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
+
+
+def _reusable_pass(track: str, ticker: str, price: float, news_hash: str) -> Optional[dict]:
+    """The stored PASS for this candidate if it still describes the setup."""
+    if settings.decision_cache_minutes <= 0:
+        return None
+    memo = _pass_memo.get((track, ticker))
+    if memo is None:
+        return None
+    if time.monotonic() >= memo["expires_at"] or memo["news_hash"] != news_hash:
+        _pass_memo.pop((track, ticker), None)
+        return None
+    ref = memo["price"]
+    if ref <= 0 or abs(price - ref) / ref >= settings.decision_recheck_move_pct:
+        _pass_memo.pop((track, ticker), None)
+        return None
+    return memo["entry"]
+
+
+def _remember_pass(track: str, ticker: str, price: float, news_hash: str, entry: dict) -> None:
+    if settings.decision_cache_minutes <= 0:
+        return
+    # The reused copy carries no entry_inputs: the day's first PASS already
+    # persisted that blob, and _persist_decisions drops the duplicates anyway.
+    _pass_memo[(track, ticker)] = {
+        "expires_at": time.monotonic() + settings.decision_cache_minutes * 60,
+        "price": price,
+        "news_hash": news_hash,
+        "entry": {k: v for k, v in entry.items() if k != "entry_inputs"},
+    }
 
 
 def _persist_decisions(market: str, decisions: list[dict]) -> None:
@@ -339,6 +387,7 @@ def _run_scan(market: MarketType) -> dict:
         )
 
         full_news = f"{news_summary}\nInsider activity: {insider_summary}"
+        news_hash = _news_fingerprint(full_news)
 
         tech_snapshot = candidate.signals.to_prompt_str()
         sector = get_sector(candidate.ticker)
@@ -348,6 +397,16 @@ def _run_scan(market: MarketType) -> dict:
             portfolio = get_portfolio(track)
             if portfolio.has_ticker(candidate.ticker):
                 continue  # validate_trade would reject it; don't pay for the call
+
+            # A recent PASS on an unchanged setup is still a PASS — reuse it
+            # rather than buying the same answer again every 15 minutes.
+            reused = _reusable_pass(
+                track, candidate.ticker, candidate.signals.current_price, news_hash,
+            )
+            if reused is not None:
+                logger.debug("[%s] %s → PASS (reused)", track, candidate.ticker)
+                decisions_log.append({**reused, "cached": True})
+                continue
 
             # Retrieve heuristics
             store = get_store(track)
@@ -390,6 +449,10 @@ def _run_scan(market: MarketType) -> dict:
                         **(decision.get("entry_inputs") or {}),
                         "heuristic_ids": [h["id"] for h in heuristics_list],
                     }
+                    _remember_pass(
+                        track, candidate.ticker,
+                        candidate.signals.current_price, news_hash, entry,
+                    )
                 decisions_log.append(entry)
                 continue
 
@@ -724,6 +787,9 @@ def _maybe_news_exit(
             f"({move_pct:+.1f}% since last check)"
         ),
         articles=articles,
+        # This path already forced a fresh fetch because freshness decides an
+        # exit; don't let it read back a summary framed at entry.
+        use_cache=False,
     )
 
     store = get_store(track)

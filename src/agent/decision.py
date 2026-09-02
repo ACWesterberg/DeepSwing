@@ -105,19 +105,34 @@ class ExitDecision(dspy.Signature):
     )
 
 
-def build_lm(track: TrackType, model: str, api_key: str, *, max_tokens: int = 4096) -> "dspy.LM":
+def build_lm(
+    track: TrackType,
+    model: str,
+    api_key: str,
+    *,
+    max_tokens: int = 4096,
+    reasoning_effort: str = "",
+) -> "dspy.LM":
     """
     Build a dspy.LM for a track. OpenAI GPT-5-class reasoning models reject the
     usual params — they require temperature=1.0 and max_tokens>=16000 — so the
     GPT branch enforces those. Claude models keep the requested max_tokens.
+
+    reasoning_effort is forwarded to the OpenAI API (ignored for Claude, which
+    has its own thinking controls). Unset means the provider default, "medium"
+    — which billed a thousand-plus reasoning tokens per scan decision as output.
     """
     if track == "claude":
         return dspy.LM(model=f"anthropic/{model}", api_key=api_key, max_tokens=max_tokens)
+    kwargs: dict = {}
+    if reasoning_effort:
+        kwargs["reasoning_effort"] = reasoning_effort
     return dspy.LM(
         model=f"openai/{model}",
         api_key=api_key,
         temperature=1.0,
         max_tokens=max(max_tokens, 16000),
+        **kwargs,
     )
 
 
@@ -147,7 +162,12 @@ class DecisionEngine:
         if self.track == "claude":
             self._lm = build_lm(self.track, settings.claude_decision_model, settings.anthropic_api_key)
         else:
-            self._lm = build_lm(self.track, settings.gpt_decision_model, settings.openai_api_key)
+            self._lm = build_lm(
+                self.track,
+                settings.gpt_decision_model,
+                settings.openai_api_key,
+                reasoning_effort=settings.gpt_decision_reasoning_effort,
+            )
 
     def _load_program(self) -> None:
         compiled_path = settings.compiled_dir / f"{self.track}_trade_decision.json"

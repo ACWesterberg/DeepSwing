@@ -48,3 +48,23 @@ for _mod in [
 ]:
     if _mod not in sys.modules:
         sys.modules[_mod] = _stub(_mod)
+
+
+# ---------------------------------------------------------------------------
+# Process-global scan state must not leak between tests. The PASS memo is keyed
+# (track, ticker), so one test's cached PASS would silently answer the next
+# test's decision for the same ticker.
+# ---------------------------------------------------------------------------
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _clear_scan_caches():
+    from src.agent import news_analyzer
+    from src.scheduler import scan_loop
+
+    scan_loop._pass_memo.clear()
+    news_analyzer._SUMMARY_CACHE.clear()
+    yield
+    scan_loop._pass_memo.clear()
+    news_analyzer._SUMMARY_CACHE.clear()

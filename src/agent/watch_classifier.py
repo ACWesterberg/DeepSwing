@@ -4,9 +4,8 @@ import json
 import logging
 import re
 
-import openai
-
 from config.settings import settings
+from src.agent.openai_client import light_completion
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +32,9 @@ def classify_watch_event(ticker: str, kind: str, content: str) -> tuple[str, str
     classifier outage must never spam the user's phone."""
     prompt = _CLASSIFY_PROMPT.format(ticker=ticker, kind=kind, content=content)
     try:
-        client = openai.OpenAI(api_key=settings.openai_api_key)
-        resp = client.chat.completions.create(
-            model=settings.watch_classifier_model,
-            max_completion_tokens=1000,
-            messages=[{"role": "user", "content": prompt}],
+        raw = light_completion(
+            settings.watch_classifier_model, prompt, max_completion_tokens=1000
         )
-        raw = (resp.choices[0].message.content or "").strip()
         match = re.search(r"\{.*\}", raw, re.DOTALL)
         if not match:
             raise ValueError(f"no JSON object in reply: {raw[:200]!r}")
