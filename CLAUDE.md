@@ -12,7 +12,7 @@ An AI-powered **swing trading simulator** running on a Raspberry Pi 5. Paper-tra
 
 ## Key design decisions (don't re-litigate these)
 
-- **No FinBERT** — Claude Haiku handles news analysis; it understands Swedish, provides per-ticker reasoning, not just sentiment labels
+- **No FinBERT** — an LLM handles news analysis: it understands Swedish and gives per-ticker reasoning, not just a sentiment label. The model moved to a shared `gpt-5-mini` call feeding both tracks identically (see the models table); the original Claude Haiku choice is why the decision was made, not what runs now.
 - **Thinking models only for ERL** — standard models for the 30-min scan decisions (latency + cost); Claude Sonnet with `extended_thinking=True` for post-trade causal analysis (deeper reasoning, async)
 - **`ta` library, not `pandas-ta`** — pandas-ta requires Python 3.12+; `ta` covers all needed indicators and is Pi-safe
 - **DSPy 2.6 uses `dspy.configure(lm=...)`** — not `with dspy.settings.context(lm=...)` (deprecated in 2.6+)
