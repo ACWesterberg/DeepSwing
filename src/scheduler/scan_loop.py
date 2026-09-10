@@ -4,7 +4,7 @@ import hashlib
 import logging
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Optional
 
 from config.settings import settings
@@ -113,7 +113,12 @@ def _to_sek_price(price: float, ticker: str, market: str, strict: bool = False) 
         return None
     return sek
 
-# Most recent scan decisions per market — ephemeral, in-memory, for dashboard display.
+# Most recent scan outcome per market — ephemeral, in-memory, for dashboard display.
+# Every terminal path of a scan records here, including the ones that produce no
+# decisions: the panel merges all markets, so a market that stays silent is
+# indistinguishable from a market that stopped being scanned. A US scan that
+# screened nothing out used to leave the morning's Nordic cards standing under a
+# fresh timestamp, which reads as "US is no longer scanned".
 _recent_decisions: dict[str, dict] = {}
 
 # Reused PASS decisions, keyed (track, ticker). A candidate that clears the
@@ -137,6 +142,21 @@ def get_recent_decisions() -> dict:
 def clear_recent_decisions() -> None:
     _recent_decisions.clear()
     _pass_memo.clear()
+
+
+def _record_scan(market: str, decisions: list[dict], note: str = "", mode: str = "scan") -> dict:
+    """Stamp this market's latest scan outcome and return the dashboard payload.
+
+    Timestamps are UTC and carry an offset — the dashboard renders them in the
+    viewer's timezone, and a naive string is parsed there as local time.
+    """
+    _recent_decisions[market] = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "mode": mode,
+        "note": note,
+        "decisions": decisions,
+    }
+    return {"market": market, "candidates": [], "decisions": decisions}
 
 
 def _news_fingerprint(text: str) -> str:
@@ -296,7 +316,9 @@ def _run_scan(market: MarketType) -> dict:
             "VIX=%.1f >= threshold %.1f — halting new entries for %s market (holdings still monitored)",
             vix, settings.vix_halt_threshold, market,
         )
-        result = _monitor_holdings(market)
+        result = _monitor_holdings(
+            market, note=f"New entries halted — VIX {vix:.1f} >= {settings.vix_halt_threshold:.0f}",
+        )
         result["vix_halt"] = True
         result["vix"] = vix
         return result
@@ -308,7 +330,11 @@ def _run_scan(market: MarketType) -> dict:
     funded_tracks = [t for t in settings.tracks if get_portfolio(t).can_open_in_market(market)]
     if not funded_tracks:
         logger.info("No track has %s-market budget available — holdings-only monitor", market)
-        return _monitor_holdings(market)
+        return _monitor_holdings(
+            market,
+            note=f"No track has {market}-market budget free "
+                 f"(cap {settings.market_allocation.get(market, 1.0):.0%} of equity) — no entry scan",
+        )
 
     if market == "nordic":
         watchlist = get_omxs30_tickers()
@@ -319,7 +345,7 @@ def _run_scan(market: MarketType) -> dict:
     logger.info("Watchlist: %d tickers for %s market", len(watchlist), market)
     if not watchlist:
         logger.warning("Empty watchlist for %s market — nothing to scan", market)
-        return {"market": market, "candidates": [], "decisions": []}
+        return _record_scan(market, [], note="Empty watchlist")
     macro_market = "nordic" if market in ("nordic", "eu") else "us"
     macro_context = get_macro_context(macro_market)
 
@@ -344,7 +370,7 @@ def _run_scan(market: MarketType) -> dict:
 
     if not ohlcv_map:
         logger.warning("No OHLCV data returned for %s market", market)
-        return {"market": market, "candidates": [], "decisions": []}
+        return _record_scan(market, [], note="No price data returned")
 
     # --- Compute technicals + regime ---
     analysis_map: dict[str, tuple] = {}
@@ -359,13 +385,13 @@ def _run_scan(market: MarketType) -> dict:
     candidates = screen_candidates(analysis_map, market)
     if not candidates:
         logger.info("No candidates passed screener for %s", market)
-        return {"market": market, "candidates": [], "decisions": []}
+        return _record_scan(market, [], note=f"No candidates passed the screener ({len(analysis_map)} scanned)")
 
     # --- Earnings-proximity filter: never trade into an earnings gap ---
     candidates = _filter_earnings(candidates)
     if not candidates:
         logger.info("All candidates filtered out by earnings proximity for %s", market)
-        return {"market": market, "candidates": [], "decisions": []}
+        return _record_scan(market, [], note="All candidates too close to earnings")
 
     # --- Cheap shared triage: only the top-K reach news + per-track decisions ---
     candidates = triage_candidates(candidates, market)
@@ -380,7 +406,9 @@ def _run_scan(market: MarketType) -> dict:
     ]
     if not candidates:
         logger.info("All candidates for %s are already held by every funded track", market)
-        return _monitor_holdings(market)
+        return _monitor_holdings(
+            market, note="Every surviving candidate is already held by every funded track",
+        )
 
     # Live quotes for entry fills. The OHLCV close a candidate was screened on
     # can be hours stale (Alpha Vantage is end-of-day, EU feeds are delayed);
@@ -695,10 +723,8 @@ def _run_scan(market: MarketType) -> dict:
     display_log = [
         {k: v for k, v in d.items() if k != "entry_inputs"} for d in decisions_log
     ]
-    _recent_decisions[market] = {
-        "timestamp": datetime.utcnow().isoformat(),
-        "decisions": display_log,
-    }
+    _record_scan(market, display_log,
+                 note="" if display_log else "No candidate produced a decision")
     _persist_decisions(market, decisions_log)
 
     return {
@@ -708,11 +734,14 @@ def _run_scan(market: MarketType) -> dict:
     }
 
 
-def _monitor_holdings(market: MarketType) -> dict:
+def _monitor_holdings(market: MarketType, note: str = "") -> dict:
     """
     Lightweight cycle used when no track has cash to open a new position: pull
     prices for open holdings, run the jump-gated news exit per position, then the
     stop-loss/take-profit sweep. No watchlist fetch, no candidate/entry pipeline.
+
+    `note` says *why* the entry pipeline was skipped — without it the dashboard
+    shows an empty market and no way to tell a skipped scan from a stopped one.
     """
     decisions_log: list[dict] = []
 
@@ -762,10 +791,10 @@ def _monitor_holdings(market: MarketType) -> dict:
     logger.info("=== Holdings monitor: %s | %d open | %d exits ===",
                 market, open_count, len(decisions_log))
 
-    _recent_decisions[market] = {
-        "timestamp": datetime.utcnow().isoformat(),
-        "decisions": decisions_log,
-    }
+    _record_scan(
+        market, decisions_log, mode="holdings_monitor",
+        note=note or f"Holdings-only sweep — {open_count} open position(s)",
+    )
     _persist_decisions(market, decisions_log)
 
     return {

@@ -150,7 +150,7 @@ function decisionCard(d, showTime) {
   const conf = (d.confidence !== undefined && d.confidence !== null) ? ` · conf ${d.confidence}` : "";
   const rrr = (d.rrr !== undefined && d.rrr !== null) ? ` · RRR ${d.rrr}` : "";
   const market = (d.market || "").toUpperCase();
-  const time = (showTime && d.timestamp) ? `<span class="decision-time">${new Date(d.timestamp).toLocaleString()}</span>` : "";
+  const time = (showTime && d.timestamp) ? `<span class="decision-time">${parseTs(d.timestamp).toLocaleString()}</span>` : "";
   const reason = d.reason ? `<div class="decision-blocked">Blocked: ${d.reason}</div>` : "";
   const why = d.reasoning ? `<div class="decision-reason">${d.reasoning}</div>` : "";
   return `<div class="decision-card">
@@ -166,27 +166,55 @@ function decisionCard(d, showTime) {
   </div>`;
 }
 
+// Timestamps arrive either offset-aware or as naive UTC straight from the DB.
+// A naive string is parsed by Date() as *local* time, which silently backdated
+// every scan by the viewer's UTC offset (a fresh 21:02 CEST scan read "19:02").
+function parseTs(ts) {
+  if (!ts) return null;
+  const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(ts);
+  return new Date(hasZone ? ts : ts + "Z");
+}
+
 async function refreshDecisions() {
   const data = await fetchJSON("/api/decisions");
   const list = document.getElementById("decisions-list");
   if (!list) return;
   if (!data) { list.innerHTML = "<p class='neutral'>No decisions yet.</p>"; return; }
 
-  const rows = [];
-  let latestTs = null;
-  for (const [market, scan] of Object.entries(data)) {
-    if (scan?.timestamp && (!latestTs || scan.timestamp > latestTs)) latestTs = scan.timestamp;
-    for (const d of (scan?.decisions || [])) rows.push({ ...d, market });
-  }
+  // Grouped per market, each under its own scan time. A single merged list
+  // headed by the newest timestamp across markets presented Nordic cards from
+  // the morning as the result of the US scan that had just run — the closed
+  // market's entry is never cleared, so it outlives its own session.
+  const markets = Object.entries(data)
+    .filter(([, scan]) => scan?.timestamp)
+    .sort((a, b) => (b[1].timestamp > a[1].timestamp ? 1 : -1));
 
   const meta = document.getElementById("decisions-meta");
-  if (meta) meta.textContent = latestTs ? "— scanned " + new Date(latestTs).toLocaleString() : "";
+  if (meta) {
+    const newest = markets.length ? parseTs(markets[0][1].timestamp) : null;
+    meta.textContent = newest ? "— last scan " + newest.toLocaleString() : "";
+  }
 
-  if (rows.length === 0) {
-    list.innerHTML = "<p class='neutral'>No decisions in the latest scan (no candidates passed the screener).</p>";
+  if (markets.length === 0) {
+    list.innerHTML = "<p class='neutral'>No scan has run yet.</p>";
     return;
   }
-  list.innerHTML = rows.map(d => decisionCard(d, false)).join("");
+
+  list.innerHTML = markets.map(([market, scan]) => {
+    const rows = scan.decisions || [];
+    const when = parseTs(scan.timestamp);
+    const mode = scan.mode === "holdings_monitor" ? " · holdings only" : "";
+    const body = rows.length
+      ? rows.map(d => decisionCard({ ...d, market }, false)).join("")
+      : `<p class='neutral'>${scan.note || "No decisions in this scan."}</p>`;
+    return `<div class="scan-group">
+      <div class="scan-group-head">
+        <strong>${market.toUpperCase()}</strong>
+        <span class="decision-meta">scanned ${when.toLocaleTimeString()}${mode}</span>
+      </div>
+      ${body}
+    </div>`;
+  }).join("");
 }
 
 async function refreshHistory() {
@@ -330,7 +358,7 @@ async function refreshTrack(track) {
     const posBody = document.getElementById(`${track}-positions`);
     posBody.innerHTML = (pData.open_positions || []).map(p => {
       const pnlClass = p.unrealised_pnl_pct >= 0 ? "pos" : "neg";
-      const days = Math.round((Date.now() - new Date(p.entry_time)) / 86400000);
+      const days = Math.round((Date.now() - parseTs(p.entry_time)) / 86400000);
       const qty = p.quantity % 1 === 0 ? p.quantity : p.quantity.toFixed(2);
       return `<tr>
         <td><strong>${p.ticker}</strong></td>

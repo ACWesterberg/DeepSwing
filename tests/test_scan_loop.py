@@ -861,3 +861,114 @@ class TestReuseIsObservable:
 
         summary = [r for r in caplog.records if "Scan complete" in r.getMessage()]
         assert "(0 reused)" in summary[-1].getMessage()
+
+
+class TestScanVisibility:
+    """Every scan must leave a trace for its own market.
+
+    The dashboard merges the per-market cache into one panel headed by the newest
+    timestamp across markets. A US scan that ended before producing decisions used
+    to leave its market absent entirely, so the panel kept showing the morning's
+    Nordic cards under the US scan's timestamp — which reads as "US isn't scanned
+    anymore" rather than "US scanned and found nothing".
+    """
+
+    def setup_method(self):
+        reset_portfolios()
+        from src.scheduler.scan_loop import clear_recent_decisions
+        clear_recent_decisions()
+
+    def teardown_method(self):
+        patch.stopall()
+        reset_portfolios()
+        from src.scheduler.scan_loop import clear_recent_decisions
+        clear_recent_decisions()
+
+    def _us_entry(self):
+        from src.scheduler.scan_loop import get_recent_decisions
+        return get_recent_decisions().get("us")
+
+    def test_no_candidates_still_records_the_market(self):
+        _apply_patches(SCAN_PATCHES, screen_candidates=[])
+        from src.scheduler.scan_loop import run_scan
+        run_scan("us")
+
+        entry = self._us_entry()
+        assert entry is not None, "a scan that screened nothing out left no trace"
+        assert entry["decisions"] == []
+        assert entry["note"]
+
+    def test_no_price_data_still_records_the_market(self):
+        _apply_patches(SCAN_PATCHES, fetch_batch_us={})
+        from src.scheduler.scan_loop import run_scan
+        run_scan("us")
+        assert self._us_entry() is not None
+
+    def test_earnings_filter_wipeout_still_records_the_market(self):
+        mocks = _apply_patches(SCAN_PATCHES)
+        mocks["get_days_to_earnings"].return_value = {"AAPL": 1}
+        from src.scheduler.scan_loop import run_scan
+        run_scan("us")
+
+        entry = self._us_entry()
+        assert entry is not None
+        assert entry["decisions"] == []
+
+    def test_saturated_book_records_why_no_entries_were_scanned(self):
+        from config.settings import settings
+        settings.market_allocation = {"nordic": 0.5, "us": 0.1}
+        _apply_patches(SCAN_PATCHES)
+        from src.scheduler.scan_loop import run_scan
+
+        for track in ("claude", "gpt"):
+            get_portfolio(track).open_trade(
+                ticker="MSFT", market="us", quantity=400.0, entry_price=100.0,
+                stop_loss=95.0, target=120.0, regime="trending",
+                reasoning="preexisting", confidence=0.8,
+            )
+        run_scan("us")
+
+        entry = self._us_entry()
+        assert entry["mode"] == "holdings_monitor"
+        assert "budget" in entry["note"].lower()
+
+    def test_vix_halt_records_why(self):
+        _apply_patches(SCAN_PATCHES, get_vix=35.0)
+        from src.scheduler.scan_loop import run_scan
+        run_scan("us")
+        assert "VIX" in self._us_entry()["note"]
+
+    def test_timestamp_is_offset_aware(self):
+        """A naive stamp is parsed as local time by the browser, backdating the
+        scan by the viewer's UTC offset."""
+        from datetime import datetime
+        _apply_patches(SCAN_PATCHES, screen_candidates=[])
+        from src.scheduler.scan_loop import run_scan
+        run_scan("us")
+
+        ts = datetime.fromisoformat(self._us_entry()["timestamp"])
+        assert ts.tzinfo is not None and ts.utcoffset() is not None
+
+    def test_a_quiet_us_scan_does_not_leave_nordic_looking_current(self):
+        """Both markets carry their own timestamp, so a stale one is visible."""
+        from src.scheduler.scan_loop import get_recent_decisions, run_scan
+        mocks = _apply_patches(SCAN_PATCHES)
+
+        nordic_candidate = ScreenerCandidate(
+            ticker="VOLV-B.ST", market="nordic",
+            signals=_make_signals("VOLV-B.ST"), regime=_make_regime(),
+        )
+        mocks["screen_candidates"].return_value = [nordic_candidate]
+        mocks["compute_signals"].return_value = _make_signals("VOLV-B.ST")
+        with patch("src.scheduler.scan_loop.fetch_batch_nordic",
+                   return_value={"VOLV-B.ST": MagicMock()}):
+            run_scan("nordic")
+
+        mocks["screen_candidates"].return_value = []
+        run_scan("us")
+
+        cache = get_recent_decisions()
+        assert set(cache) == {"nordic", "us"}
+        assert cache["us"]["timestamp"] >= cache["nordic"]["timestamp"]
+        assert cache["nordic"]["decisions"], "nordic decisions should still be cached"
+        assert cache["us"]["decisions"] == []
