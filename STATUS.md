@@ -229,7 +229,7 @@ carries `portfolio_state` rows and `decisions` rows for `claude-opt`/`gpt-opt`,
 - [x] `src/dashboard/app.py` — FastAPI; REST: `/api/status`, `/portfolio`, `/trades`, `/comparison`, `/heuristics`, `/decisions`, `/decisions/history`, `/prompts`, `POST /scan`, `POST /reset`, `POST /backtest`; WebSocket `/ws`; cookie-session auth
 - [x] `src/dashboard/templates/index.html` — tabs: Comparison, Claude, GPT, Decisions, Heuristics (both), Prompts
 - [x] `src/dashboard/static/` — Chart.js equity overlay, head-to-head table, positions/trades, heuristic cards, decision feed + history, scan buttons + progress toast, auto-refresh + WebSocket push
-- [x] `main.py` — DB init, boot preflight (log model config + ping models), APScheduler (15-min scan + Sunday 02:00 MIPRO), uvicorn
+- [x] `main.py` — DB init, boot preflight (log model config + resolved reasoning effort + ping models), APScheduler (30-min scan, independent 15-min holdings sweep, 15-min watch monitor, nightly backup 23:45, Sunday 02:00 MIPRO), uvicorn
 - [x] `systemd/deepswing.service` — autostart on Pi boot, Pi 5 resource limits
 
 ### Reliability & Ops (this cycle)
