@@ -195,7 +195,8 @@ def _persist_decisions(market: str, decisions: list[dict]) -> None:
             for d in decisions:
                 inputs = d.get("entry_inputs")
                 key = (d.get("track", ""), d.get("ticker", ""))
-                if inputs and key in stored_today:
+                # An executed entry needs its own inputs even after an earlier PASS.
+                if inputs and key in stored_today and d.get("action") != "BUY":
                     inputs = None
                 session.add(Decision(
                     market=market,
@@ -467,6 +468,7 @@ def _run_scan(market: MarketType) -> dict:
                     entry["entry_inputs"] = {
                         **(decision.get("entry_inputs") or {}),
                         "heuristic_ids": [h["id"] for h in heuristics_list],
+                        "replay_sector": sector,
                     }
                     _remember_pass(
                         track, candidate.ticker,
@@ -567,6 +569,7 @@ def _run_scan(market: MarketType) -> dict:
                     "entry_inputs": {
                         **(decision.get("entry_inputs") or {}),
                         "heuristic_ids": [h["id"] for h in heuristics_list],
+                        "replay_sector": sector,
                     },
                 })
                 continue
@@ -595,6 +598,7 @@ def _run_scan(market: MarketType) -> dict:
                 entry_inputs={
                     **decision.get("entry_inputs", {}),
                     "heuristic_ids": [h["id"] for h in heuristics_list],
+                    "replay_sector": sector,
                 },
                 program_hash=decision.get("program_hash") or "",
                 trail_distance=trail_distance,
@@ -607,6 +611,10 @@ def _run_scan(market: MarketType) -> dict:
                     "ticker": candidate.ticker,
                     "action": "BUY",
                     "entry_price": position.entry_price,
+                    # Preserve native quote/ATR for comparable forward-plan replay.
+                    "price": entry_sek / fx_rate,
+                    "atr": candidate.signals.atr_14,
+                    "entry_inputs": position.entry_inputs,
                     "stop_loss": stop_sek,
                     "target": target_sek,
                     "confidence": round(decision["confidence"], 2),
@@ -650,8 +658,12 @@ def _run_scan(market: MarketType) -> dict:
     for pos_market, pos_tickers in held_by_market.items():
         live_prices.update(_get_current_prices(sorted(set(pos_tickers)), pos_market))
 
+    for track in settings.tracks:
+        for closed in get_portfolio(track).update_prices(live_prices):
+            _emit_close(track, closed)
+
     # --- News-driven exit review, gated on a large price move ---
-    # Holdings are otherwise monitored on price alone (stop/target below). We only
+    # Holdings are otherwise monitored on price alone. We only
     # spend a news pull + AI exit review on a position that has jumped since its
     # last news check — using the fresh batch signals for tickers still in the
     # watchlist. Set holdings_news_jump_pct=0.0 to review every scan.
@@ -677,8 +689,6 @@ def _run_scan(market: MarketType) -> dict:
     # --- Update open positions and trigger ERL for closed trades ---
     for track in settings.tracks:
         portfolio = get_portfolio(track)
-        for closed in portfolio.update_prices(live_prices):
-            _emit_close(track, closed)
         # End-of-scan flush — captures mark-to-market / trailing-stop updates on
         # positions that didn't close (opens/closes already persisted inline).
         persist_portfolio(portfolio)
@@ -733,26 +743,25 @@ def _monitor_holdings(market: MarketType) -> dict:
             continue
 
         prices = _get_current_prices([p.ticker for p in positions], market)
+        for closed in portfolio.update_prices(prices):
+            _emit_close(track, closed)
+        positions = [p for p in portfolio.open_positions if p.market == market]
 
-        # A large price jump triggers a news pull + AI exit review; otherwise we
-        # rely on the mechanical stop/target sweep below. No fresh OHLCV here, so
-        # the exit review reuses the entry-time technical snapshot.
+        # Only surviving positions need an LLM review after mechanical exits.
         for position in list(positions):
             price = prices.get(position.ticker)
             if price is None or not _news_review_due(position, price):
                 continue
             event = _maybe_news_exit(
                 track, portfolio, position, price, market,
-                signals_str=position.technical_snapshot or "No live technicals (holdings-only monitor).",
-                regime_str=position.regime,
+                signals_str=f"Entry-time snapshot (not current): {position.technical_snapshot}",
+                regime_str=f"Entry-time regime (not current): {position.regime}",
                 regime_label=position.regime,
                 macro_context=macro_context(),
             )
             if event:
                 decisions_log.append(event)
 
-        for closed in portfolio.update_prices(prices):
-            _emit_close(track, closed)
         persist_portfolio(portfolio)
 
     open_count = sum(

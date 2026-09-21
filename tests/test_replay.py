@@ -93,12 +93,9 @@ class TestRealisedROutrunsTheMetric:
 
 
 class TestScoringMechanics:
-    def test_unknown_action_is_treated_as_pass(self):
-        r = score_program(_PROFITABLE, lambda e: "HOLD")
-        assert r.buys == 0
-        assert r.mean_metric == pytest.approx(
-            score_program(_PROFITABLE, always_pass).mean_metric
-        )
+    def test_unknown_action_aborts_evaluation(self):
+        with pytest.raises(ValueError, match="Invalid replay action"):
+            score_program(_PROFITABLE, lambda e: "HOLD")
 
     def test_empty_corpus_is_an_error_not_a_score(self):
         with pytest.raises(ValueError):
@@ -133,8 +130,8 @@ class TestCorpusRoundTrip:
         path = tmp_path / "corpus.json"
         save_corpus(_PROFITABLE, path)
         rows = json.loads(path.read_text())
-        assert rows[0]["ticker"] == "AAPL"
-        assert "entry_inputs" in rows[0]
+        assert rows["examples"][0]["ticker"] == "AAPL"
+        assert "entry_inputs" in rows["examples"][0]
 
 
 def _row(ticker: str, market: str = "us") -> dict:

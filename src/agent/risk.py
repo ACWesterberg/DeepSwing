@@ -100,6 +100,12 @@ def validate_trade(
         # SELL/HOLD don't need position sizing validation
         return RiskValidation(approved=True, quantity=0.0, risk_amount=0.0, rrr=0.0)
 
+    values = (entry_price, stop_loss, target, portfolio_equity, signals.current_price, signals.atr_14)
+    if not all(math.isfinite(v) and v > 0 for v in values):
+        return RiskValidation(False, 0.0, 0.0, 0.0, "Prices, ATR and equity must be finite and positive")
+    if available_cash is not None and (not math.isfinite(available_cash) or available_cash < 0):
+        return RiskValidation(False, 0.0, 0.0, 0.0, "Available cash must be finite and non-negative")
+
     if stop_loss >= entry_price:
         return RiskValidation(
             approved=False, quantity=0.0, risk_amount=0.0, rrr=0.0,
@@ -173,12 +179,6 @@ def validate_trade(
 
     quantity = risk_amount / risk_per_share
 
-    # Drawdown protocol: if portfolio is down >10%, halve position size
-    if is_drawdown_mode:
-        quantity *= 0.5
-        risk_amount *= 0.5
-        logger.warning("Drawdown mode active — position size halved")
-
     # Cap position value at max_position_pct of equity and at available cash —
     # risk-based sizing alone is unbounded (a tight stop yields a position the
     # portfolio can't fund, which would silently fail at execution).
@@ -233,7 +233,13 @@ def validate_trade(
                 ),
             )
 
-    if quantity <= 0:
+    # Apply after every cap; otherwise the value cap can cancel the reduction.
+    if is_drawdown_mode:
+        quantity *= 0.5
+        risk_amount *= 0.5
+        logger.warning("Drawdown mode active — final position size halved")
+
+    if not math.isfinite(quantity) or quantity <= 0:
         return RiskValidation(
             approved=False, quantity=0.0, risk_amount=0.0, rrr=rrr,
             rejection_reason="Computed quantity is zero — insufficient portfolio equity",
@@ -259,5 +265,4 @@ def compute_position_size(
         return 0.0
     risk_sek = portfolio_equity * settings.max_risk_per_trade
     return risk_sek / risk_per_share
-
 

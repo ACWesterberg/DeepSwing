@@ -9,8 +9,8 @@ way to ask "is this prompt better" was to trade it.
 Persisted PASS/BLOCKED decisions already carry everything needed to ask offline.
 `Decision.entry_inputs` holds the exact five DSPy fields the program was called
 with, `price` and `atr` pin the decision-time state, and `_label_forward_path`
-derives the ground-truth R from what the underlying then did — mirroring the
-live exit policy, breakeven floor included. Replaying is the same
+derives net R using the shared daily execution engine, including costs, gaps,
+trailing stops and breakeven. Daily bars approximate live polling. Replaying is the same
 `program(**entry_inputs)` call the live path makes.
 
 Two phases, deliberately separate: building the corpus is network-bound (one
@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -30,6 +31,8 @@ from config.settings import settings
 from src.portfolio.metrics import decision_metric
 
 logger = logging.getLogger(__name__)
+CORPUS_VERSION = 2
+DECISION_INPUTS = ("technicals", "regime", "news_summary", "macro_context", "heuristics")
 
 
 @dataclass
@@ -42,6 +45,8 @@ class ReplayExample:
     entry_inputs: dict
     label: str          # BUY (setup paid) | PASS (it didn't)
     r_multiple: float   # ground-truth R, the unit the live metric uses
+    plan_path: dict | None = None   # optional frozen OHLC + execution policy
+    source_action: str = ""
 
 
 @dataclass
@@ -162,13 +167,14 @@ def build_corpus(
     max_per_ticker: int = 5,
     max_tickers: int = 150,
     on_progress: Optional[Callable[[list["ReplayExample"]], None]] = None,
+    plans: bool = False,
 ) -> list[ReplayExample]:
     """Label aged PASS/BLOCKED decisions from what the price actually did."""
     # Local: labelling needs the live pipeline, but scoring must not — keeping
     # these out of module scope is what lets the reference predictors below run
     # without dspy installed, so the harness can be validated with no model.
     from src.db import Decision
-    from src.scheduler.optimizer import _label_forward_path
+    from src.agent.outcomes import label_forward_path
 
     horizon = timedelta(days=horizon_days or settings.counterfactual_horizon_days)
     cutoff = datetime.utcnow() - horizon
@@ -176,7 +182,7 @@ def build_corpus(
     session = _session_for(db_path)
     try:
         q = session.query(Decision).filter(
-            Decision.action.in_(("PASS", "BLOCKED")),
+            Decision.action.in_(("BUY", "PASS", "BLOCKED") if plans else ("PASS", "BLOCKED")),
             Decision.entry_inputs.isnot(None),
             Decision.price.isnot(None),
             Decision.timestamp <= cutoff,
@@ -190,6 +196,7 @@ def build_corpus(
                 "track": r.track, "ticker": r.ticker, "market": r.market,
                 "price": r.price, "atr": r.atr, "timestamp": r.timestamp,
                 "entry_inputs": r.entry_inputs,
+                "source_action": r.action,
             }
             for r in q.order_by(Decision.timestamp.desc()).all()
         ]
@@ -218,14 +225,33 @@ def build_corpus(
             if len(window) < 3 or window["Close"].dropna().empty:
                 continue
 
-            labelled = _label_forward_path(window, row["price"], row["atr"])
+            plan_path = None
+            if plans:
+                from src.agent.plan_replay import freeze_path
+                # Final daily bar must be complete; reject obviously truncated histories.
+                mature_at = datetime.combine(end + timedelta(days=1), datetime.min.time())
+                if datetime.utcnow() < mature_at or (window.index[0].date() - start).days > 7 or (end - window.index[-1].date()).days > 7:
+                    continue
+                try:
+                    plan_path = freeze_path(window, row["price"], row["atr"], row["market"], row["timestamp"])
+                    from src.agent.portfolio_replay import PortfolioPolicy
+                    plan_path["portfolio_policy"] = asdict(PortfolioPolicy.current())
+                    history = df[df.index.date < start].tail(61)
+                    plan_path["history"] = [{"date": stamp.date().isoformat(), "close": float(bar["Close"])}
+                                            for stamp, bar in history.iterrows()]
+                except (ValueError, TypeError, KeyError):
+                    logger.warning("Skipping %s: incomplete or invalid plan path", row["ticker"])
+                    continue
+
+            labelled = label_forward_path(window, row["price"], row["atr"], row["market"])
             if labelled is None:
-                continue  # ambiguous drift, or no risk denominator
+                continue  # no valid risk denominator
             label, r = labelled
             corpus.append(ReplayExample(
                 track=row["track"], ticker=row["ticker"], market=row["market"],
                 timestamp=row["timestamp"].isoformat(),
                 entry_inputs=row["entry_inputs"], label=label, r_multiple=r,
+                plan_path=plan_path, source_action=row["source_action"],
             ))
             if on_progress and len(corpus) % 50 == 0:
                 on_progress(corpus)
@@ -240,12 +266,15 @@ def build_corpus(
 
 def save_corpus(corpus: Iterable[ReplayExample], path: Path) -> int:
     rows = [asdict(e) for e in corpus]
-    Path(path).write_text(json.dumps(rows, indent=2))
+    Path(path).write_text(json.dumps({"version": CORPUS_VERSION, "examples": rows}, indent=2, allow_nan=False))
     return len(rows)
 
 
 def load_corpus(path: Path) -> list[ReplayExample]:
-    return [ReplayExample(**r) for r in json.loads(Path(path).read_text())]
+    data = json.loads(Path(path).read_text())
+    if not isinstance(data, dict) or data.get("version") != CORPUS_VERSION:
+        raise ValueError("Outdated replay corpus: rebuild it to use net execution outcomes.")
+    return [ReplayExample(**r) for r in data["examples"]]
 
 
 # --- scoring -----------------------------------------------------------------
@@ -280,14 +309,7 @@ def score_program(
     predict: Callable[[ReplayExample], str],
     name: str = "program",
 ) -> ReplayResult:
-    """
-    Run `predict` over the corpus and score it exactly as MIPRO would.
-
-    Reports the metric *and* the realised R behind it. The metric alone hides
-    the do-nothing degenerate: PASS scores exactly 0.5 on every example, so a
-    program that never buys lands at 0.5 regardless of the corpus. Precision,
-    recall and total R are what distinguish "correctly cautious" from "inert".
-    """
+    """Score a complete evaluation; errors must never masquerade as PASS."""
     if not corpus:
         raise ValueError("empty corpus — build it first")
 
@@ -296,7 +318,14 @@ def score_program(
     r_taken: list[float] = []
 
     for ex in corpus:
-        action = str(predict(ex)).upper()
+        if not math.isfinite(ex.r_multiple) or ex.label != oracle(ex):
+            raise ValueError(f"Invalid outcome for {ex.ticker}; rebuild the corpus.")
+        try:
+            action = str(predict(ex)).upper()
+        except Exception as exc:
+            raise RuntimeError(f"Replay failed for {name}: {ex.ticker} at {ex.timestamp}") from exc
+        if action not in ("BUY", "PASS"):
+            raise ValueError(f"Invalid replay action {action!r} for {ex.ticker}")
         example = type("E", (), {"r_multiple": ex.r_multiple})()
         total_metric += decision_metric(example, _Prediction(action))
 
@@ -340,17 +369,12 @@ def always_pass(_: ReplayExample) -> str:
 
 def oracle(example: ReplayExample) -> str:
     """Upper bound: takes exactly the setups that paid."""
-    return example.label
+    return "BUY" if example.r_multiple > 0 else "PASS"
 
 
 def dspy_program(program) -> Callable[[ReplayExample], str]:
     """Wrap a compiled or baseline DSPy program as a predictor."""
     def _predict(example: ReplayExample) -> str:
-        try:
-            result = program(**example.entry_inputs)
-            action = str(result.action).upper()
-            return action if action in ("BUY", "PASS") else "PASS"
-        except Exception as exc:
-            logger.warning("Replay call failed for %s: %s", example.ticker, exc)
-            return "PASS"
+        result = program(**{key: example.entry_inputs[key] for key in DECISION_INPUTS})
+        return str(result.action).upper()
     return _predict

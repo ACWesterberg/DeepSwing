@@ -405,6 +405,7 @@ class TestHeuristicStoreBehavior:
         path = tmp_path / "claude" / f"{heuristic_id}.json"
         data = json.loads(path.read_text())
         data["access_count"] = 10
+        data["outcome_count"] = 2
         path.write_text(json.dumps(data))
 
         store.promote_core(access_threshold=10)

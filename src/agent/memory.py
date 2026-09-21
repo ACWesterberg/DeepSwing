@@ -30,7 +30,7 @@ def _hours_since(iso_ts: Optional[str], now: datetime) -> float:
 _STOPWORDS = frozenset("""
 a an the and or but if then than that this these those is are was were be been
 being to of in on at by for with from as its it their there when while during
-not no do does than into over under above below out up down
+do does than into out up down
 """.split())
 
 _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
@@ -45,7 +45,10 @@ def canonical_tokens(text: str) -> frozenset[str]:
     and each was written from a single trade's post-mortem. Compared as written
     they look distinct; with the numbers gone they are visibly one rule.
     """
-    stripped = _NUMBER_RE.sub(" ", (text or "").lower())
+    normalized = re.sub(r"\b(?:cannot|can't|don't|doesn't)\b", "not", (text or "").lower())
+    for symbol, word in ((">=", "atleast"), ("<=", "atmost"), (">", "above"), ("<", "below")):
+        normalized = normalized.replace(symbol, f" {word} ")
+    stripped = _NUMBER_RE.sub(" ", normalized)
     words = re.findall(r"[a-z%]+", stripped)
     return frozenset(w for w in words if w not in _STOPWORDS and len(w) > 1)
 
@@ -54,6 +57,10 @@ def similarity(a: str, b: str) -> float:
     """Jaccard overlap of two heuristics' canonical tokens, 0.0-1.0."""
     ta, tb = canonical_tokens(a), canonical_tokens(b)
     if not ta or not tb:
+        return 0.0
+    # High word overlap cannot establish equivalence across opposite advice.
+    operators = {"not", "no", "never", "without", "above", "below", "over", "under", "atleast", "atmost"}
+    if ta & operators != tb & operators:
         return 0.0
     return len(ta & tb) / len(ta | tb)
 
@@ -387,7 +394,9 @@ class HeuristicStore:
                         h["is_core"] = False
                         path.write_text(json.dumps(h, indent=2))
                         demoted += 1
-                elif h.get("access_count", 0) >= access_threshold and quality >= quality_threshold:
+                elif (h.get("access_count", 0) >= access_threshold
+                      and h.get("outcome_count", 0) >= MIN_CORROBORATION
+                      and quality >= quality_threshold):
                     h["is_core"] = True
                     path.write_text(json.dumps(h, indent=2))
                     promoted += 1

@@ -156,18 +156,18 @@ class TestComputeMetrics:
         expected = sum(t.pnl for t in trades)
         assert m["total_pnl"] == pytest.approx(expected, rel=1e-3)
 
-    def test_optimization_metric_is_win_rate_times_avg_rrr(self):
+    def test_optimization_metric_is_net_expectancy(self):
         trades = [_make_closed_trade(0.09), _make_closed_trade(-0.03)]
         m = _compute_metrics(trades, 100_000)
-        assert m["optimization_metric"] == pytest.approx(m["win_rate"] * m["avg_rrr"], rel=1e-3)
+        assert m["optimization_metric"] == pytest.approx(m["avg_rrr"], rel=1e-3)
 
     def test_max_drawdown_is_non_negative(self):
         trades = [_make_closed_trade(-0.05), _make_closed_trade(-0.05)]
         m = _compute_metrics(trades, 100_000)
         assert m["max_drawdown_pct"] >= 0
 
-    def test_end_of_window_trades_excluded_from_win_rate(self):
-        """Positions forced-closed at window end shouldn't count as losses."""
+    def test_end_of_window_trades_included_in_outcomes(self):
+        """Every executed exit must contribute its outcome."""
         normal = _make_closed_trade(0.05)
         eow = BacktestTrade(
             ticker="X", entry_date=date(2024, 1, 1), entry_price=100.0,
@@ -175,7 +175,7 @@ class TestComputeMetrics:
             stop_loss=97.0, target=109.0, quantity=10.0,
         )
         m = _compute_metrics([normal, eow], 100_000)
-        assert m["total_trades"] == 1  # only the normal close counted
+        assert m["total_trades"] == 2
 
 
 # ---------------------------------------------------------------------------

@@ -43,11 +43,19 @@ class TestCorePromotion:
         assert promoted == 0
         assert _read(tmp_path, "claude", hid)["is_core"] is False
 
+    def test_high_self_rating_and_exposure_are_not_evidence(self, tmp_path):
+        from src.agent.memory import get_store
+        store = get_store("claude")
+        hid = store.save(trigger="A", action="B", quality_score=9.0)
+        _write(tmp_path, "claude", hid, access_count=50, outcome_count=0)
+        assert store.promote_core() == (0, 0)
+        assert not _read(tmp_path, "claude", hid)["is_core"]
+
     def test_popular_and_proven_is_promoted(self, tmp_path):
         from src.agent.memory import get_store
         store = get_store("claude")
         hid = store.save(trigger="A", action="B", quality_score=7.0)
-        _write(tmp_path, "claude", hid, access_count=10)
+        _write(tmp_path, "claude", hid, access_count=10, outcome_count=2)
 
         promoted, _ = store.promote_core()
         assert promoted == 1
@@ -183,6 +191,23 @@ class TestSkippedSetupScoring:
             assert self._run() == 1
 
         assert _read(tmp_db, "claude", hid)["quality_score"] > 5.0
+
+    def test_real_and_counterfactual_losses_have_the_same_feedback_weight(self, tmp_db):
+        from src.agent.memory import get_store
+        from src.portfolio.simulator import Portfolio
+        store = get_store("claude")
+        real_id = store.save(trigger="real", action="buy", quality_score=5.0)
+        hypothetical_id = store.save(trigger="hypothetical", action="buy", quality_score=5.0)
+        portfolio = Portfolio("claude")
+        position = portfolio.open_trade("AAPL", "us", 1, 100, 97, 107.5, "trending", "", 0.5)
+        trade = portfolio.close_trade(position.trade_id, 94, "stop_loss")
+        store.record_outcome([real_id], trade.pnl_pct)
+        self._seed("AAPL", [hypothetical_id], action="BLOCKED")
+        with patch("src.data.market_data.fetch_ohlcv", return_value=self._bars([94.0] * 20)):
+            assert self._run() == 1
+        assert _read(tmp_db, "claude", real_id)["quality_score"] == pytest.approx(
+            _read(tmp_db, "claude", hypothetical_id)["quality_score"]
+        )
 
     def test_scoring_is_idempotent(self, tmp_db):
         from src.agent.memory import get_store

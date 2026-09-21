@@ -232,7 +232,7 @@ class Settings(BaseSettings):
     # over the horizon, so the optimizer also learns from setups it declined —
     # without this the trainset only contains taken trades (survivorship bias).
     counterfactual_horizon_days: int = 14        # calendar days of forward price data
-    counterfactual_buy_threshold: float = 0.03   # fwd return >= 3% labels the PASS as a missed BUY
+    counterfactual_buy_threshold: float = 0.03   # legacy env compatibility; labels now use net R > 0
     counterfactual_max_examples: int = 200       # absolute ceiling on counterfactual volume
     # Counterfactuals used to be capped at parity with real trades, which tied
     # the trainset to the scarcest input: a live run discarded 60 of 90 labelled
@@ -241,6 +241,16 @@ class Settings(BaseSettings):
     # and are labelled from price data alone, so cap them as a multiple instead.
     # MIN_REAL_EXAMPLES already stops a trainset that is purely hindsight.
     counterfactual_ratio_cap: float = 4.0        # max counterfactuals per real trade
+
+    # Promotion uses an untouched, purged temporal test slice after MIPRO selection.
+    mipro_min_train_examples: int = Field(default=20, ge=1)
+    mipro_min_validation_examples: int = Field(default=10, ge=1)
+    promotion_min_examples: int = Field(default=20, ge=2)
+    promotion_min_tickers: int = Field(default=10, ge=2)
+    promotion_min_days: int = Field(default=5, ge=2)
+    promotion_min_buys: int = Field(default=5, ge=1)
+    promotion_min_metric_gain: float = Field(default=0.01, gt=0, lt=1)
+    promotion_bootstrap_samples: int = Field(default=1000, ge=100)
 
     # Housekeeping: decisions accumulate ~1k rows/day at 15-min scans; prune rows
     # older than this during weekly maintenance (0 disables). Counterfactual

@@ -67,6 +67,13 @@ _INPUTS = {"technicals": "RSI=55", "regime": "trending", "news_summary": "n",
            "macro_context": "m", "heuristics": "h"}
 
 
+def _net_r(exit_quote: float) -> float:
+    entry = 100.0 * (1 + settings.simulated_slippage)
+    exit_fill = exit_quote * (1 - settings.simulated_slippage)
+    fees = (entry + exit_fill) * (settings.commission_pct + settings.fx_commission_pct)
+    return (exit_fill - entry - fees) / (entry - 97.0)
+
+
 class TestCounterfactualExamples:
     def _build(self, max_examples: int = 30):
         from src.scheduler.optimizer import _build_counterfactual_examples
@@ -82,7 +89,7 @@ class TestCounterfactualExamples:
         assert len(examples) == 1
         assert examples[0]["action"] == "BUY"
         # R, not raw return: +10% against a 1.5xATR = 3% risk basis
-        assert examples[0]["pnl"] == pytest.approx(0.10 / 0.03)
+        assert examples[0]["pnl"] == pytest.approx(_net_r(110.0))
         assert examples[0]["inputs"] == _INPUTS
 
     def test_correct_pass_labeled_pass(self, tmp_db):
@@ -92,14 +99,16 @@ class TestCounterfactualExamples:
             examples = self._build()
         assert len(examples) == 1
         assert examples[0]["action"] == "PASS"
-        assert examples[0]["pnl"] == pytest.approx(-0.06 / 0.03)
+        assert examples[0]["pnl"] == pytest.approx(_net_r(94.0))
 
-    def test_ambiguous_drift_skipped(self, tmp_db):
-        # +1% forward return: between 0 and the 3% threshold → no clean label
+    def test_small_net_winner_is_retained(self, tmp_db):
+        # Small outcomes still carry evidence; label by net payoff, not a return threshold.
         _seed_decision("AAPL", price=100.0, days_ago=30, entry_inputs=_INPUTS)
         df = _price_df(datetime.utcnow() - timedelta(days=29), 40, close=101.0)
         with patch("src.data.market_data.fetch_ohlcv", return_value=df):
-            assert self._build() == []
+            examples = self._build()
+        assert examples[0]["action"] == "BUY"
+        assert examples[0]["pnl"] == pytest.approx(_net_r(101.0))
 
     def test_recent_decisions_excluded(self, tmp_db):
         # Younger than the horizon — no forward window yet
@@ -150,6 +159,14 @@ class TestCounterfactualExamples:
         with patch("src.data.market_data.fetch_ohlcv", return_value=None):
             assert self._build() == []
 
+    def test_ticker_sampling_preserves_chronological_example_order(self, tmp_db):
+        for ticker, days in [("A", 30), ("B", 31), ("A", 32), ("B", 33)]:
+            _seed_decision(ticker, price=100, days_ago=days, entry_inputs={**_INPUTS, "age": days})
+        df = _price_df(datetime.utcnow() - timedelta(days=40), 50, close=110)
+        with patch("src.data.market_data.fetch_ohlcv", return_value=df):
+            examples = self._build()
+        assert [e["inputs"]["age"] for e in examples] == [33, 32, 31, 30]
+
 
 class TestCounterfactualPathSimulation:
     """With ATR persisted, the label comes from the simulated stop/target path,
@@ -172,8 +189,8 @@ class TestCounterfactualPathSimulation:
         examples = self._run([(101, 99, 100), (103, 100, 102), (107, 102, 106), (110, 106, 109)])
         assert len(examples) == 1
         assert examples[0]["action"] == "BUY"
-        # Denominated in R, so the expectation is min_rrr itself.
-        assert examples[0]["pnl"] == pytest.approx(settings.min_rrr)
+        # Target proceeds are net of entry/exit slippage and commissions.
+        assert examples[0]["pnl"] == pytest.approx(_net_r(100 + 3 * settings.min_rrr))
 
     def test_stop_first_rally_is_correct_pass(self, tmp_db):
         # Dips through the stop (97) before rallying to 115 — horizon-close
@@ -181,7 +198,7 @@ class TestCounterfactualPathSimulation:
         examples = self._run([(100, 96, 98), (105, 98, 104), (116, 104, 115), (116, 114, 115)])
         assert len(examples) == 1
         assert examples[0]["action"] == "PASS"
-        assert examples[0]["pnl"] == pytest.approx(-1.0)  # a full unit of risk
+        assert examples[0]["pnl"] == pytest.approx(_net_r(97.0))
 
     def test_both_hit_same_bar_stop_wins(self, tmp_db):
         examples = self._run([(107, 96, 105), (108, 104, 107), (108, 105, 107)])
@@ -194,7 +211,7 @@ class TestCounterfactualPathSimulation:
         assert len(examples) == 1
         assert examples[0]["action"] == "BUY"
         # +4% against a 1.5xATR = 3% risk basis
-        assert examples[0]["pnl"] == pytest.approx(0.04 / 0.03)
+        assert examples[0]["pnl"] == pytest.approx(_net_r(104.0))
 
 
 class TestDecisionPersistenceDedupe:
@@ -469,3 +486,45 @@ class TestNewsPrefilterCompanyName:
         from src.agent.news_analyzer import _prefilter
         articles = [{"headline": "Company earnings beat expectations"}]
         assert _prefilter("ZZZZ", articles) == articles
+
+
+class TestPlanCorpus:
+    def test_freezes_executed_and_skipped_opportunities_with_native_prices(self, tmp_db, monkeypatch):
+        from src.agent import replay
+        from src.agent.plan_replay import score_plans
+        _seed_decision('TAKEN', 100, 30, _INPUTS, action='BUY')
+        _seed_decision('SKIPPED', 100, 30, _INPUTS, action='PASS')
+        _seed_decision('OLD', 100, 30, None, action='BUY')
+        frame = pd.DataFrame({'Open': 100, 'High': 110, 'Low': 99, 'Close': 105},
+                             index=pd.date_range((datetime.utcnow() - timedelta(days=35)).date(), periods=35))
+        monkeypatch.setattr(replay, '_batch_prices', lambda rows: {r['ticker']: frame for r in rows})
+        corpus = replay.build_corpus(track='claude', plans=True)
+        assert {e.source_action for e in corpus} == {'BUY', 'PASS'}
+        assert len(corpus) == 2
+        assert all(e.plan_path['price'] == 100 for e in corpus)
+        assert score_plans(corpus, reference='always_buy')['buys'] == 2
+        from src.scheduler import optimizer
+        monkeypatch.setattr(optimizer, '_make_example', lambda inputs, action, r: {**inputs, 'action': action, 'r_multiple': r})
+        examples = optimizer._build_plan_examples('claude')
+        assert {e['source'] for e in examples} == {'real', 'counterfactual'}
+        assert all(e['plan_path'] and e['label_available_at'] > e['decision_time'] for e in examples)
+
+    def test_close_only_history_is_not_silently_used_for_plan_scoring(self, tmp_db, monkeypatch):
+        from src.agent import replay
+        _seed_decision('TAKEN', 100, 30, _INPUTS, action='BUY')
+        frame = _price_df(datetime.utcnow() - timedelta(days=35), 35, 105)
+        monkeypatch.setattr(replay, '_batch_prices', lambda rows: {'TAKEN': frame})
+        assert replay.build_corpus(track='claude', plans=True) == []
+
+    def test_buy_inputs_survive_an_earlier_same_day_pass(self, tmp_db):
+        from src.scheduler.scan_loop import _persist_decisions
+        from src.db import Decision, get_session
+        rows = [dict(track='claude', ticker='TAKEN', action=action, price=100, atr=2, entry_inputs=_INPUTS)
+                for action in ('PASS', 'BUY')]
+        _persist_decisions('us', rows)
+        session = get_session()
+        try:
+            buys = session.query(Decision).filter(Decision.action == 'BUY').all()
+            assert len(buys) == 1 and buys[0].entry_inputs == _INPUTS
+        finally:
+            session.close()

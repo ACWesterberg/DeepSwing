@@ -16,8 +16,8 @@ Two phases, because they bottleneck on different things:
     python3 scripts/replay_decisions.py score --reference
 
     # then: score real programs (LLM-bound)
-    python3 scripts/replay_decisions.py score --program baseline
-    python3 scripts/replay_decisions.py score --program compiled/claude_trade_decision.json
+    python3 scripts/replay_decisions.py score --track claude --program baseline
+    python3 scripts/replay_decisions.py score --track claude --program compiled/claude_trade_decision.json
 
 Read `--reference` output first. It runs oracle / always-buy / always-pass,
 which need no model. If those three don't order sensibly, the harness is broken
@@ -26,6 +26,7 @@ and nothing it says about a real prompt means anything.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 from pathlib import Path
@@ -59,6 +60,7 @@ def _build(args) -> int:
         max_per_ticker=args.max_per_ticker,
         max_tickers=args.max_tickers,
         on_progress=_checkpoint,
+        plans=args.plans,
     )
     if not corpus:
         print("No labellable decisions found.\n"
@@ -77,11 +79,51 @@ def _build(args) -> int:
 
 
 def _score(args) -> int:
+    portfolio_mode = getattr(args, "portfolio", False)
+    if portfolio_mode and not args.track:
+        print("Portfolio replay requires --track claude or --track gpt.")
+        return 2
+    if args.program and not args.track:
+        print("Model evaluation requires --track claude or --track gpt.")
+        return 2
     path = Path(args.corpus)
     if not path.exists():
         print(f"No corpus at {path} — run `build` first.")
         return 1
-    corpus = load_corpus(path)
+    try:
+        corpus = load_corpus(path)
+    except ValueError as exc:
+        print(f"Evaluation aborted: {exc}")
+        return 2
+
+    if args.plans or portfolio_mode:
+        from src.agent.plan_replay import score_plans
+        from src.agent.portfolio_replay import score_portfolio
+        from src.agent.evaluation import corpus_fingerprint, write_json_atomic
+        from dataclasses import asdict
+        if args.track:
+            corpus = [e for e in corpus if e.track == args.track]
+        try:
+            results = {}
+            scorer = score_portfolio if portfolio_mode else score_plans
+            if args.reference:
+                for reference in ("always_buy", "always_pass"):
+                    results[reference] = scorer(corpus, reference=reference)
+            for spec in args.program or []:
+                results[spec] = scorer(corpus, _load_program(spec, args.track))
+            if not results:
+                raise ValueError("Pass --reference and/or --program")
+            report = {"scope": "isolated daily trade plans; fixed ATR risk unit; no portfolio capacity or LLM exits",
+                      "corpus_hash": corpus_fingerprint([asdict(e) for e in corpus]), "results": results}
+            if portfolio_mode:
+                report["scope"] = "portfolio replay of sampled opportunities; constant FX; daily entry-before-exit ordering"
+            if args.out:
+                write_json_atomic(Path(args.out), report)
+            print(json.dumps(report, indent=2, allow_nan=False))
+            return 0
+        except Exception as exc:
+            print(f"Plan evaluation aborted: {exc}")
+            return 2
 
     results = []
     if args.reference:
@@ -91,8 +133,12 @@ def _score(args) -> int:
             score_program(corpus, always_buy, "always-buy"),
             score_program(corpus, always_pass, "always-pass"),
         ]
-    for spec in args.program or []:
-        results.append(score_program(corpus, dspy_program(_load_program(spec)), spec))
+    try:
+        for spec in args.program or []:
+            results.append(score_program(corpus, dspy_program(_load_program(spec, args.track)), spec))
+    except (ValueError, RuntimeError) as exc:
+        print(f"Evaluation aborted: {exc}")
+        return 2
 
     if not results:
         print("Nothing to score — pass --reference and/or --program.")
@@ -112,14 +158,24 @@ def _score(args) -> int:
     return 0
 
 
-def _load_program(spec: str):
+def _load_program(spec: str, track: str):
     import dspy
 
-    from src.agent.decision import TradeDecision
+    from config.settings import settings
+    from src.agent.decision import TradeDecision, build_lm
+
+    if track == "claude":
+        key, model, effort = settings.anthropic_api_key, settings.claude_decision_model, ""
+    else:
+        key, model, effort = settings.openai_api_key, settings.gpt_decision_model, settings.gpt_decision_reasoning_effort
+    if not key:
+        raise ValueError(f"No API key configured for the {track} track")
 
     program = dspy.Predict(TradeDecision)
     if spec != "baseline":
         program.load(spec)
+    # Override any LM stored in a compiled artifact, so comparisons use one model.
+    program.set_lm(build_lm(track, model, key, reasoning_effort=effort))
     return program
 
 
@@ -142,14 +198,19 @@ def main() -> int:
     b.add_argument("--max-tickers", type=int, default=150, dest="max_tickers")
     b.add_argument("--horizon", type=int, help="forward days (default: settings)")
     b.add_argument("--out", default=str(_DEFAULT_CACHE))
+    b.add_argument("--plans", action="store_true", help="include BUY decisions and freeze full OHLC paths for plan scoring")
     b.set_defaults(func=_build)
 
     s = sub.add_parser("score", help="run programs over the cached corpus")
     s.add_argument("--corpus", default=str(_DEFAULT_CACHE))
+    s.add_argument("--track", choices=("claude", "gpt"), help="model used to evaluate every program")
     s.add_argument("--reference", action="store_true",
                    help="score oracle/always-buy/always-pass — no LLM calls")
     s.add_argument("--program", action="append",
                    help="'baseline' or a path to a compiled program JSON; repeatable")
+    s.add_argument("--plans", action="store_true", help="evaluate predicted stops and targets against frozen paths")
+    s.add_argument("--portfolio", action="store_true", help="replay a single track with shared cash, sizing and portfolio limits")
+    s.add_argument("--out", help="save the full plan evaluation JSON report")
     s.set_defaults(func=_score)
 
     args = parser.parse_args()

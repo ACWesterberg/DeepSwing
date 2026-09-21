@@ -343,9 +343,9 @@ class TestMinimumStopDistance:
         # stop that is too tight for an LSE name can be fine for a Swedish one.
         from src.portfolio.simulator import round_trip_cost_frac
         assert round_trip_cost_frac("nordic") < round_trip_cost_frac("eu")
-        tight = 0.004
+        tight = 0.012
         assert self._validate(tight, market="eu").approved is False
-        assert self._validate(tight, market="nordic", atr_pct=0.004).approved is True
+        assert self._validate(tight, market="nordic", atr_pct=0.01).approved is True
 
     def test_atr_floor_binds_on_a_volatile_name(self):
         # 1% stop is clear of the 0.6% cost floor but well inside half an ATR

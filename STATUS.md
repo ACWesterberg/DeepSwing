@@ -1,10 +1,38 @@
 # DeepSwing — Implementation Status
 
-Last updated: 2026-08-21
+Last updated: 2026-09-21
 
 ---
 
 ## Done ✅
+
+### Portfolio research replay (2026-09-21)
+
+- Offline `score --portfolio --track ...` adds a shared cash ledger, risk sizing, allocation caps, duplicate/sector/correlation checks and drawdown sizing to frozen plan comparisons.
+- Reports include dated NAV with unrealized drawdown, stale marks, entry/rejection decisions, fees and reconciled trade accounting. Same-day exit proceeds cannot fund earlier entries.
+- New plan corpora freeze portfolio settings and historical closes. Future decisions record sectors; missing sector/correlation coverage is explicit.
+- Constant-FX normalized prices and sampled opportunities make this a research diagnostic. Scheduled automatic promotion still uses held-out isolated-plan scores.
+
+### Predicted trade-plan evaluation (2026-09-21)
+
+- Scheduled optimization and promotion now score actual predicted stops/targets over frozen OHLC paths, including static risk rejection, costs, gaps, trailing stops and breakeven.
+- BUY/PASS/BLOCKED examples share one execution horizon and a fixed ATR risk denominator; paths stay outside model inputs. Evidence includes frozen settings, bars, code hash and individual plan outcomes.
+- Successful BUY decisions now preserve native entry quote, ATR and model inputs. Incomplete historical records are excluded, so optimization may wait for fresh evidence.
+- Offline `build --plans` / `score --plans` supports reproducible plan comparisons. Results measure isolated daily-bar opportunities, not portfolio returns or proven prompt profitability.
+
+### Learning-system correctness pass (2026-09-21)
+
+- Replay configures an explicit track model and aborts on failed/invalid predictions; internal heuristic IDs are excluded from model inputs. Version-2 replay corpora reject old gross-outcome caches with a rebuild message.
+- `src/portfolio/daily.py` supplies shared daily execution for backtests and counterfactual labels: net costs, gap fills, trailing stops, and cost-covering breakeven. Labels follow net R, including small horizon outcomes. Intraday polling remains an approximation outside this daily model.
+- Backtests process existing holdings before close-price entries, preventing earlier same-day lows from exiting new positions. Reported wins, R, expectancy and forced horizon closes now use consistent net outcomes.
+- Drawdown halves the final capped position size. Risk and live execution reject non-finite values. The stop-cost floor now includes both commission legs and slippage.
+- Rule similarity preserves negation and comparison direction; core promotion requires measured outcomes. Counterfactual rule feedback uses percentage returns, matching actual-trade feedback.
+- Mechanical exits precede news/LLM reviews. New compiled artifacts are staged and validated before atomic replacement of the incumbent.
+- Counterfactual examples are restored to chronological order after ticker sampling. Global temporal train/validation/test boundaries now purge overlapping labels. A fresh-test promotion gate compares serialized candidates with the incumbent, baseline and trivial references; failed/rejected tests cannot be reused. Run evidence is saved under `compiled/evaluations/`.
+
+Validation: **616 tests passed**, including a fresh-process real-DSPy smoke test with a local dummy model and networking blocked. No paid calls, production data changes, retraining or deployment were performed.
+
+See [implementation progress](reviews/implementation-progress.md) for remaining work and the replay-cache migration.
 
 ### The objective had almost nothing to optimise against (2026-08-30)
 First real run of the replay harness (395 examples, 129 tickers, three batch

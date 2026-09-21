@@ -13,14 +13,34 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import shutil
+import uuid
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
 # What decisions made without a compiled program are grouped under. Every
 # compiled version has to beat this arm to have earned its place.
 BASELINE = "baseline"
+
+
+def save_compiled_program(program, path: Path, validate: Callable[[Path], None]) -> None:
+    """Validate a staged artifact before atomically replacing the incumbent."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    staged = path.with_name(f".{path.stem}_{uuid.uuid4().hex}.json")
+    try:
+        program.save(str(staged))
+        if not isinstance(json.loads(staged.read_text()), dict):
+            raise ValueError("Compiled program must be a JSON object")
+        validate(staged)
+        if path.exists():
+            stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
+            shutil.copy2(path, path.with_name(f"{path.stem}_{stamp}.json"))
+        staged.replace(path)
+    finally:
+        staged.unlink(missing_ok=True)
 
 
 def program_fingerprint(compiled_path: Path) -> str | None:

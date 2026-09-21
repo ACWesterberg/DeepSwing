@@ -62,10 +62,8 @@ class TestPnlWeightedMetric:
     def test_missing_r_defaults_to_neutral(self):
         assert _pnl_weighted_metric(SimpleNamespace(), _pred("BUY")) == pytest.approx(0.5)
 
-    def test_missing_action_treated_as_pass(self):
-        assert _pnl_weighted_metric(_example(2.0), SimpleNamespace()) == pytest.approx(
-            _pnl_weighted_metric(_example(2.0), _pred("PASS"))
-        )
+    def test_missing_action_is_penalized(self):
+        assert _pnl_weighted_metric(_example(-2.0), SimpleNamespace()) == 0.0
 
     def test_case_insensitive_action(self):
         assert _pnl_weighted_metric(_example(1.0), _pred("buy")) > 0.5
@@ -130,36 +128,6 @@ class TestMetricsByProgram:
         from src.portfolio.metrics import metrics_by_program
 
         assert metrics_by_program(SimpleNamespace(closed_trades=[])) == []
-
-
-class TestForwardSplit:
-    """The shuffle balanced the slices but let a validation example predate a
-    training one; splitting each group at its own boundary gives both."""
-
-    def test_each_group_is_split_on_its_own_time_boundary(self):
-        from src.scheduler.optimizer import _forward_split
-
-        real = [f"real{i}" for i in range(10)]          # chronological
-        counterfactual = [f"cf{i}" for i in range(10)]
-        train, val = _forward_split(real, counterfactual, val_frac=0.2)
-
-        # Both kinds appear in both slices — the problem the shuffle solved.
-        assert any(e.startswith("real") for e in val)
-        assert any(e.startswith("cf") for e in val)
-        # And validation is strictly later than training within each kind.
-        assert val == ["real8", "real9", "cf8", "cf9"]
-
-    def test_never_returns_an_empty_validation_set(self):
-        from src.scheduler.optimizer import _forward_split
-
-        train, val = _forward_split(["only"])
-        assert val and train
-
-    def test_empty_groups_are_skipped(self):
-        from src.scheduler.optimizer import _forward_split
-
-        train, val = _forward_split([f"a{i}" for i in range(5)], [])
-        assert len(train) + len(val) == 5
 
 
 class TestOptimizationGates:

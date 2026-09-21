@@ -94,6 +94,23 @@ See [SETUP.md](SETUP.md) for full Raspberry Pi deployment and custom domain (Clo
 
 ## Documentation
 
+Run tests with `python -m pip install -r requirements-dev.txt` followed by
+`python -m pytest -q`. Market/provider calls are mocked in the unit suite; the
+DSPy integration test uses a local dummy model in a separate process with
+network connections blocked.
+
+The [improvement progress](reviews/implementation-progress.md) documents the
+2026-09-21 correctness and prompt-promotion improvements, including the required
+rebuild of old replay caches. Optimizer candidates must pass a fresh temporal
+test before replacing an active prompt; reports and snapshots are saved under
+`compiled/evaluations/`. Scheduled optimization now evaluates predicted stops and targets on frozen
+daily price paths. Use replay `build --plans` and `score --plans` for the same
+plan evaluator; the default replay mode retains the older action-only score.
+Plan scores are isolated opportunity results. Offline `score --portfolio
+--track claude` replays the sampled opportunities with shared cash, risk sizing,
+allocation limits, correlation checks and dated NAV. It assumes constant FX and
+reports missing coverage; see the progress document for commands and limits.
+
 | Doc | What it covers |
 |---|---|
 | [CLAUDE.md](CLAUDE.md) | **Start here.** Purpose, every design decision and the failure that motivated it, models, risk rules, file map, learning loop |

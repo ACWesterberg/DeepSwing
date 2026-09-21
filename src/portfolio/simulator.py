@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable, Literal, Optional
@@ -42,12 +43,19 @@ def persist_portfolio(portfolio: "Portfolio") -> None:
         logger.warning("Portfolio persistence error [%s]: %s", portfolio.track, exc)
 
 
-def round_trip_cost_frac(market: str) -> float:
+def commission_per_leg(market: str) -> float:
     """Commission fraction charged on each leg, incl. the FX surcharge."""
     c = settings.commission_pct
     if market in ("us", "eu"):
         c += settings.fx_commission_pct
     return c
+
+
+def round_trip_cost_frac(market: str) -> float:
+    """Round-trip loss as a fraction of the unslipped entry quote at flat prices."""
+    c = commission_per_leg(market)
+    s = settings.simulated_slippage
+    return (1 + s) * (1 + c) - (1 - s) * (1 - c)
 
 
 def breakeven_from_costs(entry_price: float, commission_rate: float, slippage: float) -> float:
@@ -64,7 +72,7 @@ def breakeven_from_costs(entry_price: float, commission_rate: float, slippage: f
 
 def breakeven_price(entry_price: float, market: str) -> float:
     return breakeven_from_costs(
-        entry_price, round_trip_cost_frac(market), settings.simulated_slippage
+        entry_price, commission_per_leg(market), settings.simulated_slippage
     )
 
 
@@ -410,6 +418,11 @@ class Portfolio:
         trail_distance: float = 0.0,
         entry_fx_rate: float = 0.0,
     ) -> Optional[OpenPosition]:
+        if not all(math.isfinite(v) and v > 0 for v in (quantity, entry_price, stop_loss, target)):
+            logger.warning("[%s] Invalid execution values for %s", self.track, ticker)
+            return None
+        if not stop_loss < entry_price < target:
+            return None
         # Apply simulated slippage (adverse, so price moves against us)
         filled_price = entry_price * (1 + settings.simulated_slippage)
         cost = filled_price * quantity
@@ -467,6 +480,9 @@ class Portfolio:
         reasoning: str = "",
         confidence: float = 0.0,
     ) -> Optional[ClosedTrade]:
+        if not math.isfinite(exit_price) or exit_price <= 0:
+            logger.warning("[%s] Invalid exit price for trade %s", self.track, trade_id)
+            return None
         position = next((p for p in self.open_positions if p.trade_id == trade_id), None)
         if position is None:
             logger.warning("[%s] No open position with trade_id=%s", self.track, trade_id)
@@ -527,7 +543,7 @@ class Portfolio:
 
         for position in list(self.open_positions):
             price = prices.get(position.ticker)
-            if price is None:
+            if price is None or not math.isfinite(price) or price <= 0:
                 continue
 
             position.current_price = price

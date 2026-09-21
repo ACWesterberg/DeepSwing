@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import math
-
-import math
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -85,8 +83,8 @@ def compute_metrics(portfolio: "Portfolio") -> PerformanceMetrics:
             win_rate=0.0,
             avg_rrr=0.0,
             sharpe_ratio=0.0,
-            max_drawdown_pct=0.0,
-            total_return_pct=0.0,
+            max_drawdown_pct=_max_drawdown([portfolio.starting_equity, portfolio.equity]) * 100,
+            total_return_pct=(portfolio.equity / portfolio.starting_equity - 1) * 100,
             avg_trade_duration_days=0.0,
             optimization_metric=0.0,
         )
@@ -155,6 +153,7 @@ def _build_equity_curve(portfolio: "Portfolio") -> list[float]:
     for trade in sorted(portfolio.closed_trades, key=lambda t: t.exit_time):
         equity += trade.pnl
         curve.append(equity)
+    curve.append(portfolio.equity)
     return curve
 
 
@@ -231,6 +230,10 @@ def decision_metric(example, prediction, trace=None) -> float:
     the *oracle* now pulls clearly ahead of both, which is what selection needs.
     """
     pred_action = str(getattr(prediction, "action", "")).upper()
+    if pred_action not in ("BUY", "PASS"):
+        return 0.0
     r = float(getattr(example, "r_multiple", 0.0) or 0.0)
+    if not math.isfinite(r):
+        raise ValueError("Decision outcome must be finite")
     realized = r if pred_action == "BUY" else -r
     return 0.5 + 0.5 * math.tanh(realized * R_METRIC_SCALE)

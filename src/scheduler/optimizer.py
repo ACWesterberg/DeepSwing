@@ -9,22 +9,25 @@ have used.
 """
 from __future__ import annotations
 
-import json
 import logging
-from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Optional
+import json
+import uuid
+from datetime import datetime, timedelta
+from typing import Literal
 
 import dspy
 from dspy.teleprompt import MIPROv2
 
-if TYPE_CHECKING:
-    import pandas as pd
-
 from config.settings import settings
-from src.agent.compiled_program import BASELINE, program_fingerprint
+from src.agent.compiled_program import BASELINE, program_fingerprint, save_compiled_program
 from src.agent.decision import TradeDecision, build_lm
-from src.portfolio.metrics import compute_metrics, decision_metric
-from src.portfolio.simulator import breakeven_from_costs, get_portfolio
+from src.agent.evaluation import (
+    corpus_fingerprint, evaluate_program, promotion_decision, summarize_actions,
+    temporal_split, write_json_atomic,
+)
+from src.agent.outcomes import evaluate_forward_path, label_forward_path as _label_forward_path
+from src.portfolio.metrics import decision_metric
+from src.portfolio.simulator import get_portfolio
 
 # The metric lives in metrics.py so the offline replay harness can import it
 # without pulling in dspy; MIPRO and the harness must score identically.
@@ -80,60 +83,19 @@ def _make_example(inputs: dict, action: str, r_multiple: float) -> "dspy.Example
     ).with_inputs("technicals", "regime", "news_summary", "macro_context", "heuristics")
 
 
-def _label_forward_path(
-    window: "pd.DataFrame", price: float, atr: Optional[float]
-) -> Optional[tuple[str, float]]:
-    """
-    Label a PASS decision from the forward OHLC window, simulating the trade
-    the system would have taken (ATR stop, min-RRR target, stop-first on a
-    both-hit bar). A "missed winner" that would have traded through its stop
-    first is a correct PASS, not a missed BUY. Falls back to the horizon-close
-    return when ATR wasn't persisted or High/Low aren't available.
-    Returns (action, r_multiple) or None to skip (ambiguous drift, or a risk
-    denominator that can't be established). R rather than a raw return so
-    counterfactual examples are denominated the same way lived trades are.
-    """
-    # Two separate requirements: ATR gives the risk denominator that makes an
-    # R-multiple meaningful at all; High/Low additionally allow simulating the
-    # intraday path. Without High/Low we can still label from the close.
-    has_atr = atr is not None and atr > 0
-    has_path = has_atr and "High" in window.columns and "Low" in window.columns
-    if has_path:
-        stop = price - settings.atr_stop_multiplier * atr
-        risk = price - stop
-        target = price + settings.min_rrr * risk
-        arm_at = price + settings.breakeven_arm_atr_multiplier * atr
-        floor = breakeven_from_costs(price, settings.commission_pct, settings.simulated_slippage)
-        armed = False
-        for _, row in window.iterrows():
-            # Mirror the live exit policy, or hindsight examples carry a clean
-            # +min_rrr while real trades of the same setup carry a floored or
-            # trailed result — the metric would then reward BUY on the
-            # counterfactual half of the trainset for free.
-            effective_stop = max(stop, floor) if armed else stop
-            if row["Low"] <= effective_stop:
-                return "PASS", (effective_stop - price) / risk
-            if row["High"] >= target:
-                return "BUY", (target - price) / risk   # missed winner
-            # Arm from the close after the exit checks — within a bar the
-            # order of high and low is unknown (same rule as the backtester).
-            if not armed and settings.breakeven_arm_atr_multiplier > 0 and row["Close"] >= arm_at:
-                armed = True
+def _date_example(example, *, decision_time: datetime, available_at: datetime,
+                  ticker: str, market: str, source: str, example_id: str):
+    for key, value in {
+        "decision_time": decision_time.isoformat(), "label_available_at": available_at.isoformat(),
+        "ticker": ticker, "market": market, "source": source, "example_id": example_id,
+    }.items():
+        example[key] = value
+    return example
 
-    # No exit hit, or no High/Low to walk. Without ATR there is no risk to
-    # divide by, and inventing a denominator would hand hindsight examples a
-    # risk basis the lived half never got — the same bias the floor mirror
-    # above removes. PASS decisions have persisted their ATR since the
-    # counterfactual pipeline shipped, so this only skips pre-upgrade rows.
-    if not has_atr:
-        return None
-    risk_frac = settings.atr_stop_multiplier * atr / price
-    fwd_return = float(window["Close"].dropna().iloc[-1]) / price - 1.0
-    if fwd_return >= settings.counterfactual_buy_threshold:
-        return "BUY", fwd_return / risk_frac
-    if fwd_return <= 0.0:
-        return "PASS", fwd_return / risk_frac
-    return None  # ambiguous drift — noisy labels help nobody
+
+def _counterfactual_available_at(decision_time: datetime) -> datetime:
+    horizon_end = decision_time + timedelta(days=settings.counterfactual_horizon_days)
+    return horizon_end.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
 
 
 def score_heuristics_from_decisions(track: TrackType, max_decisions: int = 200) -> int:
@@ -208,10 +170,10 @@ def score_heuristics_from_decisions(track: TrackType, max_decisions: int = 200) 
             if len(window) < 3 or window["Close"].dropna().empty:
                 continue
 
-            labeled = _label_forward_path(window, row.price, row.atr)
-            if labeled is None:
-                continue  # ambiguous drift — leave unscored, it may resolve
-            _, fwd_return = labeled
+            outcome = evaluate_forward_path(window, row.price, row.atr, row.market)
+            if outcome is None:
+                continue
+            fwd_return = outcome.pnl_pct
 
             # A PASS is vindicated by a move that did not pay, so the signal is
             # the negation of the forward return. A BLOCKED BUY carried the
@@ -271,6 +233,7 @@ def _build_counterfactual_examples(track: TrackType, max_examples: int) -> list:
                 "price": r.price,
                 "atr": r.atr,
                 "timestamp": r.timestamp,
+                "id": r.id,
                 "entry_inputs": r.entry_inputs,
             }
             for r in rows
@@ -289,12 +252,16 @@ def _build_counterfactual_examples(track: TrackType, max_examples: int) -> list:
         decisions, limit=max_examples, max_per_ticker=5, max_tickers=150,
     )
 
+    decisions.sort(key=lambda d: d["timestamp"])
     examples: list = []
     ohlcv_cache: dict[str, object] = {}
     for d in decisions:
         if len(examples) >= max_examples:
             break
         ticker = d["ticker"]
+        available_at = _counterfactual_available_at(d["timestamp"])
+        if available_at > datetime.utcnow():
+            continue
         if ticker not in ohlcv_cache:
             try:
                 ohlcv_cache[ticker] = fetch_ohlcv(ticker, d["market"], period="6mo")
@@ -313,44 +280,20 @@ def _build_counterfactual_examples(track: TrackType, max_examples: int) -> list:
         if len(window) < 3 or window["Close"].dropna().empty:
             continue
 
-        labeled = _label_forward_path(window, d["price"], d.get("atr"))
+        labeled = _label_forward_path(window, d["price"], d.get("atr"), d["market"])
         if labeled is None:
             continue
         label, fwd_return = labeled
-        examples.append(_make_example(d["entry_inputs"], label, fwd_return))
+        examples.append(_date_example(
+            _make_example(d["entry_inputs"], label, fwd_return),
+            decision_time=d["timestamp"], available_at=available_at,
+            ticker=ticker, market=d["market"], source="counterfactual",
+            example_id=f"{track}:decision:{d['id']}",
+        ))
 
     logger.info("MIPRO [%s]: %d counterfactual examples from %d PASS decisions",
                 track, len(examples), len(decisions))
-    # Queried newest-first (to take the freshest N); the caller splits on time
-    # order, so hand them back oldest-first.
-    return list(reversed(examples))
-
-
-def _forward_split(*groups: list, val_frac: float = 0.2) -> tuple[list, list]:
-    """Hold out the most recent `val_frac` of each group, keeping time order.
-
-    A plain tail split put every counterfactual in the validation set, because
-    they are appended last — so the previous fix shuffled the whole trainset.
-    That balanced the slices but destroyed the temporal separation: a validation
-    example could predate a training one, which lets the selected instructions
-    be scored partly on setups they were effectively fitted to, and makes the
-    winning candidate's val score optimistic against true forward performance.
-
-    Splitting each group at its own boundary gives both properties at once —
-    every slice sees both kinds of example, and within each kind validation is
-    strictly later than training. Each group must arrive in chronological order.
-    """
-    train: list = []
-    val: list = []
-    for group in groups:
-        if not group:
-            continue
-        cut = max(1, int(len(group) * (1 - val_frac)))
-        train.extend(group[:cut])
-        val.extend(group[cut:])
-    if not val:  # tiny trainset — never hand MIPRO an empty validation set
-        val = train[-1:]
-    return train, val
+    return examples
 
 
 def run_mipro_optimization(track: TrackType) -> bool:
@@ -385,129 +328,196 @@ def run_mipro_optimization(track: TrackType) -> bool:
 
     logger.info("MIPRO [%s]: starting optimization with %d trades", track, len(trades))
 
-    # Build training examples from closed trades that captured their DSPy inputs
-    trainset = []
-    for t in trades:
-        inputs = getattr(t, "entry_inputs", None)
-        if not inputs:
-            continue  # Only trades that stored their DSPy inputs can be used
-        trainset.append(
-            _make_example(inputs, "BUY" if t.pnl_pct > 0 else "PASS", t.rrr_achieved)
-        )
-
-    if len(trainset) < MIN_REAL_EXAMPLES:
-        logger.info(
-            "MIPRO [%s]: only %d real examples, need %d — skipping",
-            track, len(trainset), MIN_REAL_EXAMPLES,
-        )
+    if sum(bool(getattr(t, "entry_inputs", None)) for t in trades) < MIN_REAL_EXAMPLES:
+        logger.info("MIPRO [%s]: insufficient real trades with recorded inputs", track)
         return False
-
-    # Augment with counterfactually-labeled PASS decisions. Capped as a multiple
-    # of the real trades rather than at parity: parity tied the trainset to the
-    # scarcest input, and a live run discarded 60 of 90 available labelled PASS
-    # decisions, leaving MIPRO to pick instructions on a 12-example validation
-    # split. PASS decisions accumulate far faster than closed trades and are
-    # labelled from price data alone, so the ratio lets the trainset grow with
-    # decisions while keeping lived outcomes materially represented.
-    counterfactuals: list = []
+    # All opportunities now use the same horizon/executor, including historical BUYs.
+    # Actual managed-trade returns cannot serve as labels for alternative plans.
     try:
-        counterfactuals = _build_counterfactual_examples(
-            track, counterfactual_cap(len(trainset))
-        )
+        examples = _build_plan_examples(track)
     except Exception as exc:
-        logger.warning("MIPRO [%s]: counterfactual build failed (continuing without): %s", track, exc)
-
-    total = len(trainset) + len(counterfactuals)
-    if total < MIN_EXAMPLES_FOR_OPTIMIZATION:
-        logger.info(
-            "MIPRO [%s]: %d examples (%d real + %d counterfactual), need %d — skipping",
-            track, total, len(trainset), len(counterfactuals), MIN_EXAMPLES_FOR_OPTIMIZATION,
-        )
+        logger.error("MIPRO [%s]: plan corpus build failed: %s", track, exc)
         return False
+    if len(examples) < MIN_EXAMPLES_FOR_OPTIMIZATION:
+        logger.info("MIPRO [%s]: insufficient complete plan paths", track)
+        return False
+    return _compile_and_evaluate(track, examples)
 
-    train, val = _forward_split(trainset, counterfactuals)
 
-    # Two roles: the task model runs the program against trades (many calls, so
-    # kept on the cheaper decision tier); the prompt model *writes* the candidate
-    # instructions (few calls, so given the heaviest reasoner for best prompts).
-    # build_lm applies the temperature/max_tokens that GPT-5-class models require.
-    if track == "claude":
-        task_lm = build_lm(track, settings.claude_decision_model, settings.anthropic_api_key)
-        prompt_lm = build_lm(track, settings.claude_prompt_model, settings.anthropic_api_key, max_tokens=4096)
-    else:
-        # The task model replays the program over the whole trainset — hundreds
-        # of calls — so it carries the same reasoning budget as the live scan
-        # decision it stands in for. The proposer writes a handful of candidate
-        # instructions and keeps the provider default: that is where the quality
-        # of the compiled prompt actually comes from.
-        task_lm = build_lm(
-            track,
-            settings.gpt_decision_model,
-            settings.openai_api_key,
-            reasoning_effort=settings.gpt_decision_reasoning_effort,
+def _build_plan_examples(track: TrackType) -> list:
+    from src.agent.replay import build_corpus
+    from src.agent.plan_replay import evaluate_plan, fixed_prediction
+    corpus = build_corpus(track=track, plans=True,
+                          limit=settings.counterfactual_max_examples + 500)
+    real = [e for e in corpus if e.source_action == "BUY"]
+    skipped = [e for e in corpus if e.source_action != "BUY"][:counterfactual_cap(len(real))]
+    examples = []
+    for row in real + skipped:
+        outcome = evaluate_plan(row.plan_path, fixed_prediction(row.plan_path))
+        decision_time = datetime.fromisoformat(row.timestamp)
+        example = _date_example(
+            _make_example(row.entry_inputs, "BUY" if outcome["net_r"] > 0 else "PASS", outcome["net_r"]),
+            decision_time=decision_time, available_at=_counterfactual_available_at(decision_time),
+            ticker=row.ticker, market=row.market, source="real" if row.source_action == "BUY" else "counterfactual",
+            example_id=f"{track}:{row.ticker}:{row.timestamp}",
         )
-        prompt_lm = build_lm(track, settings.gpt_prompt_model, settings.openai_api_key, max_tokens=4096)
+        example["plan_path"] = row.plan_path
+        examples.append(example)
+    return examples
 
-    program = dspy.Predict(TradeDecision)
 
+def _compile_and_evaluate(track: TrackType, examples: list) -> bool:
+    now = datetime.utcnow()
+    run_id = now.strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:8]
+    evaluation_dir = settings.compiled_dir / "evaluations" / track
+    run_dir = evaluation_dir / run_id
+    state_path = evaluation_dir / "state.json"
+    out_path = settings.compiled_dir / f"{track}_trade_decision.json"
+    report = {
+        "run_id": run_id, "track": track, "created_at": now.isoformat(), "status": "preparing",
+        "scope": "entry selection on stored outcomes; not a test of predicted stop/target payoff",
+    }
     try:
-        dspy.configure(lm=task_lm)
-        optimizer = MIPROv2(
-            metric=_pnl_weighted_metric,
-            prompt_model=prompt_lm,  # heavy reasoner writes the instructions
-            task_model=task_lm,      # decision-tier model evaluates candidates
-            auto="light",  # lighter optimization for Pi resources
-            num_threads=1,  # single-threaded for Pi 5
-        )
-        compiled = optimizer.compile(
-            program,
-            trainset=train,
-            valset=val,
-            requires_permission_to_run=False,
-        )
+        from src.agent.plan_replay import evaluate_plan_examples, plan_metric, validate_path
+        plan_mode = any(e.get("plan_path") is not None for e in examples)
+        if plan_mode:
+            for e in examples:
+                validate_path(e["plan_path"])
+            report["scope"] = "isolated daily trade plans; fixed ATR risk unit; no portfolio capacity or LLM exits"
+        state = json.loads(state_path.read_text()) if state_path.exists() else {}
+        if state_path.exists() and (not isinstance(state, dict) or state.get("version") != 1 or not state.get("last_test_time")):
+            raise ValueError("Invalid evaluation state; refusing to reuse possibly exposed test data")
+        split = temporal_split(examples, now=now, last_test_time=state.get("last_test_time"))
+        report["split"] = split.summary()
+        report["previous_test_watermark"] = state.get("last_test_time")
+        requirements = {
+            "training_examples": len(split.train) >= settings.mipro_min_train_examples,
+            "real_training_examples": sum(e["source"] == "real" for e in split.train) >= MIN_REAL_EXAMPLES,
+            "validation_examples": len(split.validation) >= settings.mipro_min_validation_examples,
+            "test_examples": len(split.test) >= settings.promotion_min_examples,
+            "test_tickers": report["split"]["test_tickers"] >= settings.promotion_min_tickers,
+            "test_days": report["split"]["test_days"] >= settings.promotion_min_days,
+        }
+        report["sample_checks"] = requirements
+        report["thresholds"] = {
+            key: getattr(settings, key) for key in (
+                "mipro_min_train_examples", "mipro_min_validation_examples", "promotion_min_examples",
+                "promotion_min_tickers", "promotion_min_days", "promotion_min_buys",
+                "promotion_min_metric_gain", "promotion_bootstrap_samples",
+            )
+        }
+        if not all(requirements.values()):
+            report["status"] = "skipped"
+            report["reason"] = "Insufficient fresh, non-overlapping evidence: " + ", ".join(k for k, v in requirements.items() if not v)
+            write_json_atomic(run_dir / "report.json", report)
+            logger.info("MIPRO [%s]: %s", track, report["reason"])
+            return False
 
-        out_path = settings.compiled_dir / f"{track}_trade_decision.json"
-        out_path.parent.mkdir(parents=True, exist_ok=True)
+        datasets = {name: [e.toDict() if hasattr(e, "toDict") else dict(e) for e in values]
+                    for name, values in (("train", split.train), ("validation", split.validation), ("test", split.test))}
+        report["corpus_hash"] = corpus_fingerprint([row for rows in datasets.values() for row in rows])
+        report["label_policy"] = {key: getattr(settings, key) for key in (
+            "counterfactual_horizon_days", "atr_stop_multiplier", "min_rrr", "commission_pct",
+            "fx_commission_pct", "simulated_slippage", "trailing_stop_atr_multiplier", "breakeven_arm_atr_multiplier",
+        )}
+        write_json_atomic(run_dir / "corpus.json", {"version": 1, "hash": report["corpus_hash"], "datasets": datasets})
 
-        # Archive previous
+        incumbent_hash = program_fingerprint(out_path)
+        if out_path.exists() and incumbent_hash is None:
+            raise ValueError("Cannot load the incumbent; refusing to substitute a baseline")
+        incumbent = dspy.Predict(TradeDecision)
         if out_path.exists():
-            from datetime import datetime
-            archive = settings.compiled_dir / f"{track}_trade_decision_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
-            out_path.rename(archive)
-            logger.info("MIPRO [%s]: archived previous compiled program to %s", track, archive.name)
+            incumbent.load(str(out_path))
+        report["incumbent_hash"] = incumbent_hash or BASELINE
+        incumbent.set_lm(None)
+        save_compiled_program(incumbent, run_dir / "incumbent.json",
+                              lambda p: dspy.Predict(TradeDecision).load(str(p)))
 
-        compiled.save(str(out_path))
-        logger.info("MIPRO [%s]: saved new compiled program to %s", track, out_path)
+        if track == "claude":
+            model, prompt_model = settings.claude_decision_model, settings.claude_prompt_model
+            key, effort = settings.anthropic_api_key, ""
+        else:
+            model, prompt_model = settings.gpt_decision_model, settings.gpt_prompt_model
+            key, effort = settings.openai_api_key, settings.gpt_decision_reasoning_effort
+        if not key:
+            raise ValueError(f"No API key configured for {track}")
+        report["model"] = {"task": model, "proposer": prompt_model, "reasoning_effort": effort}
+        task_lm = build_lm(track, model, key, reasoning_effort=effort)
+        prompt_lm = build_lm(track, prompt_model, key, max_tokens=4096)
+        report["status"] = "compiling"
+        write_json_atomic(run_dir / "report.json", report)
+        with dspy.context(lm=task_lm):
+            metric = plan_metric(split.train + split.validation) if plan_mode else _pnl_weighted_metric
+            optimizer = MIPROv2(metric=metric, prompt_model=prompt_lm,
+                                task_model=task_lm, auto="light", num_threads=1)
+            # Timing/source metadata stays outside the proposer's training examples.
+            compiled = optimizer.compile(
+                dspy.Predict(TradeDecision),
+                trainset=[_make_example(e, e["action"], e["r_multiple"]) for e in split.train],
+                valset=[_make_example(e, e["action"], e["r_multiple"]) for e in split.validation],
+                requires_permission_to_run=False,
+            )
+        compiled.set_lm(None)
+        candidate_path = run_dir / "candidate.json"
+        save_compiled_program(compiled, candidate_path, lambda p: dspy.Predict(TradeDecision).load(str(p)))
+        candidate = dspy.Predict(TradeDecision)
+        candidate.load(str(candidate_path))
+        report["candidate_hash"] = program_fingerprint(candidate_path)
 
-        # Reload the engine
+        # Reserve before observing any test outputs, including on failed evaluations.
+        write_json_atomic(state_path, {
+            "version": 1, "last_test_time": max(e["decision_time"] for e in split.test), "run_id": run_id,
+        })
+        report["status"] = "evaluating"
+        write_json_atomic(run_dir / "report.json", report)
+        results = {
+            "always_buy": (evaluate_plan_examples(split.test, reference="always_buy") if plan_mode
+                           else summarize_actions(split.test, ["BUY"] * len(split.test))),
+            "always_pass": (evaluate_plan_examples(split.test, reference="always_pass") if plan_mode
+                            else summarize_actions(split.test, ["PASS"] * len(split.test))),
+        }
+        report["results"] = results
+        for name, program in (("incumbent", incumbent), ("baseline", dspy.Predict(TradeDecision)), ("candidate", candidate)):
+            program.set_lm(task_lm)
+            results[name] = (evaluate_plan_examples(split.test, program) if plan_mode
+                             else evaluate_program(split.test, program))
+            write_json_atomic(run_dir / "report.json", report)
+        gate = promotion_decision(split.test, results, min_gain=settings.promotion_min_metric_gain,
+                                  min_buys=settings.promotion_min_buys,
+                                  bootstrap_samples=settings.promotion_bootstrap_samples)
+        report["gate"] = gate
+        if not gate["promote"]:
+            report["status"] = "rejected"
+            write_json_atomic(run_dir / "report.json", report)
+            logger.info("MIPRO [%s]: candidate rejected by paired promotion gate (%s)", track, run_id)
+            return False
+        if program_fingerprint(out_path) != incumbent_hash:
+            raise ValueError("Incumbent changed during evaluation; refusing to replace it")
+        candidate.set_lm(None)
+        save_compiled_program(candidate, out_path, lambda p: dspy.Predict(TradeDecision).load(str(p)))
+        report["status"] = "promoted"
+        write_json_atomic(run_dir / "report.json", report)
         from src.agent.decision import DecisionEngine
-        engine = DecisionEngine.for_track(track)
-        engine.reload()
-
-        # Log performance metrics
-        # Historical book statistics — NOT a score for the program just compiled.
-        # This line used to read "optimization metric = ...", which looked like
-        # the optimizer's result but is win_rate * avg_rrr over every past trade,
-        # computed after the compile and unchanged by it: it would print the same
-        # number if MIPRO had produced nonsense. Whether the new program is any
-        # good is answered later, by grouping closed trades on program_hash.
-        metrics = compute_metrics(portfolio)
-        logger.info(
-            "MIPRO [%s]: compiled and applied (program %s). Book to date: "
-            "win_rate=%.1f%%, avg_rrr=%.2f over %d trades — prior performance, "
-            "not a score for this program.",
-            track, program_fingerprint(out_path) or BASELINE,
-            metrics.win_rate * 100, metrics.avg_rrr, metrics.total_trades,
-        )
-
-        # Offsite backup of the new program (best-effort, never fails the run)
+        try:
+            DecisionEngine.for_track(track).reload()
+        except Exception as exc:
+            report["reload_error"] = str(exc)
+            logger.error("MIPRO [%s]: promoted on disk but runtime reload failed: %s", track, exc)
+        logger.info("MIPRO [%s]: promoted %s after independent comparison (%s)",
+                    track, report["candidate_hash"], run_id)
         from src.scheduler.backup import backup_compiled_program
-        backup_compiled_program(track, metrics.to_dict())
-
+        try:
+            backup_compiled_program(track, {"promotion_run": run_id, "gate": gate})
+        except Exception as exc:
+            report["backup_error"] = str(exc)
+            logger.error("MIPRO [%s]: promoted but backup failed: %s", track, exc)
+        write_json_atomic(run_dir / "report.json", report)
         return True
-
     except Exception as exc:
-        logger.error("MIPRO optimization error for %s track: %s", track, exc, exc_info=True)
+        report["status"] = "error"
+        report["error"] = str(exc)
+        write_json_atomic(run_dir / "report.json", report)
+        logger.error("MIPRO [%s]: evaluation failed: %s", track, exc, exc_info=True)
         return False
 
 

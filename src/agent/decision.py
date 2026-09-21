@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Literal, Optional
 
 import dspy
@@ -218,13 +219,14 @@ class DecisionEngine:
 
             action = str(result.action).upper()
             if action not in ("BUY", "PASS"):
-                # Model may still output HOLD/SELL from training — treat as PASS
-                logger.debug("Mapping action '%s' → PASS for %s/%s", action, self.track, candidate.ticker)
-                action = "PASS"
+                raise ValueError(f"Invalid entry action: {action}")
 
-            confidence = _clamp(float(result.confidence), 0.0, 1.0)
+            confidence = float(result.confidence)
             stop_loss = float(result.stop_loss)
             target = float(result.target)
+            if not all(math.isfinite(v) for v in (confidence, stop_loss, target)):
+                raise ValueError("Decision contains non-finite values")
+            confidence = _clamp(confidence, 0.0, 1.0)
             # No target auto-stretching: a BUY whose own target gives RRR < 2.0 is
             # rejected by risk validation and learned from counterfactually.
             # Stretching hid bad target placement from the optimizer.
