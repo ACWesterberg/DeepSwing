@@ -119,9 +119,10 @@ def _cluster_lower_bound(differences: np.ndarray, groups: list[str], samples: in
 
 def promotion_decision(
     examples: list, results: dict, *, min_gain: float, min_buys: int, bootstrap_samples: int = 1000,
+    required_references: set[str] | None = None,
 ) -> dict:
     """Require paired improvement over the incumbent, baseline and trivial references."""
-    required = {"candidate", "incumbent", "baseline", "always_buy", "always_pass"}
+    required = required_references or {"candidate", "incumbent", "baseline", "always_buy", "always_pass"}
     if not examples or not required.issubset(results):
         raise ValueError("Promotion requires examples and all reference results")
     for result in results.values():

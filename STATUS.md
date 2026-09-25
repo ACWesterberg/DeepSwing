@@ -1,6 +1,19 @@
 # DeepSwing — Implementation Status
 
-Last updated: 2026-09-21
+## Latest: inactive prompt candidates (2026-09-23)
+
+- A candidate that passes the historical temporal screen is now registered under `compiled/candidates/<track>/<hash>/` with immutable provenance and remains inactive.
+- Scheduled optimization no longer replaces or reloads the incumbent prompt.
+- Activation is a separate explicit operation and is rejected unless a human approver and non-empty forward-evidence record have first been written to the candidate manifest.
+- Opt-in prospective shadow collection now evaluates the inactive candidate on the incumbent's exact live inputs without executing candidate trades. Exact requests are reused; started/failed requests remain durable; retries require explicit authorization.
+- Per-day request, reserved-output-token and input-byte limits stop work before provider calls. Bounded-search records now preserve provider-returned input/output, cache, and reasoning counters even when output parsing fails. Missing counters remain explicitly unknown rather than being treated as free.
+- A no-LLM daily collector freezes mature OHLC paths and the decision-time execution policy. Evidence scoring selects the earliest non-overlapping windows and weights periods equally; excluded overlapping cases remain stored. Failed and ambiguous requests block review eligibility. Expected exchange sessions are frozen before shadow inference, and the outcome collector requires every expected bar. Historical plan-corpus construction uses the same coverage check. Unknown listing calendars fail explicitly.
+- Scheduled optimization now defaults to one instruction proposal and an eight-case paired incumbent/candidate screen. It has durable exact-request caching, pre-call request/byte/output reservations, and explicit retry authorization; MIPRO is retained only as `PROMPT_SEARCH_MODE=mipro` legacy mode.
+- Opt-in OpenAI Batch evaluation now connects submission, collection, and final scoring with frozen thresholds and program hashes. Lost submission responses and process crashes allow explicit ID adoption. Passing candidates are registered inactive. Synchronous evaluation remains the default.
+- A retrieval-only scheduler job now checks existing optimizer Batch checkpoints hourly. It remains silent while work is pending and emits a one-time Telegram/log event only for completion or intervention. It can retrieve and persist results, but has no path to propose instructions, submit batches, adopt IDs, or retry failures. New Batch submission remains disabled by default.
+- Provider usage reports include dated advisory costs for GPT-5 and GPT-5.6 Sol, computed per request and transport. Sol pricing includes the >272,000-input-token threshold and cache-write charges; missing cache counters or aggregated legacy usage makes its estimate unavailable. Pricing uses exact model identifiers, expires after 30 days, and refuses partial totals when any attempt is unknown. Anthropic and unverified models remain unavailable.
+
+Last updated: 2026-09-23
 
 ---
 
@@ -11,7 +24,7 @@ Last updated: 2026-09-21
 - Offline `score --portfolio --track ...` adds a shared cash ledger, risk sizing, allocation caps, duplicate/sector/correlation checks and drawdown sizing to frozen plan comparisons.
 - Reports include dated NAV with unrealized drawdown, stale marks, entry/rejection decisions, fees and reconciled trade accounting. Same-day exit proceeds cannot fund earlier entries.
 - New plan corpora freeze portfolio settings and historical closes. Future decisions record sectors; missing sector/correlation coverage is explicit.
-- Constant-FX normalized prices and sampled opportunities make this a research diagnostic. Scheduled automatic promotion still uses held-out isolated-plan scores.
+- Constant-FX normalized prices and sampled opportunities make this a research diagnostic. Scheduled optimization uses held-out isolated-plan scores only to register an inactive candidate.
 
 ### Predicted trade-plan evaluation (2026-09-21)
 
@@ -245,7 +258,7 @@ carries `portfolio_state` rows and `decisions` rows for `claude-opt`/`gpt-opt`,
 - [x] `src/portfolio/metrics.py` — Sharpe, max drawdown, win rate, avg RRR, total return, `optimization_metric = win_rate × avg_rrr`
 - [x] `src/portfolio/persistence.py` — durable portfolio state: full live state (cash, open positions, closed trades, peak equity, next trade id) mirrored to the `portfolio_state` table on every open/close + end of scan, rehydrated on startup so tracks survive a redeploy; `/api/reset` clears persisted rows
 - [x] `src/agent/erl.py` — post-trade causal analysis; Claude Opus + extended thinking (Claude); GPT-5.6-sol + `reasoning_effort` (GPT); structured heuristic extraction + storage
-- [x] `src/scheduler/optimizer.py` — weekly MIPROv2 per track; P&L-weighted metric; split prompt-model (heavy proposer) / task-model (decision tier); archives previous compiled program; `DecisionEngine.reload()`; offsite backup; heuristic prune/promote
+- [x] `src/scheduler/optimizer.py` — weekly MIPROv2 per track; P&L-weighted metric; split prompt-model (heavy proposer) / task-model (decision tier); inactive candidate registration; heuristic prune/promote
 
 ### Phase 4 — Scheduler + Data Ingestion
 - [x] `src/scheduler/market_hours.py` — `is_market_open()` (scan window), `is_exchange_open()` (badge, true exchange hours), `active_markets()`, CET-aware
@@ -346,13 +359,13 @@ carries `portfolio_state` rows and `decisions` rows for `claude-opt`/`gpt-opt`,
 
 ### Pi Deployment / Ops
 - [ ] Verify APScheduler fires correctly across DST changes (Stockholm CET↔CEST)
-- [ ] Monitor memory usage during the first weekly MIPRO run (Pi 5, 1G cap)
-- [ ] Complete the MIPRO backup repo setup on the Pi (`MIPRO_BACKUP_REPO_DIR`) before the first MIPRO run
+- [ ] Monitor memory usage during the first weekly bounded-search run (Pi 5, 1G cap)
+- [ ] Decide whether legacy MIPRO backup infrastructure should be retained
 - [ ] Reinstall `systemd/deepswing.service` on the Pi (paths now corrected in-repo: `cp systemd/deepswing.service /etc/systemd/system/ && systemctl daemon-reload`)
 
 ### After First 30+ Closed Trades
-- [ ] Verify the first MIPRO run produces a valid compiled JSON (and that the backup fires)
-- [ ] Compare `optimization_metric` (win_rate × avg_rrr) pre- vs post-MIPRO
+- [ ] Verify the first bounded run registers a valid inactive candidate without changing the incumbent
+- [ ] Compare prospective paired net-R and bounded score before considering activation
 - [ ] Review ERL heuristics for quality — specific and actionable?
 - [ ] Track Claude vs GPT divergence on the same candidates
 

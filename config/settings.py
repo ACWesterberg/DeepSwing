@@ -252,6 +252,38 @@ class Settings(BaseSettings):
     promotion_min_metric_gain: float = Field(default=0.01, gt=0, lt=1)
     promotion_bootstrap_samples: int = Field(default=1000, ge=100)
 
+    # Scheduled search defaults to one proposed instruction and a bounded paired
+    # screen. Legacy MIPRO remains available only through an explicit override.
+    prompt_search_mode: Literal["bounded", "mipro"] = "bounded"
+    bounded_search_examples: int = Field(default=8, ge=3)
+    bounded_search_instruction_max_chars: int = Field(default=4000, ge=100)
+    bounded_search_min_tickers: int = Field(default=6, ge=2)
+    bounded_search_min_days: int = Field(default=4, ge=2)
+    bounded_search_max_requests: int = Field(default=17, ge=1)
+    bounded_search_max_input_bytes: int = Field(default=2_000_000, ge=10_000)
+    bounded_search_output_tokens_per_request: int = Field(default=16_000, ge=256)
+    bounded_search_max_reserved_output_tokens: int = Field(default=272_000, ge=256)
+    # Submission remains opt-in. The retrieval-only collector still watches any
+    # existing confirmed checkpoint so disabling new work never strands it.
+    bounded_search_openai_batch: bool = False
+    bounded_search_batch_collection_minutes: int = Field(default=60, ge=15)
+
+    # Prospective candidate evaluation is opt-in because every shadow decision
+    # is a paid provider request. Candidate outputs are evidence only and never
+    # reach risk validation or execution.
+    shadow_enabled: bool = False
+    shadow_max_candidates_per_track: int = Field(default=1, ge=1, le=3)
+    shadow_max_requests_per_day: int = Field(default=5, ge=1)
+    shadow_output_tokens_per_request: int = Field(default=4096, ge=256)
+    shadow_max_reserved_output_tokens_per_day: int = Field(default=20_480, ge=256)
+    shadow_max_input_bytes: int = Field(default=200_000, ge=1_000)
+    # Forward evidence selects chronologically earliest non-overlapping windows.
+    # Overlapping observations remain stored but are excluded from gate scoring.
+    # Periods have equal weight; case count does not replace temporal breadth.
+    shadow_min_completed_cases: int = Field(default=20, ge=1)
+    shadow_min_non_overlapping_periods: int = Field(default=3, ge=1)
+    shadow_min_mean_score_gain: float = Field(default=0.01, gt=0, lt=1)
+
     # Housekeeping: decisions accumulate ~1k rows/day at 15-min scans; prune rows
     # older than this during weekly maintenance (0 disables). Counterfactual
     # training only reads recent PASSes, so 90 days is generous.

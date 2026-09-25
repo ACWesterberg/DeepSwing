@@ -97,6 +97,108 @@ def _replay_with_real_dspy_and_local_dummy_model(tmp_path, monkeypatch):
     assert plan_metric([dated])(stripped, dspy.Prediction(action="BUY", confidence=0.8,
                                                         stop_loss=97.0, target=110.0)) > 0.5
 
+    # Batch rendering/parsing must preserve the exact DSPy signature contract
+    # without making a provider request.
+    from types import SimpleNamespace
+    from src.agent.openai_batch import dspy_chat_body, parse_dspy_batch_body
+    batch_lm = SimpleNamespace(model="openai/gpt-5", kwargs={
+        "max_tokens": 16000, "reasoning_effort": "low", "temperature": 1.0,
+    })
+    body = dspy_chat_body(artifact, example.entry_inputs, lm=batch_lm)
+    assert body["model"] == "gpt-5" and body["max_completion_tokens"] == 16000
+    assert body["reasoning_effort"] == "low" and "temperature" not in body
+    parsed = parse_dspy_batch_body(artifact, {"choices": [{"finish_reason": "stop", "message": {
+        "content": "[[ ## action ## ]]\nBUY\n\n[[ ## confidence ## ]]\n0.8\n\n"
+                   "[[ ## stop_loss ## ]]\n97.0\n\n[[ ## target ## ]]\n110.0\n\n"
+                   "[[ ## reasoning ## ]]\ntest\n\n[[ ## completed ## ]]"
+    }}]})
+    assert parsed.action == "BUY" and parsed.confidence == .8
+    from src.agent.single_request import single_predict
+    class MalformedLM:
+        num_retries = 3
+        cache = True
+        calls = 0
+        def __call__(self, **kwargs):
+            self.calls += 1
+            assert self.num_retries == 0 and not self.cache
+            return ["malformed response"]
+    malformed = MalformedLM()
+    with pytest.raises(Exception):
+        single_predict(artifact, malformed, example.entry_inputs)
+    assert malformed.calls == 1
+
+    # Exercise submission -> out-of-order collection -> local scoring with the
+    # real DSPy parser and a provider stub. No sockets are permitted above.
+    import json
+    from src.agent.batch_evaluation import prepare_batch_evaluation, finalize_batch_evaluation
+    from src.agent.bounded_search import SearchBudget
+    from src.agent.compiled_program import program_fingerprint
+    from src.agent.openai_batch import collect_batch
+    run_dir = tmp_path / "batch-run"
+    run_dir.mkdir()
+    for name in ("incumbent", "candidate"):
+        artifact.save(str(run_dir / f"{name}.json"))
+    report = {"status": "evaluating", "track": "gpt", "run_id": "sdk-batch",
+              "candidate_hash": program_fingerprint(run_dir / "candidate.json"),
+              "incumbent_hash": "baseline", "corpus_hash": "test-corpus",
+              "thresholds": {"promotion_min_metric_gain": .01, "promotion_min_buys": 1,
+                             "promotion_bootstrap_samples": 100}}
+    submitted = []
+    def upload(**kwargs):
+        submitted.extend(json.loads(line) for line in kwargs["file"][1].decode().splitlines())
+        return SimpleNamespace(id="file-test")
+    remote = SimpleNamespace(id="batch-test", status="validating", input_file_id="file-test",
+                             output_file_id="output-test", error_file_id=None)
+    def create(**kwargs):
+        remote.metadata = kwargs["metadata"]
+        return remote
+    content = ("[[ ## action ## ]]\nBUY\n[[ ## confidence ## ]]\n0.8\n"
+               "[[ ## stop_loss ## ]]\n97\n[[ ## target ## ]]\n110\n[[ ## reasoning ## ]]\ntest")
+    def download(_):
+        return SimpleNamespace(text="\n".join(json.dumps({"custom_id": row["custom_id"],
+            "response": {"status_code": 200, "body": {"choices": [{"finish_reason": "stop",
+                "message": {"content": content}}]}}}) for row in reversed(submitted)))
+    client = SimpleNamespace(files=SimpleNamespace(create=upload, content=download),
+                             batches=SimpleNamespace(create=create, retrieve=lambda _: remote))
+    rows = [{**dated.toDict(), "technicals": f"case-{i}", "ticker": f"T{i}",
+             "decision_time": f"2026-08-{i+1:02d}T00:00:00"} for i in range(3)]
+    budget = SearchBudget(run_dir / "budget.json", max_requests=6, max_input_bytes=1000000,
+                          max_reserved_output_tokens=96000)
+    prepare_batch_evaluation(run_dir, rows, (("incumbent", artifact), ("candidate", artifact)),
+                             batch_lm, budget, report, client=client)
+    assert len(submitted) == 3  # Identical arms share exact requests.
+    remote.status = "completed"
+    collect_batch(run_dir / "batch.json", client=client)
+    finalized = finalize_batch_evaluation(run_dir)
+    assert finalized["status"] == "rejected"  # Identical arms cannot improve.
+    assert finalized["results"]["candidate"] == finalized["results"]["incumbent"]
+    assert finalize_batch_evaluation(run_dir) == finalized
+
+    # A paid failed completion is retained and only that request is retried.
+    # Raising its allowance prevents automatic candidate registration.
+    import shutil
+    from src.agent.batch_retry import submit_failed_retry, merged_batch
+    retry_run = tmp_path / "batch-retry-run"
+    shutil.copytree(run_dir, retry_run)
+    retry_report = json.loads((retry_run / "report.json").read_text())
+    retry_report.update(status="batch_scoring_error", budget_limits={
+        "requests": 6, "input_bytes": 1000000, "reserved_output_tokens": 96000})
+    (retry_run / "report.json").write_text(json.dumps(retry_report))
+    original = json.loads((retry_run / "batch.json").read_text())
+    failed_id = original["custom_ids"][0]
+    original["results"][failed_id]["body"]["choices"][0]["finish_reason"] = "length"
+    (retry_run / "batch.json").write_text(json.dumps(original))
+    submitted.clear()
+    retry_path = submit_failed_retry(retry_run, authorized_by="sdk-test", reason="output exhausted",
+                                     output_tokens=32000, client=client)
+    assert len(submitted) == 1 and submitted[0]["custom_id"] == failed_id
+    remote.status = "completed"
+    collect_batch(retry_path, client=client)
+    assert len(merged_batch(retry_run)["results"]) == 3
+    retry_final = finalize_batch_evaluation(retry_run)
+    assert retry_final["status"] == "historical_review_required"
+    assert retry_final["evaluation_limits_changed"] is True
+
 
 def _replay_missing_credentials_fails_before_model_creation(monkeypatch):
     from config.settings import settings

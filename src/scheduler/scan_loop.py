@@ -446,6 +446,21 @@ def _run_scan(market: MarketType) -> dict:
                 heuristics_text=heuristics_text,
             )
 
+            # Prospective candidate evidence is strictly shadow-only. It sees
+            # the incumbent's exact frozen inputs, and its output is persisted
+            # but never reaches risk validation or portfolio execution.
+            if decision and decision.get("entry_inputs"):
+                try:
+                    from src.agent.shadow import collect_shadow_decision
+                    collect_shadow_decision(
+                        track=track, ticker=candidate.ticker, market=market,
+                        decision_time=datetime.utcnow(),
+                        price=candidate.signals.current_price, atr=candidate.signals.atr_14,
+                        entry_inputs=decision["entry_inputs"], incumbent=decision,
+                    )
+                except Exception as exc:
+                    logger.warning("Shadow decision skipped for %s/%s: %s", track, candidate.ticker, exc)
+
             if decision is None or decision["action"] != "BUY":
                 logger.debug("[%s] %s → %s", track, candidate.ticker, decision.get("action") if decision else "None")
                 entry = {

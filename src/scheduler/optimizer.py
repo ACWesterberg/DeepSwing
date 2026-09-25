@@ -1,7 +1,7 @@
 """
-MIPROv2 optimization of the DSPy decision program.
+Bounded instruction search and legacy MIPROv2 optimization.
 
-`run_mipro_optimization` trains on lived trades plus counterfactually-labelled
+`run_prompt_optimization` trains on lived trades plus counterfactually-labelled
 PASS/BLOCKED decisions, so the trainset covers both sides of the decision.
 Labelling a skipped setup only needs the underlying's forward path, which
 `_label_forward_path` simulates against the stop and target the system would
@@ -20,7 +20,11 @@ from dspy.teleprompt import MIPROv2
 
 from config.settings import settings
 from src.agent.compiled_program import BASELINE, program_fingerprint, save_compiled_program
+from src.agent.bounded_search import (
+    SearchBudget, cached_program, compact_training_summary, exact_request, select_screen_examples, proposal_fields,
+)
 from src.agent.decision import TradeDecision, build_lm
+from src.agent.single_request import single_predict, effective_output_tokens
 from src.agent.evaluation import (
     corpus_fingerprint, evaluate_program, promotion_decision, summarize_actions,
     temporal_split, write_json_atomic,
@@ -36,6 +40,15 @@ _pnl_weighted_metric = decision_metric
 logger = logging.getLogger(__name__)
 
 TrackType = Literal["claude", "gpt"]
+
+
+class InstructionProposal(dspy.Signature):
+    """Propose one complete instruction for a swing-trade entry decision model."""
+
+    training_summary: str = dspy.InputField(desc="Compact aggregate summary of historical training evidence")
+    existing_instruction: str = dspy.InputField(desc="The incumbent instruction to improve")
+    mandate: str = dspy.InputField(desc="Immutable strategy and safety requirements")
+    instruction: str = dspy.OutputField(desc="One complete replacement instruction; no commentary")
 
 MIN_TRADES_FOR_OPTIMIZATION = 30
 
@@ -296,11 +309,12 @@ def _build_counterfactual_examples(track: TrackType, max_examples: int) -> list:
     return examples
 
 
-def run_mipro_optimization(track: TrackType) -> bool:
+def run_prompt_optimization(track: TrackType) -> bool:
     """
-    Run MIPROv2 optimization for a track's DSPy TradeDecision program.
+    Run the configured prompt search for a track's DSPy decision program.
     Requires at least MIN_TRADES_FOR_OPTIMIZATION closed trades.
-    Returns True if a new compiled program was saved.
+    Returns True if a historically screened candidate was registered. The
+    active program is never replaced by scheduled optimization.
     """
     portfolio = get_portfolio(track)
     trades = portfolio.closed_trades
@@ -312,19 +326,21 @@ def run_mipro_optimization(track: TrackType) -> bool:
         )
         return False
 
-    # Fail before spending anything. MIPROv2 imports optuna deep inside
+    # Fail before spending anything in explicitly selected legacy MIPRO mode.
+    # MIPROv2 imports optuna deep inside
     # compile(), after bootstrapping demos and proposing instructions with the
     # heavy prompt model — so a missing dependency costs a full proposer run
     # every week and still produces nothing.
-    try:
-        import optuna  # noqa: F401
-    except ImportError:
-        logger.error(
-            "MIPRO [%s]: optuna is not installed — MIPROv2 cannot run. "
-            "Install it (pip install optuna) and the next weekly run will compile.",
-            track,
-        )
-        return False
+    if settings.prompt_search_mode == "mipro":
+        try:
+            import optuna  # noqa: F401
+        except ImportError:
+            logger.error(
+                "MIPRO [%s]: optuna is not installed — MIPROv2 cannot run. "
+                "Install it (pip install optuna) and the next weekly run will compile.",
+                track,
+            )
+            return False
 
     logger.info("MIPRO [%s]: starting optimization with %d trades", track, len(trades))
 
@@ -342,6 +358,11 @@ def run_mipro_optimization(track: TrackType) -> bool:
         logger.info("MIPRO [%s]: insufficient complete plan paths", track)
         return False
     return _compile_and_evaluate(track, examples)
+
+
+def run_mipro_optimization(track: TrackType) -> bool:
+    """Backward-compatible entry point; dispatches to the configured search mode."""
+    return run_prompt_optimization(track)
 
 
 def _build_plan_examples(track: TrackType) -> list:
@@ -413,6 +434,22 @@ def _compile_and_evaluate(track: TrackType, examples: list) -> bool:
             logger.info("MIPRO [%s]: %s", track, report["reason"])
             return False
 
+        screen = select_screen_examples(split.test, settings.bounded_search_examples)
+        if settings.prompt_search_mode == "bounded":
+            bounded_checks = {
+                "screen_examples": len(screen) == settings.bounded_search_examples,
+                "screen_tickers": len({e["ticker"] for e in screen}) >= settings.bounded_search_min_tickers,
+                "screen_days": len({e["decision_time"][:10] for e in screen}) >= settings.bounded_search_min_days,
+            }
+            report["bounded_screen_checks"] = bounded_checks
+            if not all(bounded_checks.values()):
+                report["status"] = "skipped"
+                report["reason"] = "Insufficient bounded-screen diversity: " + ", ".join(
+                    key for key, ok in bounded_checks.items() if not ok
+                )
+                write_json_atomic(run_dir / "report.json", report)
+                return False
+
         datasets = {name: [e.toDict() if hasattr(e, "toDict") else dict(e) for e in values]
                     for name, values in (("train", split.train), ("validation", split.validation), ("test", split.test))}
         report["corpus_hash"] = corpus_fingerprint([row for rows in datasets.values() for row in rows])
@@ -442,21 +479,79 @@ def _compile_and_evaluate(track: TrackType, examples: list) -> bool:
         if not key:
             raise ValueError(f"No API key configured for {track}")
         report["model"] = {"task": model, "proposer": prompt_model, "reasoning_effort": effort}
-        task_lm = build_lm(track, model, key, reasoning_effort=effort)
-        prompt_lm = build_lm(track, prompt_model, key, max_tokens=4096)
+        output_tokens = effective_output_tokens(track, settings.bounded_search_output_tokens_per_request)
+        task_lm = build_lm(track, model, key, reasoning_effort=effort,
+                           max_tokens=output_tokens if settings.prompt_search_mode == "bounded" else 4096)
+        prompt_lm = build_lm(
+            track, prompt_model, key,
+            max_tokens=(output_tokens
+                        if settings.prompt_search_mode == "bounded" else 4096),
+        )
+        # Durable exact-request caching is authoritative for bounded search.
+        # Disabling DSPy's second cache layer keeps provider-call accounting
+        # unambiguous and prevents a hidden cache hit from looking like spend.
+        if settings.prompt_search_mode == "bounded":
+            if hasattr(task_lm, "cache"):
+                task_lm.cache = False
+            if hasattr(prompt_lm, "cache"):
+                prompt_lm.cache = False
         report["status"] = "compiling"
+        report["search_mode"] = settings.prompt_search_mode
+        if settings.prompt_search_mode == "bounded":
+            report["budget_limits"] = {
+                "requests": settings.bounded_search_max_requests,
+                "input_bytes": settings.bounded_search_max_input_bytes,
+                "reserved_output_tokens": settings.bounded_search_max_reserved_output_tokens,
+                "output_tokens_per_request": output_tokens,
+            }
         write_json_atomic(run_dir / "report.json", report)
-        with dspy.context(lm=task_lm):
-            metric = plan_metric(split.train + split.validation) if plan_mode else _pnl_weighted_metric
-            optimizer = MIPROv2(metric=metric, prompt_model=prompt_lm,
-                                task_model=task_lm, auto="light", num_threads=1)
-            # Timing/source metadata stays outside the proposer's training examples.
-            compiled = optimizer.compile(
-                dspy.Predict(TradeDecision),
-                trainset=[_make_example(e, e["action"], e["r_multiple"]) for e in split.train],
-                valset=[_make_example(e, e["action"], e["r_multiple"]) for e in split.validation],
-                requires_permission_to_run=False,
+        budget = None
+        if settings.prompt_search_mode == "bounded":
+            budget = SearchBudget(
+                run_dir / "budget.json",
+                max_requests=settings.bounded_search_max_requests,
+                max_input_bytes=settings.bounded_search_max_input_bytes,
+                max_reserved_output_tokens=settings.bounded_search_max_reserved_output_tokens,
             )
+            existing_instruction = getattr(getattr(incumbent, "signature", None), "instructions", None)
+            existing_instruction = existing_instruction or TradeDecision.instructions
+            proposal_inputs = proposal_fields(split.train + split.validation, existing_instruction)
+            proposal_request = {
+                "kind": "instruction_proposal", "track": track, "model": prompt_model,
+                "inputs": proposal_inputs,
+                "output_tokens": output_tokens,
+            }
+
+            def propose():
+                proposer = dspy.Predict(InstructionProposal)
+                proposer.set_lm(prompt_lm)
+                result = single_predict(proposer, prompt_lm, proposal_inputs)
+                instruction = str(result.instruction).strip()
+                if not instruction:
+                    raise ValueError("Instruction proposer returned an empty candidate")
+                if len(instruction) > settings.bounded_search_instruction_max_chars:
+                    raise ValueError("Instruction proposal exceeds the configured character limit")
+                return {"instruction": instruction}
+
+            proposal = exact_request(
+                track, proposal_request,
+                output_tokens=output_tokens,
+                budget=budget, call=propose, lm=prompt_lm,
+            )
+            compiled = dspy.Predict(TradeDecision.with_instructions(proposal["instruction"]))
+            report["proposal_request"] = proposal_request
+        else:
+            with dspy.context(lm=task_lm):
+                metric = plan_metric(split.train + split.validation) if plan_mode else _pnl_weighted_metric
+                optimizer = MIPROv2(metric=metric, prompt_model=prompt_lm,
+                                    task_model=task_lm, auto="light", num_threads=1)
+                # Timing/source metadata stays outside the proposer's training examples.
+                compiled = optimizer.compile(
+                    dspy.Predict(TradeDecision),
+                    trainset=[_make_example(e, e["action"], e["r_multiple"]) for e in split.train],
+                    valset=[_make_example(e, e["action"], e["r_multiple"]) for e in split.validation],
+                    requires_permission_to_run=False,
+                )
         compiled.set_lm(None)
         candidate_path = run_dir / "candidate.json"
         save_compiled_program(compiled, candidate_path, lambda p: dspy.Predict(TradeDecision).load(str(p)))
@@ -470,21 +565,41 @@ def _compile_and_evaluate(track: TrackType, examples: list) -> bool:
         })
         report["status"] = "evaluating"
         write_json_atomic(run_dir / "report.json", report)
+        evaluation_examples = screen if settings.prompt_search_mode == "bounded" else split.test
         results = {
-            "always_buy": (evaluate_plan_examples(split.test, reference="always_buy") if plan_mode
-                           else summarize_actions(split.test, ["BUY"] * len(split.test))),
-            "always_pass": (evaluate_plan_examples(split.test, reference="always_pass") if plan_mode
-                            else summarize_actions(split.test, ["PASS"] * len(split.test))),
+            "always_buy": (evaluate_plan_examples(evaluation_examples, reference="always_buy") if plan_mode
+                           else summarize_actions(evaluation_examples, ["BUY"] * len(evaluation_examples))),
+            "always_pass": (evaluate_plan_examples(evaluation_examples, reference="always_pass") if plan_mode
+                            else summarize_actions(evaluation_examples, ["PASS"] * len(evaluation_examples))),
         }
         report["results"] = results
-        for name, program in (("incumbent", incumbent), ("baseline", dspy.Predict(TradeDecision)), ("candidate", candidate)):
+        programs = (("incumbent", incumbent), ("candidate", candidate)) if settings.prompt_search_mode == "bounded" else (
+            ("incumbent", incumbent), ("baseline", dspy.Predict(TradeDecision)), ("candidate", candidate)
+        )
+        if settings.prompt_search_mode == "bounded" and track == "gpt" and settings.bounded_search_openai_batch:
+            from openai import OpenAI
+            from src.agent.batch_evaluation import prepare_batch_evaluation
+            prepare_batch_evaluation(run_dir, evaluation_examples, programs, task_lm, budget, report,
+                                     client=OpenAI(api_key=key, max_retries=0))
+            return False  # The collector completes scoring after results arrive.
+        for name, program in programs:
             program.set_lm(task_lm)
-            results[name] = (evaluate_plan_examples(split.test, program) if plan_mode
-                             else evaluate_program(split.test, program))
+            evaluated = program
+            if settings.prompt_search_mode == "bounded":
+                evaluated = cached_program(
+                    track, program, report["incumbent_hash"] if name == "incumbent" else report["candidate_hash"],
+                    model, budget, output_tokens, task_lm,
+                )
+            results[name] = (evaluate_plan_examples(evaluation_examples, evaluated) if plan_mode
+                             else evaluate_program(evaluation_examples, evaluated))
             write_json_atomic(run_dir / "report.json", report)
-        gate = promotion_decision(split.test, results, min_gain=settings.promotion_min_metric_gain,
+        gate = promotion_decision(evaluation_examples, results, min_gain=settings.promotion_min_metric_gain,
                                   min_buys=settings.promotion_min_buys,
-                                  bootstrap_samples=settings.promotion_bootstrap_samples)
+                                  bootstrap_samples=settings.promotion_bootstrap_samples,
+                                  required_references=(
+                                      {"candidate", "incumbent", "always_buy", "always_pass"}
+                                      if settings.prompt_search_mode == "bounded" else None
+                                  ))
         report["gate"] = gate
         if not gate["promote"]:
             report["status"] = "rejected"
@@ -492,26 +607,23 @@ def _compile_and_evaluate(track: TrackType, examples: list) -> bool:
             logger.info("MIPRO [%s]: candidate rejected by paired promotion gate (%s)", track, run_id)
             return False
         if program_fingerprint(out_path) != incumbent_hash:
-            raise ValueError("Incumbent changed during evaluation; refusing to replace it")
-        candidate.set_lm(None)
-        save_compiled_program(candidate, out_path, lambda p: dspy.Predict(TradeDecision).load(str(p)))
-        report["status"] = "promoted"
+            raise ValueError("Incumbent changed during evaluation; refusing to register the candidate")
+        from src.agent.candidates import register_candidate
+        registered = register_candidate(
+            track,
+            candidate_path,
+            run_id=run_id,
+            incumbent_hash=incumbent_hash or BASELINE,
+            corpus_hash=report["corpus_hash"],
+            gate=gate,
+        )
+        report["status"] = "pending_forward_evaluation"
+        report["candidate_registry_path"] = str(registered)
         write_json_atomic(run_dir / "report.json", report)
-        from src.agent.decision import DecisionEngine
-        try:
-            DecisionEngine.for_track(track).reload()
-        except Exception as exc:
-            report["reload_error"] = str(exc)
-            logger.error("MIPRO [%s]: promoted on disk but runtime reload failed: %s", track, exc)
-        logger.info("MIPRO [%s]: promoted %s after independent comparison (%s)",
-                    track, report["candidate_hash"], run_id)
-        from src.scheduler.backup import backup_compiled_program
-        try:
-            backup_compiled_program(track, {"promotion_run": run_id, "gate": gate})
-        except Exception as exc:
-            report["backup_error"] = str(exc)
-            logger.error("MIPRO [%s]: promoted but backup failed: %s", track, exc)
-        write_json_atomic(run_dir / "report.json", report)
+        logger.info(
+            "MIPRO [%s]: registered inactive candidate %s pending forward evaluation (%s)",
+            track, report["candidate_hash"], run_id,
+        )
         return True
     except Exception as exc:
         report["status"] = "error"

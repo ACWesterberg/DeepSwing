@@ -156,10 +156,13 @@ def optimizer_env(tmp_path, monkeypatch):
     from src.scheduler import backup
 
     monkeypatch.setattr(type(settings), "compiled_dir", property(lambda self: tmp_path))
+    monkeypatch.setattr(settings, "prompt_search_mode", "mipro")
     monkeypatch.setattr(settings, "openai_api_key", "test-only")
     monkeypatch.setattr(opt.dspy, "Predict", lambda signature: FakeProgram())
     monkeypatch.setattr(opt.dspy, "context", lambda **kwargs: nullcontext())
     monkeypatch.setattr(opt, "build_lm", lambda *args, **kwargs: object())
+    monkeypatch.setattr(opt, "single_predict", lambda program, lm, inputs: program(**inputs))
+    monkeypatch.setattr("src.agent.bounded_search.single_predict", lambda program, lm, inputs: program(**inputs))
     monkeypatch.setattr(opt, "_make_example", lambda inputs, action, r: {
         **{key: inputs[key] for key in DECISION_INPUTS}, "action": action, "r_multiple": r,
     })
@@ -178,14 +181,20 @@ def _reports(env):
 
 
 class TestPromotionLifecycle:
-    def test_only_independently_better_candidate_replaces_the_incumbent(self, optimizer_env):
+    def test_historical_winner_is_registered_but_does_not_replace_incumbent(self, optimizer_env):
         env = optimizer_env
+        before = env.active.read_bytes()
         assert env.opt._compile_and_evaluate("gpt", _examples())
-        assert json.loads(env.active.read_text())["mode"] == "candidate"
-        env.engine.reload.assert_called_once()
+        assert env.active.read_bytes() == before
+        env.engine.reload.assert_not_called()
         report, = _reports(env)
-        assert report["status"] == "promoted"
+        assert report["status"] == "pending_forward_evaluation"
         assert report["gate"]["promote"]
+        registry = Path(report["candidate_registry_path"])
+        assert json.loads((registry / "program.json").read_text())["mode"] == "candidate"
+        manifest = json.loads((registry / "manifest.json").read_text())
+        assert manifest["status"] == "pending_forward_evaluation"
+        assert manifest["historical_run_id"] == report["run_id"]
         kwargs = env.compiler.call_args.kwargs
         assert len(kwargs["trainset"]) == 58 and len(kwargs["valset"]) == 18
         assert all("decision_time" not in row for row in kwargs["trainset"])
@@ -230,14 +239,28 @@ class TestPromotionLifecycle:
         assert not env.opt._compile_and_evaluate("gpt", _examples())
         env.compiler.assert_not_called()
 
-    def test_reload_failure_is_distinguished_from_failed_promotion(self, optimizer_env):
+    def test_explicit_promotion_activates_registered_candidate(self, optimizer_env):
         env = optimizer_env
-        env.engine.reload.side_effect = RuntimeError("reload failed")
         assert env.opt._compile_and_evaluate("gpt", _examples())
-        assert json.loads(env.active.read_text())["mode"] == "candidate"
         report, = _reports(env)
-        assert report["status"] == "promoted"
-        assert report["reload_error"] == "reload failed"
+        from src.agent.candidates import approve_forward_evidence, promote_candidate
+        evidence = {"candidate_hash": report["candidate_hash"],
+                    "eligible_for_review": True, "non_overlapping_periods": 3}
+        registry = Path(report["candidate_registry_path"])
+        (registry / "forward_evidence.json").write_text(json.dumps(evidence))
+        approve_forward_evidence(
+            "gpt", report["candidate_hash"], evidence=evidence,
+            approved_by="test-reviewer",
+        )
+        promote_candidate(
+            "gpt",
+            report["candidate_hash"],
+            lambda p: FakeProgram().load(p),
+        )
+        assert json.loads(env.active.read_text())["mode"] == "candidate"
+        manifest = json.loads((registry / "manifest.json").read_text())
+        assert manifest["status"] == "active"
+        assert manifest["forward_approval"]["approved_by"] == "test-reviewer"
 
     def test_compile_failure_does_not_consume_unseen_test(self, optimizer_env):
         env = optimizer_env
@@ -265,3 +288,45 @@ class TestPromotionLifecycle:
         assert report['results']['candidate']['outcomes'][0]['target'] == 110
         assert all('plan_path' not in row for row in env.compiler.call_args.kwargs['trainset'])
         assert captured['metric'](rows[0], prediction(target=110)) > captured['metric'](rows[0], prediction(target=120))
+
+    def test_bounded_mode_makes_one_proposal_and_two_calls_per_screen_case(self, optimizer_env, monkeypatch):
+        env = optimizer_env
+        monkeypatch.setattr(settings, "prompt_search_mode", "bounded")
+        monkeypatch.setattr(settings, "bounded_search_examples", 8)
+        monkeypatch.setattr(settings, "bounded_search_min_tickers", 6)
+        monkeypatch.setattr(settings, "bounded_search_min_days", 4)
+        monkeypatch.setattr(settings, "promotion_min_buys", 4)
+
+        class Proposer:
+            def set_lm(self, lm):
+                self.lm = lm
+
+            def __call__(self, **kwargs):
+                return SimpleNamespace(instruction="Prefer positive setups and pass on negative ones.")
+
+        candidate_signature = object()
+        monkeypatch.setattr(env.opt.TradeDecision, "with_instructions", lambda instruction: candidate_signature,
+                            raising=False)
+        monkeypatch.setattr(env.opt.TradeDecision, "instructions", "incumbent instruction", raising=False)
+
+        def factory(signature):
+            if signature is env.opt.InstructionProposal:
+                return Proposer()
+            if signature is candidate_signature:
+                return FakeProgram("candidate")
+            return FakeProgram()
+
+        monkeypatch.setattr(env.opt.dspy, "Predict", factory)
+        before = env.active.read_bytes()
+        assert env.opt._compile_and_evaluate("gpt", _examples())
+        assert env.active.read_bytes() == before
+        report, = _reports(env)
+        assert report["search_mode"] == "bounded"
+        assert report["status"] == "pending_forward_evaluation"
+        assert report["results"]["candidate"]["n"] == 8
+        budget_data = json.loads(next(env.root.glob("evaluations/gpt/*/budget.json")).read_text())
+        # The synthetic corpus has only two distinct input payloads, so exact
+        # request caching collapses 16 evaluations to four calls plus proposal.
+        assert budget_data["requests"] == 5
+        assert len(list((env.root / "search_cache/gpt").glob("*.json"))) == 5
+        env.compiler.assert_not_called()

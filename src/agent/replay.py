@@ -230,10 +230,14 @@ def build_corpus(
                 from src.agent.plan_replay import freeze_path
                 # Final daily bar must be complete; reject obviously truncated histories.
                 mature_at = datetime.combine(end + timedelta(days=1), datetime.min.time())
-                if datetime.utcnow() < mature_at or (window.index[0].date() - start).days > 7 or (end - window.index[-1].date()).days > 7:
+                if datetime.utcnow() < mature_at:
                     continue
                 try:
+                    from src.agent.session_coverage import freeze_sessions, validate_sessions
+                    coverage = freeze_sessions(row["ticker"], row["market"], start, end)
+                    validate_sessions(coverage, window.index.date)
                     plan_path = freeze_path(window, row["price"], row["atr"], row["market"], row["timestamp"])
+                    plan_path["session_coverage"] = coverage
                     from src.agent.portfolio_replay import PortfolioPolicy
                     plan_path["portfolio_policy"] = asdict(PortfolioPolicy.current())
                     history = df[df.index.date < start].tail(61)

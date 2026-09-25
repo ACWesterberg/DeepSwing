@@ -495,8 +495,11 @@ class TestPlanCorpus:
         _seed_decision('TAKEN', 100, 30, _INPUTS, action='BUY')
         _seed_decision('SKIPPED', 100, 30, _INPUTS, action='PASS')
         _seed_decision('OLD', 100, 30, None, action='BUY')
+        import exchange_calendars as xcals
+        sessions = xcals.get_calendar('XNYS').sessions_in_range(
+            (datetime.utcnow() - timedelta(days=35)).date(), datetime.utcnow().date())
         frame = pd.DataFrame({'Open': 100, 'High': 110, 'Low': 99, 'Close': 105},
-                             index=pd.date_range((datetime.utcnow() - timedelta(days=35)).date(), periods=35))
+                             index=sessions)
         monkeypatch.setattr(replay, '_batch_prices', lambda rows: {r['ticker']: frame for r in rows})
         corpus = replay.build_corpus(track='claude', plans=True)
         assert {e.source_action for e in corpus} == {'BUY', 'PASS'}

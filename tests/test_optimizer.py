@@ -158,6 +158,7 @@ class TestOptunaGuard:
         import src.scheduler.optimizer as opt
 
         real_import = builtins.__import__
+        monkeypatch.setattr(opt.settings, "prompt_search_mode", "mipro")
 
         def _no_optuna(name, *args, **kwargs):
             if name == "optuna":
@@ -180,6 +181,7 @@ class TestOptunaGuard:
         import logging
         pytest.importorskip("optuna")
         import src.scheduler.optimizer as opt
+        monkeypatch.setattr(opt.settings, "prompt_search_mode", "mipro")
 
         portfolio = SimpleNamespace(closed_trades=[SimpleNamespace()] * 40)
         monkeypatch.setattr(opt, "get_portfolio", lambda track: portfolio)

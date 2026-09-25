@@ -78,6 +78,9 @@ def validate_path(path: dict) -> PlanPolicy:
     previous = datetime.fromisoformat(path["decision_time"]).date()
     if not path["bars"]:
         raise ValueError("Trade-plan evaluation requires a forward OHLC path")
+    if "session_coverage" in path:
+        from src.agent.session_coverage import validate_sessions
+        validate_sessions(path["session_coverage"], [bar["date"] for bar in path["bars"]])
     for bar in path["bars"]:
         day = datetime.fromisoformat(bar["date"]).date()
         if day <= previous:

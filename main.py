@@ -10,7 +10,7 @@ from config.settings import settings
 from src.db import init_db
 from src.scheduler.market_hours import is_market_open
 from src.scheduler.markets import SCAN_MARKETS
-from src.scheduler.optimizer import run_heuristic_refinement, run_mipro_optimization
+from src.scheduler.optimizer import run_heuristic_refinement, run_prompt_optimization
 from src.scheduler.scan_loop import run_holdings_monitor, run_scan
 
 logging.basicConfig(
@@ -58,11 +58,11 @@ def scheduled_watch_monitor():
 
 
 def weekly_maintenance():
-    """Run MIPRO optimization + heuristic refinement for all tracks."""
+    """Run bounded prompt search + heuristic refinement for all tracks."""
     for track in settings.tracks:
         try:
             run_heuristic_refinement(track)
-            run_mipro_optimization(track)
+            run_prompt_optimization(track)
         except Exception as exc:
             logger.error("Weekly maintenance error for %s: %s", track, exc, exc_info=True)
     try:
@@ -78,6 +78,29 @@ def daily_db_backup():
     """Nightly on-disk SQLite snapshot with rotation."""
     from src.scheduler.backup import backup_database
     backup_database()
+
+
+def collect_shadow_outcomes():
+    """Collect matured shadow outcomes; never starts or retries model work."""
+    from src.agent.shadow import build_forward_evidence, collect_mature_shadow_outcomes, pending_candidates
+    for track in settings.tracks:
+        try:
+            summary = collect_mature_shadow_outcomes(track)
+            for candidate in pending_candidates(track):
+                build_forward_evidence(track, candidate["candidate_hash"])
+            if summary["completed"] or summary["failed"]:
+                logger.info("Shadow outcome collection [%s]: %s", track, summary)
+        except Exception as exc:
+            logger.error("Shadow outcome collection error for %s: %s", track, exc, exc_info=True)
+
+
+def collect_optimizer_batches():
+    """Retrieve existing OpenAI batches; cannot initiate or retry paid work."""
+    from src.scheduler.batch_collector import scheduled_batch_collection
+    try:
+        scheduled_batch_collection()
+    except Exception as exc:
+        logger.error("Optimizer Batch collection error: %s", exc, exc_info=True)
 
 
 def start_scheduler() -> BackgroundScheduler:
@@ -117,7 +140,7 @@ def start_scheduler() -> BackgroundScheduler:
         coalesce=True,
     )
 
-    # Weekly Sunday at 02:00 CET — MIPRO + heuristic maintenance
+    # Weekly Sunday at 02:00 CET — bounded prompt search + heuristic maintenance
     scheduler.add_job(
         weekly_maintenance,
         "cron",
@@ -136,6 +159,26 @@ def start_scheduler() -> BackgroundScheduler:
         minute=45,
         id="db_backup",
         max_instances=1,
+    )
+
+    # Mature prospective cases after daily bars settle. This job performs no
+    # model calls and cannot create or retry shadow requests.
+    scheduler.add_job(
+        collect_shadow_outcomes,
+        "cron",
+        hour=3,
+        minute=15,
+        id="shadow_outcome_collection",
+        max_instances=1,
+    )
+
+    scheduler.add_job(
+        collect_optimizer_batches,
+        "interval",
+        minutes=settings.bounded_search_batch_collection_minutes,
+        id="optimizer_batch_collection",
+        max_instances=1,
+        coalesce=True,
     )
 
     scheduler.start()
@@ -170,7 +213,7 @@ def main():
     logger.info("Simulation tracks: %s", settings.tracks)
 
     # Log resolved model IDs, and optionally ping each so a bad ID/credential
-    # surfaces now rather than at the next scan/ERL/MIPRO run.
+    # surfaces now rather than at the next scan/ERL/prompt-search run.
     from src.scheduler.preflight import check_models, log_model_config
     log_model_config()
     if settings.preflight_check_models:
