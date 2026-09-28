@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import hashlib
+import fcntl
 import json
+from contextlib import contextmanager
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -12,7 +14,7 @@ from typing import Callable
 from config.settings import settings
 from src.agent.evaluation import write_json_atomic
 from src.agent.provider_usage import usage_from_lm_history
-from src.agent.single_request import single_predict
+from src.agent.single_request import single_predict, render_messages
 from src.agent.replay import DECISION_INPUTS
 
 
@@ -60,6 +62,22 @@ class SearchBudget:
         self.max_requests = max_requests
         self.max_input_bytes = max_input_bytes
         self.max_reserved_output_tokens = max_reserved_output_tokens
+        with self._locked():
+            self._reload()
+            write_json_atomic(path, self.state)
+
+    @contextmanager
+    def _locked(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.path.with_suffix(self.path.suffix + ".lock").open("a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
+
+    def _reload(self):
+        path = self.path
         self.state = (json.loads(path.read_text()) if path.exists() else
                       {"version": 1, "requests": 0, "input_bytes": 0, "reserved_output_tokens": 0})
         if self.state.get("version") != 1 or any(
@@ -67,9 +85,15 @@ class SearchBudget:
             for k in ("requests", "input_bytes", "reserved_output_tokens")
         ):
             raise ValueError("Invalid durable search budget")
-        write_json_atomic(path, self.state)
 
     def reserve(self, input_bytes: int, output_tokens: int) -> None:
+        if any(type(value) is not int or value < 0 for value in (input_bytes, output_tokens)):
+            raise ValueError("Reservations must be nonnegative integers")
+        with self._locked():
+            self._reload()
+            self._reserve(input_bytes, output_tokens)
+
+    def _reserve(self, input_bytes: int, output_tokens: int) -> None:
         proposed = {
             "requests": self.state["requests"] + 1,
             "input_bytes": self.state["input_bytes"] + input_bytes,
@@ -94,7 +118,15 @@ def exact_request(
     call: Callable[[], dict],
     lm=None,
 ) -> dict:
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    # Generation settings (especially reasoning effort) change the experiment.
+    # Hash them rather than persisting kwargs, which can contain credentials.
+    kwargs = getattr(lm, "kwargs", {}) if lm is not None else {}
+    if not isinstance(kwargs, dict):
+        kwargs = {}
+    configuration = json.dumps(kwargs, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    identity = {"version": 2, "payload": payload, "output_tokens": output_tokens,
+                "lm_configuration_hash": hashlib.sha256(configuration.encode()).hexdigest()}
+    canonical = json.dumps(identity, sort_keys=True, separators=(",", ":"), allow_nan=False)
     request_id = hashlib.sha256(canonical.encode()).hexdigest()
     path = settings.compiled_dir / "search_cache" / track / f"{request_id}.json"
     if path.exists():
@@ -173,6 +205,7 @@ def cached_program(
             "program_hash": program_hash,
             "inputs": {key: inputs[key] for key in DECISION_INPUTS},
             "output_tokens": output_tokens,
+            "messages": render_messages(program, {key: inputs[key] for key in DECISION_INPUTS}),
         }
 
         def invoke():

@@ -24,7 +24,7 @@ from src.agent.bounded_search import (
     SearchBudget, cached_program, compact_training_summary, exact_request, select_screen_examples, proposal_fields,
 )
 from src.agent.decision import TradeDecision, build_lm
-from src.agent.single_request import single_predict, effective_output_tokens
+from src.agent.single_request import single_predict, effective_output_tokens, render_messages
 from src.agent.evaluation import (
     corpus_fingerprint, evaluate_program, promotion_decision, summarize_actions,
     temporal_split, write_json_atomic,
@@ -516,15 +516,16 @@ def _compile_and_evaluate(track: TrackType, examples: list) -> bool:
             existing_instruction = getattr(getattr(incumbent, "signature", None), "instructions", None)
             existing_instruction = existing_instruction or TradeDecision.instructions
             proposal_inputs = proposal_fields(split.train + split.validation, existing_instruction)
+            proposer = dspy.Predict(InstructionProposal)
+            proposer.set_lm(prompt_lm)
             proposal_request = {
                 "kind": "instruction_proposal", "track": track, "model": prompt_model,
                 "inputs": proposal_inputs,
                 "output_tokens": output_tokens,
+                "messages": render_messages(proposer, proposal_inputs),
             }
 
             def propose():
-                proposer = dspy.Predict(InstructionProposal)
-                proposer.set_lm(prompt_lm)
                 result = single_predict(proposer, prompt_lm, proposal_inputs)
                 instruction = str(result.instruction).strip()
                 if not instruction:
@@ -538,6 +539,12 @@ def _compile_and_evaluate(track: TrackType, examples: list) -> bool:
                 output_tokens=output_tokens,
                 budget=budget, call=propose, lm=prompt_lm,
             )
+            # Cache hits bypass propose(); enforce today's limit on both paths.
+            instruction = proposal.get("instruction")
+            if not isinstance(instruction, str) or not instruction.strip():
+                raise ValueError("Instruction proposer returned an empty candidate")
+            if len(instruction) > settings.bounded_search_instruction_max_chars:
+                raise ValueError("Instruction proposal exceeds the configured character limit")
             compiled = dspy.Predict(TradeDecision.with_instructions(proposal["instruction"]))
             report["proposal_request"] = proposal_request
         else:

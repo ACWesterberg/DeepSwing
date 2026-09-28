@@ -2,12 +2,17 @@
 from types import SimpleNamespace
 
 
+def render_messages(program, inputs):
+    from dspy.adapters.chat_adapter import ChatAdapter
+    return ChatAdapter().format(program.signature, program.demos, inputs)
+
+
 def single_predict(program, lm, inputs):
     from dspy.adapters.chat_adapter import ChatAdapter
     adapter = ChatAdapter()
     lm.num_retries = 0
     lm.cache = False
-    outputs = lm(messages=adapter.format(program.signature, program.demos, inputs))
+    outputs = lm(messages=render_messages(program, inputs))
     if len(outputs) != 1 or not isinstance(outputs[0], str):
         raise ValueError("Expected exactly one text completion")
     return SimpleNamespace(**adapter.parse(program.signature, outputs[0]))

@@ -77,6 +77,26 @@ def test_failed_request_requires_explicit_retry(search_env):
     assert result == {"answer": "yes"}
 
 
+def test_generation_settings_and_output_allowance_invalidate_cache(search_env):
+    from types import SimpleNamespace
+    lm = SimpleNamespace(model="openai/gpt-test", history=[],
+                         kwargs={"reasoning_effort": "low", "api_key": "SECRET_SENTINEL"})
+    calls = []
+    def invoke():
+        calls.append(1)
+        return {"answer": len(calls)}
+    def run(tokens):
+        return exact_request("gpt", {"model": "gpt-test"}, output_tokens=tokens,
+                             budget=budget(search_env), call=invoke, lm=lm)
+    assert run(500) == run(500) == {"answer": 1}
+    lm.kwargs["reasoning_effort"] = "high"
+    assert run(500) == {"answer": 2}
+    assert run(600) == {"answer": 3}
+    assert len(calls) == 3
+    for path in (search_env / "search_cache/gpt").glob("*.json"):
+        assert "SECRET_SENTINEL" not in path.read_text()
+
+
 def test_budget_stops_before_call(search_env):
     calls = []
     limited = budget(search_env, requests=1)
@@ -86,6 +106,74 @@ def test_budget_stops_before_call(search_env):
         exact_request("gpt", {"x": 2}, output_tokens=1000, budget=limited,
                       call=lambda: calls.append(2) or {"ok": True})
     assert calls == [1]
+
+
+def test_two_budget_instances_cannot_overwrite_each_others_reservations(search_env):
+    first = budget(search_env, requests=1)
+    stale = budget(search_env, requests=1)
+    first.reserve(10, 100)
+    with pytest.raises(RuntimeError, match="request limit"):
+        stale.reserve(10, 100)
+    assert json.loads(first.path.read_text())["requests"] == 1
+
+
+def test_concurrent_budget_reservations_are_serialized(search_env):
+    from concurrent.futures import ThreadPoolExecutor
+    ledgers = [budget(search_env, requests=3) for _ in range(12)]
+    def reserve(ledger):
+        try:
+            ledger.reserve(10, 100)
+            return True
+        except RuntimeError:
+            return False
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        assert sum(pool.map(reserve, ledgers)) == 3
+    state = json.loads(ledgers[0].path.read_text())
+    assert state == {"version": 1, "requests": 3, "input_bytes": 30, "reserved_output_tokens": 300}
+
+
+@pytest.mark.parametrize("inputs,outputs", [(-1, 100), (1, -100), (True, 100), (1, 1.5)])
+def test_invalid_reservation_cannot_reduce_counters(search_env, inputs, outputs):
+    ledger = budget(search_env)
+    with pytest.raises(ValueError, match="nonnegative integers"):
+        ledger.reserve(inputs, outputs)
+    assert ledger.state["requests"] == 0
+
+
+def test_rendered_instruction_and_schema_count_toward_byte_limit(search_env, monkeypatch):
+    from src.agent import bounded_search as bounded
+    from src.agent.replay import DECISION_INPUTS
+    from types import SimpleNamespace
+    monkeypatch.setattr(bounded, "render_messages", lambda program, inputs: [
+        {"role": "system", "content": "x" * 20000}])
+    calls = []
+    monkeypatch.setattr(bounded, "single_predict", lambda *args: calls.append(1))
+    predict = bounded.cached_program("gpt", object(), "baseline", "gpt-test", budget(search_env),
+                                     100, lm=SimpleNamespace(kwargs={}, history=[]))
+    with pytest.raises(RuntimeError, match="input-byte limit"):
+        predict(**{key: "tiny" for key in DECISION_INPUTS})
+    assert not calls
+
+
+def test_rendered_prompt_changes_invalidate_same_program_hash(search_env, monkeypatch):
+    from src.agent import bounded_search as bounded
+    from src.agent.replay import DECISION_INPUTS
+    from types import SimpleNamespace
+    messages = [{"role": "system", "content": "original signature"}]
+    monkeypatch.setattr(bounded, "render_messages", lambda program, inputs: messages)
+    calls = []
+    def invoke(*args):
+        calls.append(1)
+        return SimpleNamespace(action="PASS", confidence=.5, stop_loss=0., target=0., reasoning="test")
+    monkeypatch.setattr(bounded, "single_predict", invoke)
+    predict = bounded.cached_program("gpt", object(), "baseline", "gpt-test", budget(search_env),
+                                     100, lm=SimpleNamespace(kwargs={}, history=[]))
+    inputs = {key: "same inputs" for key in DECISION_INPUTS}
+    predict(**inputs)
+    predict(**inputs)
+    messages[0]["content"] = "changed signature"
+    predict(**inputs)
+    assert len(calls) == 2
 
 
 def test_openai_usage_is_normalized_and_reported(search_env):

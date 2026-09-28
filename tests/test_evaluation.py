@@ -162,6 +162,8 @@ def optimizer_env(tmp_path, monkeypatch):
     monkeypatch.setattr(opt.dspy, "context", lambda **kwargs: nullcontext())
     monkeypatch.setattr(opt, "build_lm", lambda *args, **kwargs: object())
     monkeypatch.setattr(opt, "single_predict", lambda program, lm, inputs: program(**inputs))
+    monkeypatch.setattr(opt, "render_messages", lambda program, inputs: [{"role": "user", "content": str(inputs)}])
+    monkeypatch.setattr("src.agent.bounded_search.render_messages", lambda program, inputs: [{"role": "user", "content": str(inputs)}])
     monkeypatch.setattr("src.agent.bounded_search.single_predict", lambda program, lm, inputs: program(**inputs))
     monkeypatch.setattr(opt, "_make_example", lambda inputs, action, r: {
         **{key: inputs[key] for key in DECISION_INPUTS}, "action": action, "r_multiple": r,
@@ -330,3 +332,17 @@ class TestPromotionLifecycle:
         assert budget_data["requests"] == 5
         assert len(list((env.root / "search_cache/gpt").glob("*.json"))) == 5
         env.compiler.assert_not_called()
+
+    @pytest.mark.parametrize("instruction", ["x" * 4001, "", None], ids=["oversized", "empty", "missing"])
+    def test_cached_proposal_is_validated_before_test_exposure(self, optimizer_env, monkeypatch, instruction):
+        env = optimizer_env
+        monkeypatch.setattr(settings, "prompt_search_mode", "bounded")
+        monkeypatch.setattr(settings, "bounded_search_instruction_max_chars", 4000)
+        monkeypatch.setattr(env.opt.TradeDecision, "instructions", "incumbent instruction", raising=False)
+        cached = Mock(return_value={"instruction": instruction})
+        monkeypatch.setattr(env.opt, "exact_request", cached)
+        before = env.active.read_bytes()
+        assert not env.opt._compile_and_evaluate("gpt", _examples())
+        cached.assert_called_once()
+        assert env.active.read_bytes() == before
+        assert not (env.root / "evaluations/gpt/state.json").exists()

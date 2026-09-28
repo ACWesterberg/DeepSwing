@@ -79,6 +79,36 @@ def _replay_with_real_dspy_and_local_dummy_model(tmp_path, monkeypatch):
     loaded.set_lm(local_model())
     assert evaluate_program([dated], loaded)["buys"] == 1
 
+    # Render the offline estimator with the real adapter, with networking blocked.
+    from src.agent.search_estimate import search_requests
+    datasets = {"train": [dated.toDict()], "validation": [], "test": [dated.toDict()]}
+    requests = search_requests(datasets, track="gpt", incumbent=artifact, batch=True)
+    assert len(requests) == 3
+    assert [row["batch"] for row in requests] == [False, True, True]
+    assert requests[-1]["instruction_allowance"] == settings.bounded_search_instruction_max_chars
+    assert all(isinstance(row["messages"], list) and row["messages"] for row in requests)
+    known = search_requests(datasets, track="claude", incumbent=artifact, candidate=artifact, batch=True)
+    assert all(not row["batch"] for row in known)
+    assert known[-1]["instruction_allowance"] == 0
+
+    # Exercise the actual CLI, not just its helper functions. It blocks network
+    # access itself; fixtures and incidental SDK caches stay in the temp folder.
+    import json
+    import os
+    corpus_path = tmp_path / "estimate-corpus.json"
+    corpus_path.write_text(json.dumps({"datasets": datasets}))
+    cli = subprocess.run(
+        [sys.executable, str(Path(__file__).resolve().parents[1] / "scripts/estimate_optimizer.py"),
+         "--track", "gpt", "--corpus", str(corpus_path), "--batch"],
+        cwd=tmp_path, env={**os.environ, "DSPY_CACHEDIR": str(tmp_path / "cli-cache")},
+        capture_output=True, text=True, timeout=30,
+    )
+    assert cli.returncode == 0, cli.stderr
+    estimate = json.loads(cli.stdout)
+    assert estimate["requests"] == 3
+    assert [row["batch"] for row in estimate["rows"]] == [False, True, True]
+    assert not (tmp_path / "compiled").exists()
+
     from src.agent.plan_replay import freeze_path, score_plans, plan_metric
     import pandas as pd
     frame = pd.DataFrame({"Open": [100.0], "High": [111.0], "Low": [99.0], "Close": [108.0]},

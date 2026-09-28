@@ -70,3 +70,30 @@ def test_long_context_pricing_is_not_applied_to_sum_of_short_requests():
     assert result["usd"] == pytest.approx(2 * estimate_usage_cost(short, today=date(2026, 9, 23))["usd"])
     legacy = {"by_model": {"openai/gpt-5.6-sol": {**short, "input_tokens": 400000}}}
     assert not price_usage_report(legacy, today=date(2026, 9, 23))["available"]
+
+
+@pytest.mark.parametrize("normalized", [False, True])
+def test_anthropic_cache_duration_normalization_and_pricing(normalized):
+    from src.agent.provider_usage import normalize_usage
+    durations = {"ephemeral_5m_input_tokens": 20, "ephemeral_1h_input_tokens": 30}
+    raw = {"input_tokens": 100, "output_tokens": 10, "cache_read_input_tokens": 40,
+           "cache_creation_input_tokens": 50, "cache_creation": durations}
+    if normalized:
+        raw = {"prompt_tokens": 190, "completion_tokens": 10,
+               "prompt_tokens_details": {"cached_tokens": 40, "cache_creation_tokens": 50,
+                                         "cache_creation_token_details": durations}}
+    value = normalize_usage("anthropic", raw, model="claude-sonnet-5")
+    assert value["input_tokens"] == 190
+    result = estimate_usage_cost(value, today=date(2026, 9, 23))
+    assert result["usd"] == pytest.approx((100 * 2 + 40 * .2 + 20 * 2.5 + 30 * 4 + 10 * 10) / 1e6)
+    assert estimate_usage_cost(value, batch=True, today=date(2026, 9, 23))["usd"] == result["usd"] / 2
+
+
+def test_anthropic_unknown_write_duration_is_not_guessed():
+    value = usage(provider="anthropic", model="claude-opus-4-8", cache_write_input_tokens=100)
+    assert not estimate_usage_cost(value, today=date(2026, 9, 23))["available"]
+    value.update(cache_write_5m_tokens=50, cache_write_1h_tokens=49)
+    with pytest.raises(ValueError, match="duration"):
+        estimate_usage_cost(value, today=date(2026, 9, 23))
+    value.update(cache_write_input_tokens=0)
+    assert estimate_usage_cost(value, today=date(2026, 9, 23))["available"]

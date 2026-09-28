@@ -11,9 +11,11 @@
 - Scheduled optimization now defaults to one instruction proposal and an eight-case paired incumbent/candidate screen. It has durable exact-request caching, pre-call request/byte/output reservations, and explicit retry authorization; MIPRO is retained only as `PROMPT_SEARCH_MODE=mipro` legacy mode.
 - Opt-in OpenAI Batch evaluation now connects submission, collection, and final scoring with frozen thresholds and program hashes. Lost submission responses and process crashes allow explicit ID adoption. Passing candidates are registered inactive. Synchronous evaluation remains the default.
 - A retrieval-only scheduler job now checks existing optimizer Batch checkpoints hourly. It remains silent while work is pending and emits a one-time Telegram/log event only for completion or intervention. It can retrieve and persist results, but has no path to propose instructions, submit batches, adopt IDs, or retry failures. New Batch submission remains disabled by default.
-- Provider usage reports include dated advisory costs for GPT-5 and GPT-5.6 Sol, computed per request and transport. Sol pricing includes the >272,000-input-token threshold and cache-write charges; missing cache counters or aggregated legacy usage makes its estimate unavailable. Pricing uses exact model identifiers, expires after 30 days, and refuses partial totals when any attempt is unknown. Anthropic and unverified models remain unavailable.
+- Provider usage reports include dated advisory costs for GPT-5, GPT-5.6 Sol, Claude Sonnet 5 and Claude Opus 4.8, computed per request and transport. Sol pricing includes the >272,000-input-token threshold and cache-write charges; Claude cache-write prices require duration counters. Pricing uses exact model identifiers, expires after 30 days, and refuses partial totals when any attempt is unknown. Unverified models remain unavailable.
 
-Last updated: 2026-09-23
+- September 25 follow-up: the pricing allowlist also covers Claude Sonnet 5 and Opus 4.8 with explicit cache-write duration accounting. The offline pre-run estimator renders saved corpus requests without networking; unavailable tokenizers or rates prevent dollar totals. Cached proposals now obey the instruction-length limit before test evidence is consumed.
+
+Last updated: 2026-09-25
 
 ---
 
