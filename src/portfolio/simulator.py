@@ -236,7 +236,7 @@ class ClosedTrade:
     regime: str
     reasoning: str
     confidence: float
-    exit_reason: str  # stop_loss | breakeven_stop | trailing_stop | take_profit | news_exit
+    exit_reason: str  # stop_loss | breakeven_stop | trailing_stop | take_profit | news_exit | paused
     technical_snapshot: str = ""
     entry_inputs: dict = field(default_factory=dict)
     # Fingerprint of the compiled program that decided this entry. Empty

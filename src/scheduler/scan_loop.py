@@ -275,6 +275,45 @@ def run_scan(market: MarketType) -> dict:
         _scan_lock.release()
 
 
+PAUSE_EXIT_REASON = "paused"
+
+
+def liquidate_all(reason: str = PAUSE_EXIT_REASON) -> list[dict]:
+    """Sell every open position on every track at the live quote.
+
+    Falls back to the last observed price when no quote comes back (market
+    closed, feed down) — a pause must never leave a position behind. These are
+    not strategy exits, so ERL and heuristic scoring are skipped for them.
+    """
+    with _scan_lock:
+        held_by_market: dict[str, list[str]] = {}
+        for track in settings.tracks:
+            for p in get_portfolio(track).open_positions:
+                held_by_market.setdefault(p.market, []).append(p.ticker)
+        live_prices: dict[str, float] = {}
+        for pos_market, pos_tickers in held_by_market.items():
+            live_prices.update(_get_current_prices(sorted(set(pos_tickers)), pos_market))
+
+        closed_log: list[dict] = []
+        for track in settings.tracks:
+            portfolio = get_portfolio(track)
+            for position in list(portfolio.open_positions):
+                price = live_prices.get(position.ticker) or position.current_price or position.entry_price
+                closed = portfolio.close_trade(trade_id=position.trade_id, exit_price=price, exit_reason=reason)
+                if closed is None:
+                    continue
+                _emit({"event": "trade_closed", "data": {
+                    "track": track, "ticker": closed.ticker, "exit_reason": reason,
+                    "pnl_pct": round(closed.pnl_pct * 100, 2), "pnl": round(closed.pnl, 2),
+                    "exit_price": closed.exit_price,
+                }})
+                closed_log.append({"track": track, "ticker": closed.ticker,
+                                   "pnl": round(closed.pnl, 2),
+                                   "pnl_pct": round(closed.pnl_pct * 100, 2),
+                                   "live_quote": position.ticker in live_prices})
+        return closed_log
+
+
 def _run_scan(market: MarketType) -> dict:
     """
     Full scan cycle for a given market:
@@ -1065,7 +1104,7 @@ def backfill_erl(tracks: Optional[list[str]] = None) -> dict:
         attempted = 0
         created = 0
         for closed in portfolio.closed_trades:
-            if closed.trade_id in already:
+            if closed.trade_id in already or closed.exit_reason == PAUSE_EXIT_REASON:
                 continue
             attempted += 1
             try:

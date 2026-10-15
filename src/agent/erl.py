@@ -202,6 +202,7 @@ _EXIT_LABELS = {
     "trailing_stop": "trailing stop",
     "news_exit": "news-driven exit on a large price move",
     "ai_exit": "AI exit review",
+    "paused": "forced sell when trading was paused",
 }
 
 

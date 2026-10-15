@@ -115,6 +115,8 @@ async function refreshStatus() {
   eb.className = "badge " + (data.eu_open ? "open" : "closed");
   ub.textContent = "US: " + (data.us_open ? "OPEN" : "CLOSED");
   ub.className = "badge " + (data.us_open ? "open" : "closed");
+  const pb = document.getElementById("paused-status");
+  if (pb) pb.style.display = data.trading_paused ? "" : "none";
 
   // Show warning banner if a track's API key is missing
   const warn = document.getElementById("gpt-key-warning");

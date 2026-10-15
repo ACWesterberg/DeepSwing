@@ -317,7 +317,8 @@ def run_prompt_optimization(track: TrackType) -> bool:
     active program is never replaced by scheduled optimization.
     """
     portfolio = get_portfolio(track)
-    trades = portfolio.closed_trades
+    # A forced sell on pause is not an outcome of the strategy's own exit rules.
+    trades = [t for t in portfolio.closed_trades if getattr(t, "exit_reason", "") != "paused"]
 
     if len(trades) < MIN_TRADES_FOR_OPTIMIZATION:
         logger.info(

@@ -193,6 +193,12 @@ class Settings(BaseSettings):
     # a 3%-of-price stop. Note that this is an artifact of polling, not of the
     # strategy: a real broker's stop order fills at the level regardless.
     scan_interval_minutes: int = 30
+    # Kill switch. While true, startup sells every open position at the live quote
+    # (exit_reason="paused") and schedules no scan, holdings sweep, weekly prompt
+    # search, shadow collection or batch collection — the tracks hold cash and
+    # spend nothing. History, heuristics and compiled programs are untouched, so
+    # TRADING_PAUSED=false + restart resumes from the same state.
+    trading_paused: bool = True
     # The stop/target sweep is price arithmetic — no candidates, no model — so it
     # has no reason to share the scan's timer. Exits fill at the price we
     # *observe*, so this interval is the exit latency; keeping it short is what

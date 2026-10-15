@@ -103,8 +103,37 @@ def collect_optimizer_batches():
         logger.error("Optimizer Batch collection error: %s", exc, exc_info=True)
 
 
+def _add_maintenance_jobs(scheduler: BackgroundScheduler) -> None:
+    """Jobs that keep running while trading is paused: no model or trading spend."""
+    # Personal watchlist monitor — light (one quote + cached news per ticker),
+    # so it never takes the scan lock and can't be starved by a long scan
+    scheduler.add_job(
+        scheduled_watch_monitor,
+        "interval",
+        minutes=settings.watch_interval_minutes,
+        id="watch_monitor",
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Nightly 23:45 CET — SQLite snapshot (after both markets close)
+    scheduler.add_job(
+        daily_db_backup,
+        "cron",
+        hour=23,
+        minute=45,
+        id="db_backup",
+        max_instances=1,
+    )
+
+
 def start_scheduler() -> BackgroundScheduler:
     scheduler = BackgroundScheduler(timezone="Europe/Stockholm")
+    if settings.trading_paused:
+        _add_maintenance_jobs(scheduler)
+        scheduler.start()
+        logger.warning("Trading PAUSED — no scans, holdings sweeps or prompt search scheduled")
+        return scheduler
 
     # Every 15 minutes — market-hours-aware scan
     scheduler.add_job(
@@ -129,17 +158,6 @@ def start_scheduler() -> BackgroundScheduler:
             coalesce=True,
         )
 
-    # Personal watchlist monitor — light (one quote + cached news per ticker),
-    # so it never takes the scan lock and can't be starved by a long scan
-    scheduler.add_job(
-        scheduled_watch_monitor,
-        "interval",
-        minutes=settings.watch_interval_minutes,
-        id="watch_monitor",
-        max_instances=1,
-        coalesce=True,
-    )
-
     # Weekly Sunday at 02:00 CET — bounded prompt search + heuristic maintenance
     scheduler.add_job(
         weekly_maintenance,
@@ -148,16 +166,6 @@ def start_scheduler() -> BackgroundScheduler:
         hour=2,
         minute=0,
         id="weekly_maintenance",
-        max_instances=1,
-    )
-
-    # Nightly 23:45 CET — SQLite snapshot (after both markets close)
-    scheduler.add_job(
-        daily_db_backup,
-        "cron",
-        hour=23,
-        minute=45,
-        id="db_backup",
         max_instances=1,
     )
 
@@ -181,6 +189,7 @@ def start_scheduler() -> BackgroundScheduler:
         coalesce=True,
     )
 
+    _add_maintenance_jobs(scheduler)
     scheduler.start()
     logger.info(
         "Scheduler started (scan every %dm, holdings sweep every %dm, "
@@ -204,6 +213,13 @@ def main():
     from src.portfolio.simulator import set_persistence_handler
     restore_portfolios()
     set_persistence_handler(save_portfolio)
+
+    if settings.trading_paused:
+        from src.scheduler.scan_loop import liquidate_all
+        for row in liquidate_all():
+            logger.warning("Paused — sold %s [%s]: P&L %+.2f SEK (%+.2f%%)%s",
+                           row["ticker"], row["track"], row["pnl"], row["pnl_pct"],
+                           "" if row["live_quote"] else " at last observed price")
 
     # Ensure compiled + heuristic dirs exist
     settings.compiled_dir.mkdir(parents=True, exist_ok=True)

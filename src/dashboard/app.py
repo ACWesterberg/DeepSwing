@@ -168,6 +168,7 @@ async def status():
         "tracks": settings.tracks,
         "claude_configured": bool(settings.anthropic_api_key),
         "gpt_configured": bool(settings.openai_api_key),
+        "trading_paused": settings.trading_paused,
     }
 
 
@@ -599,6 +600,8 @@ async def trigger_scan(market: str):
     listens for. The scan still runs in a worker thread, never on the event loop."""
     if market not in SCAN_MARKETS:
         return {"error": f"market must be one of {SCAN_MARKETS}"}
+    if settings.trading_paused:
+        return {"error": "Trading is paused (TRADING_PAUSED=true)"}
     loop = asyncio.get_event_loop()
 
     async def _run_and_broadcast() -> None:
