@@ -160,3 +160,16 @@ class TestSignalFrame:
                         assert b.__dict__[key] == pytest.approx(value, rel=1e-9, abs=1e-9), key
                     else:
                         assert b.__dict__[key] == value, key
+
+
+class TestParabolicSar:
+    def test_matches_ta_where_ta_indexes_correctly(self):
+        # ta's loop is correct on a RangeIndex (label == position); only its
+        # speed and its DatetimeIndex behaviour differ.
+        import ta.trend as tat
+        from src.analysis.technical import _parabolic_sar
+        df = _make_df(400, seed=7).reset_index(drop=True)
+        ref = tat.PSARIndicator(df["High"], df["Low"], df["Close"])
+        up, down = _parabolic_sar(df["High"].to_numpy(float), df["Low"].to_numpy(float), df["Close"].to_numpy(float))
+        np.testing.assert_allclose(up, ref.psar_up().to_numpy(), equal_nan=True)
+        np.testing.assert_allclose(down, ref.psar_down().to_numpy(), equal_nan=True)

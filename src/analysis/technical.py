@@ -101,7 +101,7 @@ def compute_signal_frame(df: pd.DataFrame) -> pd.DataFrame:
     volume = df["Volume"]
 
     bb_ind = tav.BollingerBands(close, window=20, window_dev=2)
-    psar_ind = tat.PSARIndicator(high, low, close)
+    psar_up, psar_down = _parabolic_sar(high.to_numpy(float), low.to_numpy(float), close.to_numpy(float))
     vol_avg_20 = volume.rolling(20).mean()
     # Volume ratio and turnover are read from a *completed* daily bar. Intraday
     # the latest bar is still forming (partial volume), so vol/avg would read
@@ -121,8 +121,8 @@ def compute_signal_frame(df: pd.DataFrame) -> pd.DataFrame:
         "bb_lower": bb_ind.bollinger_lband(),
         "bb_pct_b": bb_ind.bollinger_pband(),  # 0 = lower band, 1 = upper band
         "rsi_14": tam.RSIIndicator(close, window=14).rsi(),
-        "psar_up": psar_ind.psar_up(),      # bullish SAR (price is above SAR)
-        "psar_down": psar_ind.psar_down(),  # bearish SAR (price is below SAR)
+        "psar_up": psar_up,      # bullish SAR (price is above SAR)
+        "psar_down": psar_down,  # bearish SAR (price is below SAR)
         "eom": tavol.EaseOfMovementIndicator(high, low, volume, window=14).ease_of_movement(),
         "obv": tavol.OnBalanceVolumeIndicator(close, volume).on_balance_volume(),
         "vol_ratio": vol_ratio,
@@ -131,6 +131,55 @@ def compute_signal_frame(df: pd.DataFrame) -> pd.DataFrame:
         "swing_high": high.rolling(50, min_periods=1).max(),
         "swing_low": low.rolling(50, min_periods=1).min(),
     }, index=df.index)
+
+
+def _parabolic_sar(
+    high: np.ndarray, low: np.ndarray, close: np.ndarray, step: float = 0.02, max_step: float = 0.20,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Wilder's Parabolic SAR as (up, down), NaN where the other trend holds.
+
+    ta.trend.PSARIndicator runs the same loop through per-element pandas
+    indexing — ~0.45 s a ticker, 90% of a scan's indicator time — and on a
+    DatetimeIndex its `psar[i] = high2` appends a row instead of clamping."""
+    h, lo = high.tolist(), low.tolist()
+    n = len(h)
+    psar = close.tolist()
+    up = np.full(n, np.nan)
+    down = np.full(n, np.nan)
+    up_trend = True
+    af = step
+    up_high, down_low = h[0], lo[0]
+    for i in range(2, n):
+        reversal = False
+        if up_trend:
+            p = psar[i - 1] + af * (up_high - psar[i - 1])
+            if lo[i] < p:
+                reversal, p, down_low, af = True, up_high, lo[i], step
+            else:
+                if h[i] > up_high:
+                    up_high, af = h[i], min(af + step, max_step)
+                if lo[i - 2] < p:
+                    p = lo[i - 2]
+                elif lo[i - 1] < p:
+                    p = lo[i - 1]
+        else:
+            p = psar[i - 1] - af * (psar[i - 1] - down_low)
+            if h[i] > p:
+                reversal, p, up_high, af = True, down_low, h[i], step
+            else:
+                if lo[i] < down_low:
+                    down_low, af = lo[i], min(af + step, max_step)
+                if h[i - 2] > p:
+                    p = h[i - 2]
+                elif h[i - 1] > p:
+                    p = h[i - 1]
+        psar[i] = p
+        up_trend = up_trend != reversal
+        if up_trend:
+            up[i] = p
+        else:
+            down[i] = p
+    return up, down
 
 
 def signals_at(
