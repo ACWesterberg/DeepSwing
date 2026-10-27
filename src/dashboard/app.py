@@ -359,6 +359,7 @@ async def run_backtest(
         return {"error": f"market must be one of {SCAN_MARKETS}"}
 
     from src.backtesting.engine import BacktestEngine
+    from src.scheduler.scan_loop import _to_sek_price
     from src.data.watchlist import get_eu_watchlist, get_omxs30_tickers, get_us_tickers
 
     try:
@@ -383,6 +384,7 @@ async def run_backtest(
         end=end_date,
         initial_equity=initial_equity,
         n_windows=max(1, min(n_windows, 12)),
+        sek_factor=lambda ticker: _to_sek_price(1.0, ticker, market, strict=True),
     )
     result = await loop.run_in_executor(None, engine.run)
     return result.to_dict()

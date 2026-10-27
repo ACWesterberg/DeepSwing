@@ -201,24 +201,44 @@ class TestRuleMeaning:
         assert similarity(left, right) == 0
 
 
-def test_backtest_entry_cannot_see_an_earlier_low(monkeypatch):
+def test_backtest_fills_at_next_open_and_cannot_see_an_earlier_low(monkeypatch):
     import src.backtesting.engine as engine
     from src.analysis.screener import ScreenerCandidate
-    from src.analysis.regime import RegimeResult
 
+    # Decided on 08-03's close (100); 08-04's open (100) is the fill, so the
+    # 96 low printed on 08-03 — before the decision — cannot stop it out.
     window = _bars((100, 101, 99, 100), (99, 101, 96, 100), (100, 101, 99, 100))
     signals = _make_signals()
-    regime = RegimeResult("trending", 0.6, 0.1, "test")
     monkeypatch.setattr(engine, "_WARMUP_DAYS", 2)
-    monkeypatch.setattr(engine, "compute_signals", lambda *args: signals)
-    monkeypatch.setattr(engine, "classify_regime", lambda *args: regime)
-    monkeypatch.setattr(engine, "screen_candidates", lambda *args: [ScreenerCandidate("TEST", "us", signals, regime)])
-    backtest = engine.BacktestEngine("us", ["TEST"], date(2026, 8, 3), date(2026, 8, 4))
-    result = backtest._simulate_window({"TEST": window}, 0, date(2026, 8, 3), date(2026, 8, 4))
+    monkeypatch.setattr(engine, "compute_signal_frame", lambda df: pd.DataFrame(index=df.index))
+    monkeypatch.setattr(engine, "signals_at", lambda *args, **kwargs: signals)
+    monkeypatch.setattr(engine, "_prefilter", lambda frame, priced_in_sek: pd.Series(True, index=frame.index))
+    monkeypatch.setattr(engine, "screen_candidates", lambda analysis, market, sek_factor=None: [
+        ScreenerCandidate(t, "us", s, r) for t, (s, r) in analysis.items()
+    ])
+    backtest = engine.BacktestEngine("us", ["TEST"], date(2026, 8, 3), date(2026, 8, 5))
+    result = backtest._simulate_window({"TEST": window}, 0, date(2026, 8, 3), date(2026, 8, 5))
     trade, = result.trades
-    assert trade.entry_date == date(2026, 8, 3)
-    assert trade.exit_date == date(2026, 8, 4)
+    assert trade.entry_date == date(2026, 8, 4)
     assert trade.exit_reason == "end_of_window"
+
+
+def test_backtest_skips_an_entry_that_gapped(monkeypatch):
+    import src.backtesting.engine as engine
+    from src.analysis.screener import ScreenerCandidate
+
+    window = _bars((100, 101, 99, 100), (100, 101, 99, 100), (106, 107, 105, 106))
+    signals = _make_signals()
+    monkeypatch.setattr(engine, "_WARMUP_DAYS", 2)
+    monkeypatch.setattr(engine, "compute_signal_frame", lambda df: pd.DataFrame(index=df.index))
+    monkeypatch.setattr(engine, "signals_at", lambda *args, **kwargs: signals)
+    monkeypatch.setattr(engine, "_prefilter", lambda frame, priced_in_sek: pd.Series(True, index=frame.index))
+    monkeypatch.setattr(engine, "screen_candidates", lambda analysis, market, sek_factor=None: [
+        ScreenerCandidate(t, "us", s, r) for t, (s, r) in analysis.items()
+    ])
+    backtest = engine.BacktestEngine("us", ["TEST"], date(2026, 8, 3), date(2026, 8, 5))
+    result = backtest._simulate_window({"TEST": window}, 0, date(2026, 8, 3), date(2026, 8, 5))
+    assert result.trades == []
 
 
 def test_mechanical_stop_runs_before_news_review(monkeypatch):

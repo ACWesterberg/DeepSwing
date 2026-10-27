@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -11,15 +11,19 @@ import yfinance as yf
 
 from config.settings import settings
 from src.agent.risk import compute_return_correlations, validate_trade
-from src.analysis.regime import classify_regime
-from src.analysis.screener import screen_candidates
-from src.analysis.technical import TechnicalSignals, compute_signals
+from src.analysis.regime import RegimeResult, classify_regime
+from src.analysis.screener import ScreenerCandidate, screen_candidates
+from src.analysis.technical import TechnicalSignals, compute_signal_frame, signals_at
 from src.portfolio.daily import BacktestTrade, DailyPortfolio as _SimPortfolio
 
 logger = logging.getLogger(__name__)
 
 # Warmup period: minimum rows needed for all indicators (SMA200 + buffer)
 _WARMUP_DAYS = 220
+
+# The regime only matters to the screener when regime_gate is on; otherwise
+# skip the per-day Hurst estimate.
+_UNGATED_REGIME = RegimeResult("neutral", 0.5, 0.0, "regime gate off")
 
 
 @dataclass
@@ -70,13 +74,19 @@ class BacktestEngine:
     on each independently. Uses real technical analysis, screening, and risk
     rules. Decision layer is replaced by ATR-based stops/targets (no AI calls).
 
-    Mirrors live execution: slippage + commissions from settings, ATR-scaled
-    trailing stop, intraday High/Low stop/target checks (stop-first when both
-    trade in one bar, gaps fill at the open), mark-to-market equity.
+    Mirrors live daily-open execution: candidates are chosen on day d's
+    completed bar and filled at d+1's open — skipped if that open gapped past
+    max_entry_price_deviation — with slippage + commissions from settings,
+    ATR-scaled trailing stop, intraday High/Low stop/target checks (stop-first
+    when both trade in one bar, gaps fill at the open), mark-to-market equity.
 
-    No look-ahead bias: on each simulated day d, only data up to and including
-    d is used for indicator computation, and the trailing stop is raised from
-    d's close only after d's exit checks.
+    No look-ahead bias: decisions on day d read only data up to d, fills use
+    d+1's open, and the trailing stop is raised from a day's close only after
+    that day's exit checks.
+
+    sek_factor(ticker) converts a quote unit to SEK; when given, prices are
+    converted at load (one rate for the whole run) so position values, the
+    liquidity floors and P&L are all in SEK. Tickers it can't convert drop out.
     """
 
     def __init__(
@@ -87,6 +97,7 @@ class BacktestEngine:
         end: date,
         initial_equity: float = 100_000.0,
         n_windows: int = 1,
+        sek_factor: Optional[Callable[[str], Optional[float]]] = None,
     ):
         self.market = market
         self.tickers = tickers
@@ -94,6 +105,8 @@ class BacktestEngine:
         self.end = end
         self.initial_equity = initial_equity
         self.n_windows = max(1, n_windows)
+        self.sek_factor = sek_factor
+        self._frames: dict[str, pd.DataFrame] = {}
 
     def run(self) -> BacktestResult:
         logger.info(
@@ -104,6 +117,8 @@ class BacktestEngine:
         # Load data with warmup buffer so indicators have enough history on day 1
         load_start = self.start - timedelta(days=_WARMUP_DAYS * 1.5)
         ohlcv_map = self._load_data(load_start, self.end)
+        if self.sek_factor is not None:
+            ohlcv_map = self._convert_to_sek(ohlcv_map)
         if not ohlcv_map:
             logger.warning("No OHLCV data loaded for backtest")
             return BacktestResult(
@@ -178,6 +193,19 @@ class BacktestEngine:
         logger.info("Loaded %d/%d tickers for backtest", len(result), len(self.tickers))
         return result
 
+    def _convert_to_sek(self, ohlcv_map: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+        converted: dict[str, pd.DataFrame] = {}
+        for ticker, df in ohlcv_map.items():
+            factor = self.sek_factor(ticker)
+            if not factor or factor <= 0:
+                continue
+            df = df.copy()
+            price_cols = [c for c in ("Open", "High", "Low", "Close") if c in df.columns]
+            df[price_cols] = df[price_cols] * factor
+            converted[ticker] = df
+        logger.info("Converted %d/%d tickers to SEK", len(converted), len(ohlcv_map))
+        return converted
+
     def _split_windows(self) -> list[tuple[date, date]]:
         total = (self.end - self.start).days
         chunk = total // self.n_windows
@@ -187,6 +215,13 @@ class BacktestEngine:
             w_end = self.end if i == self.n_windows - 1 else self.start + timedelta(days=(i + 1) * chunk)
             windows.append((w_start, w_end))
         return windows
+
+    def _frame(self, ticker: str, df: pd.DataFrame) -> pd.DataFrame:
+        if ticker not in self._frames:
+            frame = compute_signal_frame(df)
+            frame["candidate"] = _prefilter(frame, priced_in_sek=self.sek_factor is not None)
+            self._frames[ticker] = frame
+        return self._frames[ticker]
 
     def _simulate_window(
         self, ohlcv_map: dict[str, pd.DataFrame], window_idx: int, w_start: date, w_end: date
@@ -200,68 +235,42 @@ class BacktestEngine:
             slippage=settings.simulated_slippage,
         )
 
-        # Build a sorted list of trading days within this window
-        sample_df = next(iter(ohlcv_map.values()))
-        trading_days = sorted(
-            d.date()
-            for d in sample_df.index
-            if w_start <= d.date() <= w_end
-        )
-
+        usable = {t: df for t, df in ohlcv_map.items() if len(df) >= _WARMUP_DAYS}
+        frames = {t: self._frame(t, df) for t, df in usable.items()}
+        row_of = {t: {d: i for i, d in enumerate(df.index.date)} for t, df in usable.items()}
+        trading_days = sorted({
+            d for df in usable.values() for d in df.index.date if w_start <= d <= w_end
+        })
         if not trading_days:
             return WindowResult(window_index=window_idx, start=w_start, end=w_end,
                                 metrics=_empty_metrics())
 
+        # Liquidity is already in SEK when prices were converted at load.
+        screen_factor = (lambda ticker: 1.0) if self.sek_factor is not None else None
+        pending: list[tuple[ScreenerCandidate, int]] = []  # decided yesterday, fill at today's open
+
         for day in trading_days:
+            for candidate, decided_row in pending:
+                self._fill_at_open(portfolio, candidate, decided_row, usable, row_of, day)
+            pending = []
+
             bars = _get_bars_for_day(ohlcv_map, portfolio.open_tickers, day)
             portfolio.update(bars, day)
-            # Build analysis_map using only data up to this day (no look-ahead)
+
             analysis_map: dict = {}
-            slices: dict[str, pd.DataFrame] = {}
-            for ticker, df in ohlcv_map.items():
-                df_slice = df[df.index.date <= day]
-                if len(df_slice) < _WARMUP_DAYS:
+            for ticker, frame in frames.items():
+                i = row_of[ticker].get(day)
+                if i is None or i + 1 < _WARMUP_DAYS or not frame["candidate"].iat[i]:
                     continue
-                slices[ticker] = df_slice
-                signals = compute_signals(ticker, df_slice)
+                signals = signals_at(ticker, frame, i, last_bar_complete=True)
                 if signals is None:
                     continue
-                regime = classify_regime(df_slice)
+                regime = classify_regime(usable[ticker].iloc[: i + 1]) if settings.regime_gate else _UNGATED_REGIME
                 analysis_map[ticker] = (signals, regime)
 
-            candidates = screen_candidates(analysis_map, self.market)
-
-            for candidate in candidates:
-                if portfolio.has_ticker(candidate.ticker):
-                    continue
-
-                entry = candidate.signals.current_price
-                stop = entry - settings.atr_stop_multiplier * candidate.signals.atr_14
-                target = entry + settings.min_rrr * (entry - stop)
-
-                open_pos_info = [{"ticker": t, "sector": ""} for t in portfolio.open_tickers]
-                correlations = compute_return_correlations(
-                    slices.get(candidate.ticker), portfolio.open_tickers, slices,
-                )
-                risk = validate_trade(
-                    action="BUY",
-                    entry_price=entry,
-                    stop_loss=stop,
-                    target=target,
-                    portfolio_equity=portfolio.equity,
-                    open_positions=open_pos_info,
-                    signals=candidate.signals,
-                    is_drawdown_mode=portfolio.is_drawdown_mode,
-                    available_cash=portfolio.cash,
-                    position_correlations=correlations,
-                    market=self.market,
-                )
-
-                if risk.approved:
-                    portfolio.open_position(
-                        candidate.ticker, entry, stop, target, risk.quantity, day,
-                        trail_distance=settings.trailing_stop_atr_multiplier * candidate.signals.atr_14,
-                    )
+            for candidate in screen_candidates(analysis_map, self.market, sek_factor=screen_factor):
+                if not portfolio.has_ticker(candidate.ticker):
+                    pending.append((candidate, row_of[candidate.ticker][day]))
 
         # Close any positions still open at window end
         last_prices = _get_prices_for_day(ohlcv_map, portfolio.open_tickers, trading_days[-1])
@@ -278,6 +287,75 @@ class BacktestEngine:
             trades=portfolio.closed_trades,
             metrics=metrics,
         )
+
+    def _fill_at_open(
+        self,
+        portfolio: _SimPortfolio,
+        candidate: ScreenerCandidate,
+        decided_row: int,
+        usable: dict[str, pd.DataFrame],
+        row_of: dict[str, dict[date, int]],
+        day: date,
+    ) -> None:
+        ticker = candidate.ticker
+        i = row_of[ticker].get(day)
+        if portfolio.has_ticker(ticker) or i is None:
+            return
+        signals = candidate.signals
+        entry = float(usable[ticker]["Open"].iat[i])
+        if not entry > 0 or abs(entry / signals.current_price - 1) > settings.max_entry_price_deviation:
+            return  # gapped past the deviation cap — the setup no longer describes the market
+
+        # The stop sits at the structure decided last night; the target is
+        # anchored on the actual fill, as the model would place it.
+        stop = signals.current_price - settings.standard_stop_atr_multiplier * signals.atr_14
+        if not stop < entry:
+            return
+        target = entry + settings.min_rrr * (entry - stop)
+
+        slices = {t: usable[t].iloc[: row_of[t][day]] for t in portfolio.open_tickers if day in row_of.get(t, {})}
+        correlations = compute_return_correlations(
+            usable[ticker].iloc[: decided_row + 1], list(slices), slices,
+        )
+        risk = validate_trade(
+            action="BUY",
+            entry_price=entry,
+            stop_loss=stop,
+            target=target,
+            portfolio_equity=portfolio.equity,
+            open_positions=[{"ticker": t, "sector": ""} for t in portfolio.open_tickers],
+            signals=signals,
+            is_drawdown_mode=portfolio.is_drawdown_mode,
+            available_cash=portfolio.cash,
+            position_correlations=correlations,
+            market=self.market,
+        )
+        if risk.approved:
+            portfolio.open_position(
+                ticker, entry, stop, target, risk.quantity, day,
+                trail_distance=settings.trailing_stop_atr_multiplier * signals.atr_14,
+            )
+
+
+def _prefilter(frame: pd.DataFrame, priced_in_sek: bool) -> pd.Series:
+    """Rows that can pass the screener's mandatory filters — a vectorised,
+    slightly loose superset, so the exact screener still has the final say."""
+    close = frame["close"]
+    atr_pct = frame["atr_14"] / close
+    mask = (close > frame["sma_50"]) & (frame["ema_21"] > frame["sma_50"])
+    mask &= frame["rsi_14"].between(settings.rsi_min - 0.01, settings.rsi_max + 0.01)
+    if settings.require_above_200sma:
+        mask &= close > frame["sma_200"]
+    if settings.min_atr_pct > 0:
+        mask &= atr_pct >= settings.min_atr_pct * 0.99
+    if settings.max_atr_pct > 0:
+        mask &= atr_pct <= settings.max_atr_pct * 1.01
+    if settings.max_volume_ratio > 0:
+        mask &= frame["vol_ratio"] <= settings.max_volume_ratio * 1.01
+    if priced_in_sek:
+        mask &= frame["turnover"] >= settings.min_turnover_sek * 0.99
+        mask &= close >= settings.min_price_sek * 0.99
+    return mask.fillna(False)
 
 
 # ------------------------------------------------------------------
@@ -365,9 +443,19 @@ def _compute_metrics(trades: list[BacktestTrade], initial_equity: float) -> dict
         dd = (peak - e) / peak if peak > 0 else 0.0
         max_dd = max(max_dd, dd)
 
+    by_reason: dict[str, list[float]] = {}
+    for t in closed:
+        by_reason.setdefault(t.exit_reason, []).append(t.rrr_achieved)
+    hold_days = [(t.exit_date - t.entry_date).days for t in closed if t.exit_date is not None]
+
     return {
         "total_trades": len(closed),
         "win_rate": round(win_rate, 4),
+        "exit_reasons": {
+            reason: {"n": len(rs), "avg_r": round(float(np.mean(rs)), 2)}
+            for reason, rs in sorted(by_reason.items(), key=lambda kv: -len(kv[1]))
+        },
+        "median_hold_days": float(np.median(hold_days)) if hold_days else 0.0,
         "avg_rrr": round(avg_rrr, 2),
         "total_return_pct": round(total_return * 100, 2),
         "total_pnl": round(total_pnl, 2),
@@ -381,6 +469,7 @@ def _compute_metrics(trades: list[BacktestTrade], initial_equity: float) -> dict
 def _empty_metrics() -> dict:
     return {
         "total_trades": 0, "win_rate": 0.0, "avg_rrr": 0.0,
+        "exit_reasons": {}, "median_hold_days": 0.0,
         "total_return_pct": 0.0, "total_pnl": 0.0, "total_commission": 0.0,
         "sharpe_ratio": 0.0, "max_drawdown_pct": 0.0,
         "optimization_metric": 0.0,
