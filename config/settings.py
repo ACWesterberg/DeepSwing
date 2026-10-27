@@ -129,6 +129,10 @@ class Settings(BaseSettings):
     # drifted more than this fraction from the scan price, the screened setup no
     # longer describes the market and the entry is blocked.
     max_entry_price_deviation: float = 0.03
+    # A held position's quote that jumps further than this from the last accepted
+    # one is only acted on once the next quote confirms it — a single bad print
+    # must not book a stop-out. (~100x unit flips are always ignored.)
+    max_quote_jump: float = 0.40
 
     # Dashboard security
     reset_pin: str = "3821"

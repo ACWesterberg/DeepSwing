@@ -16,6 +16,7 @@ build/
 data/deepswing.db
 data/*.db
 data/backups/
+data/quote_currency.json
 heuristics/claude/
 heuristics/gpt/
 compiled/

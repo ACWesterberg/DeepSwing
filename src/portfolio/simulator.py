@@ -76,6 +76,41 @@ def breakeven_price(entry_price: float, market: str) -> float:
     )
 
 
+# A quote ~100× or ~1/100× the last one is a pence/pound unit flip between
+# feeds, never a market move: three trades were booked at −99% that way.
+_UNIT_FLIP_BANDS = ((80.0, 125.0), (0.008, 0.0125))
+_JUMP_CONFIRM_TOLERANCE = 0.05
+
+
+def accept_quote(position: "OpenPosition", price: float) -> bool:
+    """Whether a live quote may drive exits. Unit flips are dropped outright;
+    any other move beyond max_quote_jump must be confirmed by the next quote."""
+    last = position.current_price
+    if last <= 0:
+        return True
+    ratio = price / last
+    if any(lo <= ratio <= hi for lo, hi in _UNIT_FLIP_BANDS):
+        logger.error(
+            "%s quote %.4f is %.0fx the last %.4f — unit flip between feeds, ignored",
+            position.ticker, price, ratio, last,
+        )
+        position.suspect_price = None
+        return False
+    if abs(ratio - 1) <= settings.max_quote_jump:
+        position.suspect_price = None
+        return True
+    suspect = position.suspect_price
+    if suspect and abs(price / suspect - 1) <= _JUMP_CONFIRM_TOLERANCE:
+        position.suspect_price = None
+        return True
+    logger.warning(
+        "%s quote %.4f moved %+.0f%% from %.4f — holding until the next quote confirms it",
+        position.ticker, price, (ratio - 1) * 100, last,
+    )
+    position.suspect_price = price
+    return False
+
+
 def resolve_exit(
     price: float,
     entry_price: float,
@@ -131,6 +166,7 @@ class OpenPosition:
     entry_commission: float = 0.0  # SEK paid at open; folded into net P&L at close
     entry_fx_rate: float = 0.0     # native→SEK rate at entry; lets ERL see FX-driven P&L
     breakeven_armed: bool = False  # price cleared the arming threshold; floor is live
+    suspect_price: Optional[float] = None  # implausible jump awaiting a confirming quote
 
     @property
     def unrealised_pnl(self) -> float:
@@ -544,6 +580,8 @@ class Portfolio:
         for position in list(self.open_positions):
             price = prices.get(position.ticker)
             if price is None or not math.isfinite(price) or price <= 0:
+                continue
+            if not accept_quote(position, price):
                 continue
 
             position.current_price = price

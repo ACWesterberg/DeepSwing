@@ -446,8 +446,55 @@ class TestCurrencyForTicker:
     def test_strict_still_resolves_known_suffixes(self):
         from src.scheduler.scan_loop import _currency_for_ticker
         assert _currency_for_ticker("AAPL", "us", strict=True) == "USD"
-        assert _currency_for_ticker("0RQ6.L", "eu", strict=True) == "GBP"
         assert _currency_for_ticker("EQNR.OL", "nordic", strict=True) == "NOK"
+
+
+class TestLondonQuoteUnits:
+    """London lines quote in pence or in the issuer's own currency — never by suffix."""
+
+    def setup_method(self):
+        import src.data.currency as cur
+        self._saved = cur._cache
+        cur._cache = {"VOD.L": "GBp", "0A6Y.L": "USD", "SHEL.L": "GBP"}
+
+    def teardown_method(self):
+        import src.data.currency as cur
+        import src.scheduler.scan_loop as sl
+        cur._cache = self._saved
+        sl._HAS_FX = False
+        sl._to_sek_fn = None
+
+    def test_pence_line_converts_through_pounds(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_FX = True
+        sl._to_sek_fn = lambda price, currency: price * 13.0 if currency == "GBP" else None
+        assert sl._to_sek_price(118.0, "VOD.L", "eu") == pytest.approx(1.18 * 13.0)
+
+    def test_pound_line_is_not_scaled(self):
+        import src.scheduler.scan_loop as sl
+        sl._HAS_FX = True
+        sl._to_sek_fn = lambda price, currency: price * 13.0 if currency == "GBP" else None
+        assert sl._to_sek_price(25.0, "SHEL.L", "eu") == pytest.approx(325.0)
+
+    def test_international_order_book_uses_issuer_currency(self):
+        from src.scheduler.scan_loop import _currency_for_ticker
+        assert _currency_for_ticker("0A6Y.L", "eu", strict=True) == "USD"
+
+    def test_unresolvable_london_line_blocks_entry_but_prices_leniently(self, monkeypatch):
+        import src.data.currency as cur
+        monkeypatch.setattr(cur, "_fetch_yahoo_currency", lambda ticker: None)
+        assert cur.quote_currency("NEW.L", "eu", strict=True) is None
+        assert cur.quote_currency("NEW.L", "eu") == ("GBP", 0.01)
+
+    def test_lookup_is_cached(self, monkeypatch, tmp_path):
+        import src.data.currency as cur
+        calls = []
+        monkeypatch.setattr(cur, "_CACHE_PATH", tmp_path / "qc.json")
+        monkeypatch.setattr(cur, "_fetch_yahoo_currency", lambda t: calls.append(t) or "GBp")
+        assert cur.quote_currency("TSCO.L", "eu") == ("GBP", 0.01)
+        assert cur.quote_currency("TSCO.L", "eu") == ("GBP", 0.01)
+        assert calls == ["TSCO.L"]
+        assert "TSCO.L" in (tmp_path / "qc.json").read_text()
 
 
 class TestToSekPrice:

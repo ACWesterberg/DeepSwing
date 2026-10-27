@@ -17,12 +17,13 @@ from src.analysis.regime import classify_regime
 from src.analysis.screener import screen_candidates
 from src.analysis.triage import triage_candidates
 from src.analysis.technical import compute_signals
+from src.data.currency import quote_currency
 from src.data.insider_fetcher import get_insider_summary
 from src.data.macro_data import get_macro_context
 from src.data.market_data import fetch_batch_eu, fetch_batch_nordic, fetch_batch_us, get_current_price, get_days_to_earnings, get_sector, get_vix
 from src.data.watchlist import get_eu_watchlist, get_omxs30_tickers, get_us_tickers
 from src.data.news_fetcher import fetch_market_headlines, fetch_news_for_ticker, format_market_environment
-from src.portfolio.simulator import get_portfolio, persist_portfolio
+from src.portfolio.simulator import accept_quote, get_portfolio, persist_portfolio
 
 logger = logging.getLogger(__name__)
 
@@ -42,63 +43,24 @@ except ImportError:
     _HAS_FX = False
 
 
-# financedata returns prices in each stock's native currency — currency mapping
-# (exchange → currency) is the calling project's responsibility, not financedata's.
-_NORDIC_SUFFIX_CURRENCY: dict[str, str] = {
-    ".ST": "SEK",
-    ".OL": "NOK",
-    ".HE": "EUR",
-    ".CO": "DKK",
-}
-
-_EU_SUFFIX_CURRENCY: dict[str, str] = {
-    ".L": "GBP",
-    ".DE": "EUR",
-    ".PA": "EUR",
-    ".AS": "EUR",
-    ".BR": "EUR",
-    ".MC": "EUR",
-    ".SW": "CHF",
-    ".WA": "PLN",
-    ".VI": "EUR",
-    ".LS": "EUR",
-    ".IR": "EUR",
-}
-
-
 def _currency_for_ticker(ticker: str, market: str, strict: bool = False) -> Optional[str]:
-    """Resolve the native currency a ticker's price is quoted in.
-
-    strict=True returns None instead of guessing when the ticker doesn't match
-    its market (a suffixed listing in the US watchlist, an unknown EU suffix) —
-    a wrong currency assumption corrupts every SEK figure booked for the trade.
-    Non-strict keeps the lenient guess so existing positions can still be priced
-    and exited consistently with how they were entered."""
-    if market == "us":
-        if strict and "." in ticker:
-            return None
-        return "USD"
-    suffix_map = _EU_SUFFIX_CURRENCY if market == "eu" else _NORDIC_SUFFIX_CURRENCY
-    for suffix, currency in suffix_map.items():
-        if ticker.endswith(suffix):
-            return currency
-    if market == "eu":
-        return None if strict else "EUR"
-    if ticker.endswith(".STO"):  # legacy Alpha Vantage suffix — Swedish
-        return "SEK"
-    return None if strict else "SEK"
+    """ISO currency a ticker's price converts into (see src.data.currency)."""
+    resolved = quote_currency(ticker, market, strict=strict)
+    return resolved[0] if resolved else None
 
 
 def _to_sek_price(price: float, ticker: str, market: str, strict: bool = False) -> Optional[float]:
-    """Convert a ticker's native-currency price to SEK. Returns None when the
+    """Convert a ticker's native-unit price to SEK. Returns None when the
     conversion is unavailable — booking a raw USD/EUR price against a SEK
     portfolio corrupts sizing and P&L, so callers must skip instead."""
-    currency = _currency_for_ticker(ticker, market, strict=strict)
-    if currency is None:
+    resolved = quote_currency(ticker, market, strict=strict)
+    if resolved is None:
         logger.error(
             "Cannot resolve quote currency for %s in %s market — skipping", ticker, market,
         )
         return None
+    currency, unit = resolved
+    price *= unit
     if currency == "SEK":
         return price
     if not _HAS_FX:
@@ -112,6 +74,7 @@ def _to_sek_price(price: float, ticker: str, market: str, strict: bool = False) 
         logger.warning("%s→SEK FX rate unavailable for %s — skipping price", currency, ticker)
         return None
     return sek
+
 
 # Most recent scan decisions per market — ephemeral, in-memory, for dashboard display.
 _recent_decisions: dict[str, dict] = {}
@@ -298,7 +261,10 @@ def liquidate_all(reason: str = PAUSE_EXIT_REASON) -> list[dict]:
         for track in settings.tracks:
             portfolio = get_portfolio(track)
             for position in list(portfolio.open_positions):
-                price = live_prices.get(position.ticker) or position.current_price or position.entry_price
+                quote = live_prices.get(position.ticker)
+                if quote is not None and not accept_quote(position, quote):
+                    quote = None
+                price = quote or position.current_price or position.entry_price
                 closed = portfolio.close_trade(trade_id=position.trade_id, exit_price=price, exit_reason=reason)
                 if closed is None:
                     continue
@@ -727,7 +693,9 @@ def _run_scan(market: MarketType) -> dict:
             if position.market != market or position.ticker not in analysis_map:
                 continue
             current_sek = live_prices.get(position.ticker)
-            if current_sek is None:
+            # update_prices stores every quote it accepts; one it held back as
+            # implausible must not drive an exit review either.
+            if current_sek is None or current_sek != position.current_price:
                 continue
             signals, regime = analysis_map[position.ticker]
             event = _maybe_news_exit(
@@ -804,7 +772,7 @@ def _monitor_holdings(market: MarketType) -> dict:
         # Only surviving positions need an LLM review after mechanical exits.
         for position in list(positions):
             price = prices.get(position.ticker)
-            if price is None or not _news_review_due(position, price):
+            if price is None or price != position.current_price or not _news_review_due(position, price):
                 continue
             event = _maybe_news_exit(
                 track, portfolio, position, price, market,
@@ -1021,10 +989,10 @@ _erl_threads: list[threading.Thread] = []
 
 def _current_fx_rate(ticker: str, market: str) -> Optional[float]:
     """Current native→SEK rate for a ticker, None when unknown/SEK."""
-    currency = _currency_for_ticker(ticker, market)
-    if currency is None or currency == "SEK" or not _HAS_FX:
+    resolved = quote_currency(ticker, market)
+    if resolved is None or resolved == ("SEK", 1.0) or not _HAS_FX:
         return None
-    return _to_sek_fn(1.0, currency)
+    return _to_sek_price(1.0, ticker, market)
 
 
 def _erl_kwargs(track: str, closed_trade) -> dict:
