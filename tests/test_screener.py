@@ -87,22 +87,37 @@ class TestScoreCandidate:
         reg = _make_regime()
         assert _score_candidate(sig, reg) is None
 
-    def test_low_volume_rejected(self):
-        sig = _make_signals(volume_ratio=0.8)
-        reg = _make_regime()
-        assert _score_candidate(sig, reg) is None
+    def test_volume_spike_day_rejected(self):
+        # The day after a spike is short-horizon reversal territory
+        assert _score_candidate(_make_signals(volume_ratio=3.0), _make_regime()) is None
 
-    def test_neutral_regime_rejected(self):
-        sig = _make_signals()
-        reg = _make_regime(regime="neutral")
-        assert _score_candidate(sig, reg) is None
+    def test_quiet_volume_is_fine_by_default(self):
+        assert _score_candidate(_make_signals(volume_ratio=0.8), _make_regime()) is not None
+
+    def test_min_volume_floor_when_enabled(self, monkeypatch):
+        from config.settings import settings
+        monkeypatch.setattr(settings, "volume_spike_multiplier", 1.2)
+        assert _score_candidate(_make_signals(volume_ratio=0.8), _make_regime()) is None
+
+    def test_neutral_regime_passes_without_gate(self):
+        assert _score_candidate(_make_signals(), _make_regime(regime="neutral")) is not None
+
+    def test_neutral_regime_rejected_with_gate(self, monkeypatch):
+        from config.settings import settings
+        monkeypatch.setattr(settings, "regime_gate", True)
+        assert _score_candidate(_make_signals(), _make_regime(regime="neutral")) is None
+
+    def test_below_200sma_rejected(self):
+        assert _score_candidate(_make_signals(sma_200=105.0), _make_regime()) is None
 
     def test_trending_without_ema_crossover_rejected(self):
         sig = _make_signals(ema_21=93.0, sma_50=95.0)  # ema21 < sma50 ✗
         reg = _make_regime(regime="trending")
         assert _score_candidate(sig, reg) is None
 
-    def test_mean_reverting_with_high_bb_pctb_rejected(self):
+    def test_mean_reverting_with_high_bb_pctb_rejected_under_gate(self, monkeypatch):
+        from config.settings import settings
+        monkeypatch.setattr(settings, "regime_gate", True)
         sig = _make_signals(bb_pct_b=0.8)
         reg = _make_regime(regime="mean-reverting")
         assert _score_candidate(sig, reg) is None
@@ -150,9 +165,9 @@ class TestScreenCandidates:
         assert all(isinstance(c, ScreenerCandidate) for c in result)
 
     def test_sorted_by_score_descending(self):
-        # High volume = higher score
-        sig_high = _make_signals(ticker="HI", volume_ratio=3.0, ema_21=97.0, sma_50=95.0)
-        sig_low = _make_signals(ticker="LO", volume_ratio=1.6, ema_21=97.0, sma_50=95.0)
+        # Close to the rising EMA21 = higher score than stretched away from it
+        sig_high = _make_signals(ticker="HI", ema_21=98.0, sma_50=95.0)
+        sig_low = _make_signals(ticker="LO", atr_14=2.0, ema_21=96.0, sma_50=95.0)
         reg = _make_regime()
         data = {"LO": (sig_low, reg), "HI": (sig_high, reg)}
         result = screen_candidates(data, "us")
@@ -174,37 +189,43 @@ class TestScreenCandidates:
         assert "regime" in d
 
 
-class TestRangeFloor:
+class TestRangeBounds:
     def test_low_atr_is_rejected(self):
-        # Stop sits 1.5xATR below entry and the target min_rrr x that above, so
-        # a 1%-ATR name cannot travel far enough to pay a full-size target.
-        signals = _make_signals(atr_14=1.0)   # 1% of a 100 price
-        assert _score_candidate(signals, _make_regime()) is None
+        assert _score_candidate(_make_signals(atr_14=0.5), _make_regime()) is None
+
+    def test_wild_range_is_rejected(self):
+        # A name moving 6% a day gaps through any stop placed inside its noise
+        assert _score_candidate(_make_signals(atr_14=6.0), _make_regime()) is None
 
     def test_adequate_atr_passes(self):
         assert _score_candidate(_make_signals(atr_14=4.0), _make_regime()) is not None
 
-    def test_range_lifts_the_score(self):
-        wide = _score_candidate(_make_signals(atr_14=6.0), _make_regime())
-        narrow = _score_candidate(_make_signals(atr_14=2.5), _make_regime())
-        assert wide > narrow
-
-    def test_floor_disabled_by_zero(self, monkeypatch):
+    def test_bounds_disabled_by_zero(self, monkeypatch):
         from config.settings import settings
         monkeypatch.setattr(settings, "min_atr_pct", 0.0)
+        monkeypatch.setattr(settings, "max_atr_pct", 0.0)
         assert _score_candidate(_make_signals(atr_14=0.5), _make_regime()) is not None
+        assert _score_candidate(_make_signals(atr_14=9.0), _make_regime()) is not None
 
 
-class TestMomentumScoring:
-    def test_confirmed_strength_outscores_midrange(self):
-        # RSI 60 is a swing entry with confirmation; 52.5 used to score highest
-        # while 67.5 scored zero, which ranked hardest against moving names.
-        strong = _score_candidate(_make_signals(rsi_14=60.0), _make_regime())
-        middling = _score_candidate(_make_signals(rsi_14=48.0), _make_regime())
-        assert strong > middling
+class TestPullbackScoring:
+    def test_resting_rsi_outscores_stretched(self):
+        rested = _score_candidate(_make_signals(rsi_14=50.0), _make_regime())
+        stretched = _score_candidate(_make_signals(rsi_14=63.0), _make_regime())
+        assert rested > stretched
 
-    def test_extended_names_are_no_longer_rejected(self):
-        assert _score_candidate(_make_signals(rsi_14=74.0), _make_regime()) is not None
+    def test_overbought_is_rejected(self):
+        assert _score_candidate(_make_signals(rsi_14=74.0), _make_regime()) is None
+
+    def test_extension_from_ema21_lowers_score(self):
+        near = _score_candidate(_make_signals(ema_21=98.0), _make_regime())
+        far = _score_candidate(_make_signals(ema_21=96.0, atr_14=1.5), _make_regime())
+        assert near > far
+
+    def test_stronger_trend_scores_higher(self):
+        strong = _score_candidate(_make_signals(sma_200=80.0), _make_regime())
+        weak = _score_candidate(_make_signals(sma_200=93.0), _make_regime())
+        assert strong > weak
 
 
 class TestLiquidity:

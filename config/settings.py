@@ -139,22 +139,29 @@ class Settings(BaseSettings):
     dashboard_user: str = "deepswing"
     dashboard_password: str = ""   # leave empty to disable auth
 
-    # Screener thresholds — loosened to widen the funnel (more at-bats for MIPRO
-    # to learn from). The AI decision + min_rrr risk validation remain the quality
-    # gate downstream, so this raises trade volume without lowering standards.
-    # Hurst estimation basis. R/S on price *levels* (legacy default) biases H
-    # upward — a plain drifting random walk reads "trending". On *returns* H
-    # measures persistence properly, but drifting walks then read ~0.5 (neutral)
-    # and the screener gets much stricter. Flip deliberately and observe.
-    hurst_on_returns: bool = False
+    # Screener: a pullback inside an established uptrend. The previous profile
+    # bought the day after a volume spike, at RSI up to 78, in the most volatile
+    # names it could find — short-horizon reversal territory — and went 8/75.
+    # Trend is mandatory (above the 200 and 50, EMA21 over SMA50); RSI must show
+    # a rest rather than a burst; a spike day is skipped rather than rewarded.
+    require_above_200sma: bool = True
+    rsi_min: float = 40.0
+    rsi_max: float = 65.0
+    volume_spike_multiplier: float = 0.0   # min reference-day volume ratio; 0 disables
+    max_volume_ratio: float = 2.0          # reject the day after a volume spike; 0 disables
+    # Range bounds. R is invariant to ATR, so a quiet name is not a worse trade —
+    # but a name moving 5%+ a day gaps through any stop placed inside its noise.
+    min_atr_pct: float = 0.01              # 0 disables
+    max_atr_pct: float = 0.05              # 0 disables
 
-    rsi_min: float = 35.0                  # was 40.0
-    rsi_max: float = 78.0                  # was 70.0 — 70 rejected names mid-move
-    volume_spike_multiplier: float = 1.2   # was 1.5 (20% above avg vol, not 50%)
-    # Every trade level is denominated in ATR, so a low-ATR name can only pay a
-    # small win and its tight stop makes the value cap bind before full risk is
-    # deployed. Screen them out rather than sizing around them.
-    min_atr_pct: float = 0.02              # reject ATR below 2% of price; 0 disables
+    # Hurst estimation basis. R/S on price *levels* reads every random walk as
+    # "trending" (12,184 of 12,186 live decisions were labelled trending), so it
+    # carried no information and told the model to buy breakouts on everything.
+    # On *returns* H measures persistence. The regime is context for the model;
+    # it only gates the screener when regime_gate is on.
+    hurst_on_returns: bool = True
+    regime_gate: bool = False
+
     # Liquidity. The universes are every listing on each exchange — mostly
     # micro-caps — and the screener's volatility preferences pulled straight
     # into them: wide spreads, stops gapped through by 20-30%, quotes that
