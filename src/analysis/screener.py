@@ -47,9 +47,9 @@ def screen_candidates(
 
     for ticker, (signals, regime) in candidates.items():
         score = _score_candidate(signals, regime)
-        if score is not None and sek_factor is not None and not _liquid_enough(signals, sek_factor):
-            continue
         if score is None:
+            continue
+        if sek_factor is not None and not _liquid_enough(signals, sek_factor):
             continue
         passed.append((score, ScreenerCandidate(ticker, market, signals, regime)))
 
