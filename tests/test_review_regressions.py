@@ -256,3 +256,23 @@ def test_mechanical_stop_runs_before_news_review(monkeypatch):
     scan._monitor_holdings("us")
     review.assert_not_called()
     assert portfolio.closed_trades[0].exit_reason == "stop_loss"
+
+
+def test_backtest_stops_filling_when_cash_runs_out(monkeypatch):
+    import src.backtesting.engine as engine
+    from src.analysis.screener import ScreenerCandidate
+
+    rows = (100, 101, 99, 100), (100, 101, 99, 100), (100, 101, 99, 100)
+    tickers = [f"T{n}" for n in range(15)]
+    signals = _make_signals()
+    monkeypatch.setattr(engine, "_WARMUP_DAYS", 2)
+    monkeypatch.setattr(engine, "compute_signal_frame", lambda df: pd.DataFrame(index=df.index))
+    monkeypatch.setattr(engine, "signals_at", lambda *args, **kwargs: signals)
+    monkeypatch.setattr(engine, "_prefilter", lambda frame, priced_in_sek: pd.Series(True, index=frame.index))
+    monkeypatch.setattr(engine, "compute_return_correlations", lambda *args: {})
+    monkeypatch.setattr(engine, "screen_candidates", lambda analysis, market, sek_factor=None: [
+        ScreenerCandidate(t, "us", s, r) for t, (s, r) in analysis.items()
+    ])
+    backtest = engine.BacktestEngine("us", tickers, date(2026, 8, 3), date(2026, 8, 4))
+    result = backtest._simulate_window({t: _bars(*rows) for t in tickers}, 0, date(2026, 8, 3), date(2026, 8, 4))
+    assert 0 < len(result.trades) < len(tickers)

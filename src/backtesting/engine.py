@@ -301,6 +301,9 @@ class BacktestEngine:
         i = row_of[ticker].get(day)
         if portfolio.has_ticker(ticker) or i is None:
             return
+        # Same funding floor as live: a sliver of cash can't fund a real position.
+        if portfolio.cash < settings.min_cash_for_new_position_pct * portfolio.equity:
+            return
         signals = candidate.signals
         entry = float(usable[ticker]["Open"].iat[i])
         if not entry > 0 or abs(entry / signals.current_price - 1) > settings.max_entry_price_deviation:
@@ -330,7 +333,7 @@ class BacktestEngine:
             position_correlations=correlations,
             market=self.market,
         )
-        if risk.approved:
+        if risk.approved and risk.quantity > 0:
             portfolio.open_position(
                 ticker, entry, stop, target, risk.quantity, day,
                 trail_distance=settings.trailing_stop_atr_multiplier * signals.atr_14,
