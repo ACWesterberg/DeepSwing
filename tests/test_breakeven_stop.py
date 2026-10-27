@@ -10,6 +10,8 @@ from src.portfolio.simulator import (
     reset_portfolios,
 )
 
+pytestmark = pytest.mark.usefixtures("legacy_exit_policy")
+
 
 @pytest.fixture(autouse=True)
 def _clean():

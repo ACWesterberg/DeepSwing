@@ -7,6 +7,8 @@ from config.settings import settings
 from src.agent.risk import RiskValidation, compute_position_size, validate_trade
 from src.analysis.technical import TechnicalSignals
 
+pytestmark = pytest.mark.usefixtures("legacy_exit_policy")
+
 
 def _make_signals(
     ticker: str = "AAPL",

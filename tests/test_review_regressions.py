@@ -18,6 +18,8 @@ from src.portfolio.metrics import compute_metrics
 from src.portfolio.simulator import Portfolio
 from tests.test_risk import _make_signals
 
+pytestmark = pytest.mark.usefixtures("legacy_exit_policy")
+
 
 def _example() -> ReplayExample:
     return ReplayExample("gpt", "TEST", "us", "2026-08-01", {

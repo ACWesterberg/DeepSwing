@@ -58,8 +58,8 @@ def _moved_candidate(ticker: str, price: float) -> ScreenerCandidate:
 def _buy_decision(entry: float = 100.0) -> dict:
     return {
         "action": "BUY",
-        "stop_loss": entry - 3.0,
-        "target": entry + 10.0,
+        "stop_loss": entry - 4.0,
+        "target": entry + 12.0,
         "reasoning": "Strong momentum",
         "confidence": 0.82,
     }

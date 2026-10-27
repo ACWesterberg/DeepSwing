@@ -10,6 +10,8 @@ import pytest
 import src.agent.memory as _memory_module
 from config.settings import settings
 
+pytestmark = pytest.mark.usefixtures("legacy_exit_policy")
+
 
 @pytest.fixture()
 def tmp_db(tmp_path, monkeypatch):

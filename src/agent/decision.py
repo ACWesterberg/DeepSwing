@@ -56,7 +56,8 @@ class TradeDecision(dspy.Signature):
     stop_loss: float = dspy.OutputField(
         desc=(
             "Stop-loss price, below entry for a BUY, at the level that would "
-            f"invalidate the setup. Validation rejects a stop further than "
+            f"invalidate the setup. Validation rejects a stop closer than "
+            f"{settings.min_stop_atr_multiplier}x or further than "
             f"{settings.atr_stop_multiplier}x ATR from entry."
         )
     )

@@ -72,8 +72,14 @@ class Settings(BaseSettings):
     # Risk parameters
     max_risk_per_trade: float = 0.01       # 1% of portfolio
     hard_cap_risk_per_trade: float = 0.02  # 2% hard cap
-    min_rrr: float = 2.5
-    atr_stop_multiplier: float = 1.5
+    min_rrr: float = 2.0
+    # Ceiling on the model's stop distance (validated with 10% slack). Live stops
+    # sat at a median 0.8×ATR and 19 of 48 stop-outs came within a day: inside a
+    # daily-bar stock's own noise, a stop is a timer, not a thesis.
+    atr_stop_multiplier: float = 2.5
+    # The fixed stop placed wherever no model places one: the backtest and
+    # counterfactual labels for skipped setups.
+    standard_stop_atr_multiplier: float = 2.0
     # The ATR gate used to bound the model's stop from one side only, on the
     # assumption that "too tight a stop is fine". It isn't. A stop inside
     # ordinary intraday noise is a coin flip on the next tick — one live trade
@@ -86,7 +92,7 @@ class Settings(BaseSettings):
     # Neither costs anything in position size: sizing is
     # min(risk/stop_frac, max_position_pct) and the value cap already binds for
     # any stop tighter than max_position_pct.
-    min_stop_atr_multiplier: float = 0.5   # >= this many ATRs from entry
+    min_stop_atr_multiplier: float = 1.5   # >= this many ATRs from entry
     min_stop_cost_multiple: float = 3.0    # >= this many round trips
     # Risk-based sizing alone is unbounded (tight stop → huge position), so position
     # value is also capped as a fraction of equity — and at available cash.
@@ -106,15 +112,16 @@ class Settings(BaseSettings):
     # a book sized at a full 1% risk.
     max_position_pct: float = 0.10
     # Trailing stop distance in ATRs once a position is in profit. Wider than the
-    # entry stop (1.5×ATR) so ordinary daily noise doesn't knock out winners
-    # before the min_rrr target is reachable.
-    trailing_stop_atr_multiplier: float = 2.0
-    # Because the trail is wider than the entry stop, `peak - 2×ATR` only clears
-    # breakeven after price has run a full 2×ATR — everything below that exits at
-    # a loss. An independent breakeven floor arms at this many ATRs of profit and
-    # never falls back, so a trade that ran and reversed gives back the move, not
-    # the risk. Set to 0 to disable the floor entirely.
-    breakeven_arm_atr_multiplier: float = 1.0
+    # entry stop so ordinary daily noise doesn't knock out winners before the
+    # min_rrr target is reachable.
+    trailing_stop_atr_multiplier: float = 3.0
+    # Because the trail is wider than the entry stop, `peak - trail` only clears
+    # breakeven after price has run a full trail distance. An independent floor
+    # arms at this many ATRs of profit and never falls back, so a trade that ran
+    # and reversed gives back the move, not the risk. Arming at 1×ATR against a
+    # target 3.75×ATR away turned 17 of 75 live trades into scratch losses: arm
+    # it once the trade has proved itself. Set to 0 to disable the floor.
+    breakeven_arm_atr_multiplier: float = 2.0
     drawdown_pause_threshold: float = 0.10
     max_sector_correlation: float = 0.7
     max_positions_per_sector: int = 2

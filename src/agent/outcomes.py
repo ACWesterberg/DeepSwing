@@ -26,7 +26,7 @@ def evaluate_forward_path(
     """Evaluate a fixed ATR plan with the same daily execution engine as backtesting."""
     if atr is None or not all(math.isfinite(v) and v > 0 for v in (price, atr)) or window.empty:
         return None
-    risk = settings.atr_stop_multiplier * atr
+    risk = settings.standard_stop_atr_multiplier * atr
     stop = price - risk
     if stop <= 0:
         return None

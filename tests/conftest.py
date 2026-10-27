@@ -68,3 +68,20 @@ def _clear_scan_caches():
     yield
     scan_loop._pass_memo.clear()
     news_analyzer._SUMMARY_CACHE.clear()
+
+
+@pytest.fixture()
+def legacy_exit_policy(monkeypatch):
+    """Pin the exit parameters these mechanics tests were written against
+    (1.5×ATR stop band floor 0.5, 2×ATR trail, breakeven at 1×ATR, RRR 2.5)."""
+    from config.settings import settings
+
+    for name, value in {
+        "atr_stop_multiplier": 1.5,
+        "standard_stop_atr_multiplier": 1.5,
+        "min_stop_atr_multiplier": 0.5,
+        "trailing_stop_atr_multiplier": 2.0,
+        "breakeven_arm_atr_multiplier": 1.0,
+        "min_rrr": 2.5,
+    }.items():
+        monkeypatch.setattr(settings, name, value)
