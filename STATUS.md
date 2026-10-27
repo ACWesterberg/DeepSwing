@@ -1,5 +1,10 @@
 # DeepSwing — Implementation Status
 
+## Latest: rules rebuilt from the live post-mortem (2026-10-27)
+
+The Aug–Oct 2026 run went 8/75 (`scripts/trade_postmortem.py`). Fixed: London pence booked as pounds (~25k of 39k SEK lost), illiquid micro-caps, buying the day after volume spikes, a Hurst estimator that read everything as trending, stops inside daily noise, a breakeven floor that scratched winners, and intraday re-decisions on daily signals. Entries are now decided once per session on completed bars and filled at the open. Parabolic SAR is computed on arrays (45× faster indicators). A no-model backtest of 2023–26 (`reviews/backtest-2026-10-27.md`) shows the old rules losing in every market and year, the new ones positive but thin on Nordic (+0.09R) and US (+0.06R), and EU negative — EU is now off. Trading stays paused until resumed deliberately.
+
+
 ## Latest: inactive prompt candidates (2026-09-23)
 
 - A candidate that passes the historical temporal screen is now registered under `compiled/candidates/<track>/<hash>/` with immutable provenance and remains inactive.

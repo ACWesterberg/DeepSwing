@@ -261,7 +261,10 @@ class Settings(BaseSettings):
     # the Nordic session opens. Each market's open-position value is held below its
     # cap; a market with no entry here (or > 1.0) is uncapped. Keep the values below
     # 1.0 to reserve room — the leftover is what the other market can deploy.
-    market_allocation: dict[str, float] = Field(default={"nordic": 0.4, "eu": 0.2, "us": 0.4})
+    # A market omitted from the dict is *uncapped*, not disabled — set it to 0.0
+    # to stop new entries there. EU is off: no-model backtests 2023-2026 lost on
+    # it under every exit variant (reviews/backtest-2026-10-27.md).
+    market_allocation: dict[str, float] = Field(default={"nordic": 0.6, "eu": 0.0, "us": 0.4})
     # Holdings are monitored on price alone; a news pull + AI exit review only fires
     # for a position once it has moved at least this fraction (up or down) since its
     # last news check — a "large jump". Set to 0.0 to review every scan.

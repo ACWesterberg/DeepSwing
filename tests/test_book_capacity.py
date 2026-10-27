@@ -37,7 +37,8 @@ class TestBookCapacity:
     def test_every_configured_market_can_hold_a_position(self):
         # A 25% position could not fit the 20% EU budget, so EU was structurally
         # untradeable — zero entries possible, ever, and nothing logged it.
-        for market in settings.market_allocation:
+        # A cap of 0.0 is a market switched off on purpose, not one squeezed out.
+        for market in [m for m, cap in settings.market_allocation.items() if cap > 0]:
             assert _slots(market) >= 1, (
                 f"{market} (cap {settings.market_allocation[market]:.0%}) cannot fit a "
                 f"{_position_frac(0.03):.1%} position — that market can never trade"
