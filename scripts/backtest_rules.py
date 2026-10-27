@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import pickle
 import sys
 from datetime import date
 from pathlib import Path
@@ -41,6 +42,19 @@ def _apply(overrides: dict) -> None:
                 else str(value).lower() in ("1", "true", "yes"))
 
 
+def _cache_downloads(engine, path: Path) -> None:
+    download = engine._load_data
+
+    def load(start, end):
+        if path.exists():
+            return pickle.loads(path.read_bytes())
+        data = download(start, end)
+        path.write_bytes(pickle.dumps(data))
+        return data
+
+    engine._load_data = load
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--market", choices=["nordic", "eu", "us"], required=True)
@@ -50,6 +64,8 @@ def main() -> None:
     parser.add_argument("--preset", choices=sorted(PRESETS), default="current")
     parser.add_argument("--set", action="append", default=[], help="override a setting, name=value")
     parser.add_argument("--out", help="write the full result JSON here")
+    parser.add_argument("--limit", type=int, default=0, help="first N tickers only (smoke tests)")
+    parser.add_argument("--cache", help="pickle of downloaded OHLCV, reused across runs of the same span")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -64,12 +80,16 @@ def main() -> None:
     from src.scheduler.scan_loop import _to_sek_price
 
     tickers = {"nordic": get_omxs30_tickers, "eu": get_eu_watchlist, "us": get_us_tickers}[args.market]()
+    if args.limit:
+        tickers = tickers[: args.limit]
     engine = BacktestEngine(
         market=args.market, tickers=tickers,
         start=date.fromisoformat(args.start), end=date.fromisoformat(args.end),
         n_windows=args.windows,
         sek_factor=lambda ticker: _to_sek_price(1.0, ticker, args.market, strict=True),
     )
+    if args.cache:
+        _cache_downloads(engine, Path(args.cache))
     result = engine.run().to_dict()
 
     label = f"{args.market} {args.preset} {' '.join(args.set)}".strip()
