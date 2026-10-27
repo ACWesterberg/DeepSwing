@@ -362,7 +362,10 @@ def _run_scan(market: MarketType) -> dict:
         analysis_map[ticker] = (signals, regime)
 
     # --- Screen ---
-    candidates = screen_candidates(analysis_map, market)
+    candidates = screen_candidates(
+        analysis_map, market,
+        sek_factor=lambda ticker: _to_sek_price(1.0, ticker, market, strict=True),
+    )
     if not candidates:
         logger.info("No candidates passed screener for %s", market)
         return {"market": market, "candidates": [], "decisions": []}

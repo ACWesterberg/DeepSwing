@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import logging
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -18,6 +19,11 @@ EU_MAIN_BOARDS: frozenset[str] = frozenset({
     "LSE", "XETRA", "EURONEXT", "BME", "SIX", "WSE", "VIE",
 })
 US_EXCHANGES: frozenset[str] = frozenset({"NYSE", "NASDAQ"})
+
+# LSE international order book: foreign shares re-listed in London (0XXX.L),
+# thinly traded and quoted in the issuer's home currency. The home listing is
+# the liquid one; these were a third of the EU book's trades and none won.
+_LSE_INTERNATIONAL = re.compile(r"^0[A-Z0-9]{3}\.L$")
 
 
 @lru_cache(maxsize=1)
@@ -65,7 +71,12 @@ def get_nordic_tickers(exchanges: frozenset[str] = NORDIC_MAIN_BOARDS) -> list[s
 
 def get_eu_tickers(exchanges: frozenset[str] = EU_MAIN_BOARDS) -> list[str]:
     """Enabled continental-EU tickers (.L/.DE/.PA/…) from universe_eu.csv."""
-    return _enabled_tickers(_load_eu_rows(), exchanges)
+    from config.settings import settings
+
+    tickers = _enabled_tickers(_load_eu_rows(), exchanges)
+    if settings.exclude_lse_international:
+        tickers = [t for t in tickers if not _LSE_INTERNATIONAL.match(t)]
+    return tickers
 
 
 def get_us_tickers() -> list[str]:

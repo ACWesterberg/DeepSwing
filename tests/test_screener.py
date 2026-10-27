@@ -18,6 +18,7 @@ def _make_signals(
     ema_21: float = 97.0,
     bb_pct_b: float = 0.2,
     sar_is_bearish: bool = False,
+    avg_turnover: float = 0.0,
 ) -> TechnicalSignals:
     return TechnicalSignals(
         ticker=ticker,
@@ -43,6 +44,7 @@ def _make_signals(
         fib_61_8=94.0,
         current_price=price,
         current_volume=500_000.0,
+        avg_turnover=avg_turnover,
     )
 
 
@@ -203,3 +205,59 @@ class TestMomentumScoring:
 
     def test_extended_names_are_no_longer_rejected(self):
         assert _score_candidate(_make_signals(rsi_14=74.0), _make_regime()) is not None
+
+
+class TestLiquidity:
+    def _screen(self, factor, **kw):
+        data = {"T": (_make_signals(ticker="T", **kw), _make_regime())}
+        return screen_candidates(data, "eu", sek_factor=lambda ticker: factor)
+
+    def test_thin_name_is_rejected(self):
+        assert self._screen(1.0, avg_turnover=2_000_000.0) == []
+
+    def test_liquid_name_passes(self):
+        assert len(self._screen(1.0, avg_turnover=50_000_000.0)) == 1
+
+    def test_turnover_is_judged_in_sek(self):
+        # 1.5M GBP/day at 13 SEK/GBP is ~19.5 MSEK — liquid enough
+        assert len(self._screen(13.0, avg_turnover=1_500_000.0)) == 1
+
+    def test_penny_price_is_rejected(self):
+        # 3.5p in pence units at 0.13 SEK per penny ≈ 0.46 SEK
+        assert self._screen(0.13, price=3.5, sma_50=3.2, sma_200=3.0, ema_21=3.3,
+                            atr_14=0.14, avg_turnover=500_000_000.0) == []
+
+    def test_unresolved_currency_is_rejected(self):
+        assert self._screen(None, avg_turnover=50_000_000.0) == []
+
+    def test_floors_skipped_without_a_converter(self):
+        data = {"T": (_make_signals(ticker="T"), _make_regime())}
+        assert len(screen_candidates(data, "eu")) == 1
+
+    def test_converter_only_called_for_technical_survivors(self):
+        calls = []
+        data = {
+            "OK": (_make_signals(ticker="OK", avg_turnover=5e7), _make_regime()),
+            "BAD": (_make_signals(ticker="BAD", sma_50=120.0), _make_regime()),
+        }
+        screen_candidates(data, "eu", sek_factor=lambda t: calls.append(t) or 1.0)
+        assert calls == ["OK"]
+
+
+class TestLondonInternationalOrderBook:
+    def test_excluded_from_eu_universe(self, monkeypatch):
+        import src.data.universe as uni
+        rows = tuple(
+            {"yahoo_ticker": t, "enabled": "true", "exchange": "LSE"}
+            for t in ("VOD.L", "0A6Y.L", "3IN.L", "09II.L", "0QAV.L")
+        )
+        monkeypatch.setattr(uni, "_load_eu_rows", lambda: rows)
+        assert uni.get_eu_tickers() == ["VOD.L", "3IN.L"]
+
+    def test_switch_keeps_them(self, monkeypatch):
+        import src.data.universe as uni
+        from config.settings import settings
+        rows = ({"yahoo_ticker": "0A6Y.L", "enabled": "true", "exchange": "LSE"},)
+        monkeypatch.setattr(uni, "_load_eu_rows", lambda: rows)
+        monkeypatch.setattr(settings, "exclude_lse_international", False)
+        assert uni.get_eu_tickers() == ["0A6Y.L"]

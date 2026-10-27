@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Callable, Optional
 
 from config.settings import settings
 from src.analysis.regime import RegimeResult
@@ -32,15 +33,22 @@ class ScreenerCandidate:
 def screen_candidates(
     candidates: dict[str, tuple[TechnicalSignals, RegimeResult]],
     market: str,
+    sek_factor: Optional[Callable[[str], Optional[float]]] = None,
 ) -> list[ScreenerCandidate]:
     """
     Filter a dict of {ticker: (signals, regime)} down to screener-qualified candidates.
     Returns up to settings.max_candidates_per_session sorted by signal strength.
+
+    sek_factor(ticker) is the SEK value of one quote unit, used by the liquidity
+    floors; it is only called for tickers that clear the technical filters,
+    since a London line's unit costs a lookup. None skips the liquidity floors.
     """
     passed: list[tuple[float, ScreenerCandidate]] = []
 
     for ticker, (signals, regime) in candidates.items():
         score = _score_candidate(signals, regime)
+        if score is not None and sek_factor is not None and not _liquid_enough(signals, sek_factor):
+            continue
         if score is None:
             continue
         passed.append((score, ScreenerCandidate(ticker, market, signals, regime)))
@@ -49,6 +57,25 @@ def screen_candidates(
     top = [c for _, c in passed[: settings.max_candidates_per_session]]
     logger.info("Screener: %d/%d passed for %s market", len(top), len(candidates), market)
     return top
+
+
+def _liquid_enough(signals: TechnicalSignals, sek_factor: Callable[[str], Optional[float]]) -> bool:
+    if settings.min_turnover_sek <= 0 and settings.min_price_sek <= 0:
+        return True
+    factor = sek_factor(signals.ticker)
+    if factor is None or factor <= 0:
+        logger.debug("REJECT %s: quote currency unresolved", signals.ticker)
+        return False
+    price_sek = signals.current_price * factor
+    if price_sek < settings.min_price_sek:
+        logger.debug("REJECT %s: price %.2f SEK < %.2f", signals.ticker, price_sek, settings.min_price_sek)
+        return False
+    turnover_sek = signals.avg_turnover * factor
+    if turnover_sek < settings.min_turnover_sek:
+        logger.debug("REJECT %s: turnover %.1f MSEK/day < %.1f", signals.ticker,
+                     turnover_sek / 1e6, settings.min_turnover_sek / 1e6)
+        return False
+    return True
 
 
 def _score_candidate(signals: TechnicalSignals, regime: RegimeResult) -> float | None:

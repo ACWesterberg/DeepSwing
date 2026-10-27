@@ -155,6 +155,14 @@ class Settings(BaseSettings):
     # small win and its tight stop makes the value cap bind before full risk is
     # deployed. Screen them out rather than sizing around them.
     min_atr_pct: float = 0.02              # reject ATR below 2% of price; 0 disables
+    # Liquidity. The universes are every listing on each exchange — mostly
+    # micro-caps — and the screener's volatility preferences pulled straight
+    # into them: wide spreads, stops gapped through by 20-30%, quotes that
+    # flip units. Turnover is the median daily traded value over the last 20
+    # completed bars, in SEK; 0 disables either floor.
+    min_turnover_sek: float = 10_000_000.0
+    min_price_sek: float = 10.0
+    exclude_lse_international: bool = True  # drop 0XXX.L international order book lines
     max_candidates_per_session: int = 15   # was 10
     earnings_buffer_days: int = 2          # exclude candidates within N days of earnings
     market_news_max_headlines: int = 20    # market-wide headlines injected into macro context

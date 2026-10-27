@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from typing import Optional
 
@@ -45,6 +46,9 @@ class TechnicalSignals:
     # Summary
     current_price: float
     current_volume: float
+    # Median daily traded value (close × volume) over the last 20 completed
+    # bars, in the quote unit — the screener converts it to SEK.
+    avg_turnover: float = 0.0
 
     def to_prompt_str(self) -> str:
         return (
@@ -152,6 +156,8 @@ def compute_signals(ticker: str, df: pd.DataFrame) -> Optional[TechnicalSignals]
             ref_vol = vol
             vol_avg_20 = float(volume.iloc[-20:].mean())
         vol_ratio = ref_vol / vol_avg_20 if vol_avg_20 > 0 else 1.0
+        completed = df.iloc[-21:-1] if len(df) >= 21 else df.iloc[-20:]
+        avg_turnover = float((completed["Close"] * completed["Volume"]).median())
 
         # Fibonacci (swing high/low over last 50 bars)
         recent = df.iloc[-50:]
@@ -185,6 +191,7 @@ def compute_signals(ticker: str, df: pd.DataFrame) -> Optional[TechnicalSignals]
             fib_61_8=fib_61,
             current_price=price,
             current_volume=vol,
+            avg_turnover=avg_turnover if math.isfinite(avg_turnover) else 0.0,
         )
 
     except Exception as exc:
