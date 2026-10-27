@@ -81,123 +81,110 @@ def compute_signals(
     if df is None or len(df) < 210:
         logger.debug("Not enough data for %s (%d rows)", ticker, len(df) if df is not None else 0)
         return None
+    try:
+        frame = compute_signal_frame(df)
+        return signals_at(ticker, frame, len(frame) - 1, last_bar_complete)
+    except Exception as exc:
+        logger.error("Technical analysis error for %s: %s", ticker, exc, exc_info=True)
+        return None
 
-    df = df.copy()
+
+def compute_signal_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """Every indicator series for df, one row per bar.
+
+    Each series is causal, so row i holds exactly what compute_signals would
+    read from df[:i+1] — a backtest computes this once per ticker instead of
+    once per ticker per day."""
     close = df["Close"]
     high = df["High"]
     low = df["Low"]
     volume = df["Volume"]
 
-    try:
-        # --- Trend ---
-        ema_21_series = tat.EMAIndicator(close, window=21).ema_indicator()
-        sma_50_series = tat.SMAIndicator(close, window=50).sma_indicator()
-        sma_200_series = tat.SMAIndicator(close, window=200).sma_indicator()
+    bb_ind = tav.BollingerBands(close, window=20, window_dev=2)
+    psar_ind = tat.PSARIndicator(high, low, close)
+    vol_avg_20 = volume.rolling(20).mean()
+    # Volume ratio and turnover are read from a *completed* daily bar. Intraday
+    # the latest bar is still forming (partial volume), so vol/avg would read
+    # ~0.1x every morning; signals_at shifts these by one bar in that case.
+    vol_ratio = (volume / vol_avg_20.where(vol_avg_20 > 0)).fillna(1.0)
+    turnover = (close * volume).rolling(20).median()
 
-        # --- Volatility ---
-        atr_ind = tav.AverageTrueRange(high, low, close, window=14)
-        atr_series = atr_ind.average_true_range()
+    return pd.DataFrame({
+        "close": close,
+        "volume": volume,
+        "ema_21": tat.EMAIndicator(close, window=21).ema_indicator(),
+        "sma_50": tat.SMAIndicator(close, window=50).sma_indicator(),
+        "sma_200": tat.SMAIndicator(close, window=200).sma_indicator(),
+        "atr_14": tav.AverageTrueRange(high, low, close, window=14).average_true_range(),
+        "bb_upper": bb_ind.bollinger_hband(),
+        "bb_middle": bb_ind.bollinger_mavg(),
+        "bb_lower": bb_ind.bollinger_lband(),
+        "bb_pct_b": bb_ind.bollinger_pband(),  # 0 = lower band, 1 = upper band
+        "rsi_14": tam.RSIIndicator(close, window=14).rsi(),
+        "psar_up": psar_ind.psar_up(),      # bullish SAR (price is above SAR)
+        "psar_down": psar_ind.psar_down(),  # bearish SAR (price is below SAR)
+        "eom": tavol.EaseOfMovementIndicator(high, low, volume, window=14).ease_of_movement(),
+        "obv": tavol.OnBalanceVolumeIndicator(close, volume).on_balance_volume(),
+        "vol_ratio": vol_ratio,
+        "turnover": turnover,
+        # Fibonacci swing high/low over the last 50 bars
+        "swing_high": high.rolling(50, min_periods=1).max(),
+        "swing_low": low.rolling(50, min_periods=1).min(),
+    }, index=df.index)
 
-        bb_ind = tav.BollingerBands(close, window=20, window_dev=2)
-        bb_upper_series = bb_ind.bollinger_hband()
-        bb_middle_series = bb_ind.bollinger_mavg()
-        bb_lower_series = bb_ind.bollinger_lband()
-        bb_pctb_series = bb_ind.bollinger_pband()  # 0 = lower band, 1 = upper band
 
-        # --- Momentum ---
-        rsi_series = tam.RSIIndicator(close, window=14).rsi()
-
-        psar_ind = tat.PSARIndicator(high, low, close)
-        psar_up = psar_ind.psar_up()     # bullish SAR (price is above SAR)
-        psar_down = psar_ind.psar_down() # bearish SAR (price is below SAR)
-
-        eom_series = tavol.EaseOfMovementIndicator(high, low, volume, window=14).ease_of_movement()
-
-        # --- Volume ---
-        obv_series = tavol.OnBalanceVolumeIndicator(close, volume).on_balance_volume()
-
-        # --- Extract last values ---
-        price = float(close.iloc[-1])
-        vol = float(volume.iloc[-1])
-
-        ema_21 = _last(ema_21_series)
-        sma_50 = _last(sma_50_series)
-        sma_200 = _last(sma_200_series)
-        atr_14 = _last(atr_series)
-        bb_upper = _last(bb_upper_series)
-        bb_middle = _last(bb_middle_series)
-        bb_lower = _last(bb_lower_series)
-        bb_pctb = _last(bb_pctb_series)
-        rsi_14 = _last(rsi_series)
-        obv = _last(obv_series)
-        eom = _last(eom_series) or 0.0
-
-        if any(v is None for v in [ema_21, sma_50, sma_200, atr_14, bb_upper, bb_lower, rsi_14, obv]):
-            logger.debug("Missing indicator values for %s", ticker)
-            return None
-
-        # Parabolic SAR: psar_up is non-NaN when bullish (price above SAR), psar_down when bearish
-        psar_up_val = _last(psar_up)
-        psar_down_val = _last(psar_down)
-        if psar_up_val is not None:
-            psar_val = psar_up_val
-            sar_bearish = False
-        elif psar_down_val is not None:
-            psar_val = psar_down_val
-            sar_bearish = True
-        else:
-            psar_val = price
-            sar_bearish = False
-
-        # Volume ratio — measured on the last *completed* daily bar. Intraday, the
-        # latest bar is still forming (partial volume), so vol/avg would read
-        # ~0.1x every morning and the volume filter would reject everything until
-        # near the close. Compare that full day to its trailing 20-day avg.
-        end = len(df) if last_bar_complete else len(df) - 1
-        window = df.iloc[end - 20:end]
-        ref_vol = float(volume.iloc[end - 1])
-        vol_avg_20 = float(window["Volume"].mean())
-        vol_ratio = ref_vol / vol_avg_20 if vol_avg_20 > 0 else 1.0
-        avg_turnover = float((window["Close"] * window["Volume"]).median())
-
-        # Fibonacci (swing high/low over last 50 bars)
-        recent = df.iloc[-50:]
-        swing_high = float(recent["High"].max())
-        swing_low = float(recent["Low"].min())
-        rng = swing_high - swing_low
-        fib_38 = swing_high - 0.382 * rng
-        fib_61 = swing_high - 0.618 * rng
-
-        return TechnicalSignals(
-            ticker=ticker,
-            ema_21=ema_21,
-            sma_50=sma_50,
-            sma_200=sma_200,
-            price_above_50sma=price > sma_50,
-            price_above_200sma=price > sma_200,
-            ema_21_above_50sma=ema_21 > sma_50,
-            atr_14=atr_14,
-            bb_upper=bb_upper,
-            bb_middle=bb_middle,
-            bb_lower=bb_lower,
-            bb_pct_b=bb_pctb if bb_pctb is not None else 0.5,
-            rsi_14=rsi_14,
-            parabolic_sar=psar_val,
-            sar_is_bearish=sar_bearish,
-            ease_of_movement=eom,
-            obv=obv,
-            volume_ratio=vol_ratio,
-            volume_spike=vol_ratio >= 1.5,
-            fib_38_2=fib_38,
-            fib_61_8=fib_61,
-            current_price=price,
-            current_volume=vol,
-            avg_turnover=avg_turnover if math.isfinite(avg_turnover) else 0.0,
-        )
-
-    except Exception as exc:
-        logger.error("Technical analysis error for %s: %s", ticker, exc, exc_info=True)
+def signals_at(
+    ticker: str, frame: pd.DataFrame, i: int, last_bar_complete: bool = False,
+) -> Optional[TechnicalSignals]:
+    """TechnicalSignals as of row i of a compute_signal_frame result."""
+    row = frame.iloc[i]
+    values = {k: (None if pd.isna(v) else float(v)) for k, v in row.items()}
+    if any(values[k] is None for k in ("ema_21", "sma_50", "sma_200", "atr_14", "bb_upper", "bb_lower", "rsi_14", "obv")):
+        logger.debug("Missing indicator values for %s", ticker)
         return None
+
+    price = values["close"]
+    ema_21, sma_50, sma_200 = values["ema_21"], values["sma_50"], values["sma_200"]
+
+    # Parabolic SAR: psar_up is non-NaN when bullish (price above SAR), psar_down when bearish
+    if values["psar_up"] is not None:
+        psar_val, sar_bearish = values["psar_up"], False
+    elif values["psar_down"] is not None:
+        psar_val, sar_bearish = values["psar_down"], True
+    else:
+        psar_val, sar_bearish = price, False
+
+    ref = frame.iloc[i] if last_bar_complete else frame.iloc[i - 1]
+    vol_ratio = float(ref["vol_ratio"])
+    avg_turnover = float(ref["turnover"])
+
+    rng = values["swing_high"] - values["swing_low"]
+    return TechnicalSignals(
+        ticker=ticker,
+        ema_21=ema_21,
+        sma_50=sma_50,
+        sma_200=sma_200,
+        price_above_50sma=price > sma_50,
+        price_above_200sma=price > sma_200,
+        ema_21_above_50sma=ema_21 > sma_50,
+        atr_14=values["atr_14"],
+        bb_upper=values["bb_upper"],
+        bb_middle=values["bb_middle"],
+        bb_lower=values["bb_lower"],
+        bb_pct_b=values["bb_pct_b"] if values["bb_pct_b"] is not None else 0.5,
+        rsi_14=values["rsi_14"],
+        parabolic_sar=psar_val,
+        sar_is_bearish=sar_bearish,
+        ease_of_movement=values["eom"] or 0.0,
+        obv=values["obv"],
+        volume_ratio=vol_ratio,
+        volume_spike=vol_ratio >= 1.5,
+        fib_38_2=values["swing_high"] - 0.382 * rng,
+        fib_61_8=values["swing_high"] - 0.618 * rng,
+        current_price=price,
+        current_volume=values["volume"],
+        avg_turnover=avg_turnover if math.isfinite(avg_turnover) else 0.0,
+    )
 
 
 def _last(series: pd.Series) -> Optional[float]:

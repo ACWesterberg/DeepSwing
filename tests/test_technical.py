@@ -142,3 +142,21 @@ class TestCompletedBarMode:
         result = compute_signals("T", df, last_bar_complete=True)
         window = df.iloc[-20:]
         assert result.avg_turnover == pytest.approx(float((window["Close"] * window["Volume"]).median()))
+
+
+class TestSignalFrame:
+    def test_row_i_equals_signals_on_the_prefix(self):
+        # The backtester reads row i of one frame instead of recomputing on
+        # df[:i+1] every day — only valid while every series stays causal.
+        from src.analysis.technical import compute_signal_frame, signals_at
+        df = _make_df(300)
+        frame = compute_signal_frame(df)
+        for i in (215, 250, 299):
+            for complete in (False, True):
+                a = compute_signals("T", df.iloc[: i + 1], last_bar_complete=complete)
+                b = signals_at("T", frame, i, complete)
+                for key, value in a.__dict__.items():
+                    if isinstance(value, float):
+                        assert b.__dict__[key] == pytest.approx(value, rel=1e-9, abs=1e-9), key
+                    else:
+                        assert b.__dict__[key] == value, key
