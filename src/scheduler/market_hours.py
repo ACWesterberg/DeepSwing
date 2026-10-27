@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, time
+from datetime import date, datetime, time
 
 import exchange_calendars as xcals
 import pytz
@@ -127,6 +127,20 @@ def next_open_cet(market: MarketType) -> str:
         check += timedelta(days=1)
 
     return "Unknown (next session within 10 days not found)"
+
+
+def exchange_open(market: MarketType) -> tuple[str, time]:
+    """(IANA timezone, local opening time) of a market's main session."""
+    if market == "us":
+        return _TZ_ET.zone, _US_EXCHANGE_OPEN_ET
+    if market == "eu":
+        return _TZ_CET.zone, _EU_EXCHANGE_OPEN
+    return _TZ_CET.zone, _NORDIC_EXCHANGE_OPEN
+
+
+def session_date(market: MarketType, dt: datetime | None = None) -> date:
+    """Today's date on the market's own clock — the date its forming bar carries."""
+    return _now_in(_TZ_ET if market == "us" else _TZ_CET, dt).date()
 
 
 def _now_in(tz, dt: datetime | None = None) -> datetime:

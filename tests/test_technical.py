@@ -121,3 +121,24 @@ class TestComputeSignals:
         assert "RSI" in text
         assert "ATR" in text
         assert "Fib" in text
+
+
+class TestCompletedBarMode:
+    def _df_with_spike_on_last_bar(self):
+        df = _make_df(260)
+        df.iloc[-1, df.columns.get_loc("Volume")] = df["Volume"].iloc[-21:-1].mean() * 5
+        return df
+
+    def test_forming_bar_is_ignored_by_default(self):
+        result = compute_signals("T", self._df_with_spike_on_last_bar())
+        assert result.volume_ratio < 3
+
+    def test_completed_last_bar_is_the_reference_day(self):
+        result = compute_signals("T", self._df_with_spike_on_last_bar(), last_bar_complete=True)
+        assert result.volume_ratio > 3
+
+    def test_turnover_is_median_close_times_volume(self):
+        df = _make_df(260)
+        result = compute_signals("T", df, last_bar_complete=True)
+        window = df.iloc[-20:]
+        assert result.avg_turnover == pytest.approx(float((window["Close"] * window["Volume"]).median()))

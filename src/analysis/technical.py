@@ -72,8 +72,12 @@ class TechnicalSignals:
         )
 
 
-def compute_signals(ticker: str, df: pd.DataFrame) -> Optional[TechnicalSignals]:
-    """Compute all technical indicators from OHLCV DataFrame."""
+def compute_signals(
+    ticker: str, df: pd.DataFrame, last_bar_complete: bool = False,
+) -> Optional[TechnicalSignals]:
+    """Compute all technical indicators from OHLCV DataFrame.
+
+    last_bar_complete=False treats the final row as today's still-forming bar."""
     if df is None or len(df) < 210:
         logger.debug("Not enough data for %s (%d rows)", ticker, len(df) if df is not None else 0)
         return None
@@ -148,16 +152,13 @@ def compute_signals(ticker: str, df: pd.DataFrame) -> Optional[TechnicalSignals]
         # Volume ratio — measured on the last *completed* daily bar. Intraday, the
         # latest bar is still forming (partial volume), so vol/avg would read
         # ~0.1x every morning and the volume filter would reject everything until
-        # near the close. Compare the previous full day to its trailing 20-day avg.
-        if len(volume) >= 21:
-            ref_vol = float(volume.iloc[-2])
-            vol_avg_20 = float(volume.iloc[-21:-1].mean())
-        else:
-            ref_vol = vol
-            vol_avg_20 = float(volume.iloc[-20:].mean())
+        # near the close. Compare that full day to its trailing 20-day avg.
+        end = len(df) if last_bar_complete else len(df) - 1
+        window = df.iloc[end - 20:end]
+        ref_vol = float(volume.iloc[end - 1])
+        vol_avg_20 = float(window["Volume"].mean())
         vol_ratio = ref_vol / vol_avg_20 if vol_avg_20 > 0 else 1.0
-        completed = df.iloc[-21:-1] if len(df) >= 21 else df.iloc[-20:]
-        avg_turnover = float((completed["Close"] * completed["Volume"]).median())
+        avg_turnover = float((window["Close"] * window["Volume"]).median())
 
         # Fibonacci (swing high/low over last 50 bars)
         recent = df.iloc[-50:]

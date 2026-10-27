@@ -59,3 +59,27 @@ class TestEuMarketHours:
     def test_eu_closed_evening(self):
         dt = datetime(2026, 3, 16, 17, 30)  # 18:30 CET
         assert is_market_open("eu", dt) is False
+
+
+class TestDailyEntryClock:
+    def test_us_session_date_follows_new_york(self):
+        from datetime import date, datetime
+        from src.scheduler.market_hours import session_date
+        # 02:00 UTC on the 15th is still the 14th in New York
+        assert session_date("us", datetime(2026, 10, 15, 2, 0)) == date(2026, 10, 14)
+        assert session_date("nordic", datetime(2026, 10, 15, 2, 0)) == date(2026, 10, 15)
+
+    def test_exchange_open(self):
+        from datetime import time
+        from src.scheduler.market_hours import exchange_open
+        assert exchange_open("us") == ("America/New_York", time(9, 30))
+        assert exchange_open("nordic") == ("Europe/Stockholm", time(9, 0))
+
+    def test_forming_bar_is_dropped(self, monkeypatch):
+        from datetime import date
+        import pandas as pd
+        import src.scheduler.scan_loop as sl
+        monkeypatch.setattr(sl, "session_date", lambda market: date(2026, 10, 15))
+        df = pd.DataFrame({"Close": [1.0, 2.0, 3.0]},
+                          index=pd.to_datetime(["2026-10-13", "2026-10-14", "2026-10-15"]))
+        assert list(sl._completed_bars(df, "nordic")["Close"]) == [1.0, 2.0]

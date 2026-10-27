@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import logging
 import sys
+from datetime import datetime, timedelta
 
 import uvicorn
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from config.settings import settings
 from src.db import init_db
-from src.scheduler.market_hours import is_market_open
+from src.scheduler.market_hours import exchange_open, is_market_open
 from src.scheduler.markets import SCAN_MARKETS
 from src.scheduler.optimizer import run_heuristic_refinement, run_prompt_optimization
 from src.scheduler.scan_loop import run_holdings_monitor, run_scan
@@ -29,6 +30,17 @@ def scheduled_scan():
                 run_scan(market)
             except Exception as exc:
                 logger.error("Scan error for %s: %s", market, exc, exc_info=True)
+
+
+def scheduled_daily_entry(market: str):
+    """Once per session, shortly after the open: decide on yesterday's completed
+    bar and fill at the live quote. The calendar check skips exchange holidays."""
+    if not is_market_open(market):
+        return
+    try:
+        run_scan(market)
+    except Exception as exc:
+        logger.error("Daily entry scan error for %s: %s", market, exc, exc_info=True)
 
 
 def scheduled_holdings_check():
@@ -135,24 +147,44 @@ def start_scheduler() -> BackgroundScheduler:
         logger.warning("Trading PAUSED — no scans, holdings sweeps or prompt search scheduled")
         return scheduler
 
-    # Every 15 minutes — market-hours-aware scan
-    scheduler.add_job(
-        scheduled_scan,
-        "interval",
-        minutes=settings.scan_interval_minutes,
-        id="market_scan",
-        max_instances=1,
-        coalesce=True,
-    )
+    daily = settings.entry_schedule == "daily_open"
+    if daily:
+        for market in SCAN_MARKETS:
+            tz, opens = exchange_open(market)
+            at = datetime.combine(datetime.today(), opens) + timedelta(minutes=settings.daily_entry_delay_minutes)
+            scheduler.add_job(
+                scheduled_daily_entry,
+                "cron",
+                day_of_week="mon-fri",
+                hour=at.hour,
+                minute=at.minute,
+                timezone=tz,
+                args=[market],
+                id=f"daily_entry_{market}",
+                max_instances=1,
+                coalesce=True,
+                misfire_grace_time=1800,
+            )
+    else:
+        scheduler.add_job(
+            scheduled_scan,
+            "interval",
+            minutes=settings.scan_interval_minutes,
+            id="market_scan",
+            max_instances=1,
+            coalesce=True,
+        )
 
     # Stop/target sweep — faster than the scan and independent of it, so a cheap
     # scan cadence doesn't become a sloppy exit cadence. Shares _scan_lock, so a
     # tick that lands mid-scan simply skips (the scan ends with this sweep).
-    if settings.holdings_interval_minutes > 0:
+    # Daily entries leave no scan to fold it into, so it always runs then.
+    holdings_minutes = settings.holdings_interval_minutes or (settings.scan_interval_minutes if daily else 0)
+    if holdings_minutes > 0:
         scheduler.add_job(
             scheduled_holdings_check,
             "interval",
-            minutes=settings.holdings_interval_minutes,
+            minutes=holdings_minutes,
             id="holdings_check",
             max_instances=1,
             coalesce=True,
@@ -192,10 +224,11 @@ def start_scheduler() -> BackgroundScheduler:
     _add_maintenance_jobs(scheduler)
     scheduler.start()
     logger.info(
-        "Scheduler started (scan every %dm, holdings sweep every %dm, "
+        "Scheduler started (entries %s, holdings sweep every %dm, "
         "weekly maintenance Sunday 02:00 CET)",
-        settings.scan_interval_minutes,
-        settings.holdings_interval_minutes,
+        f"daily at open+{settings.daily_entry_delay_minutes}m" if daily
+        else f"every {settings.scan_interval_minutes}m",
+        holdings_minutes,
     )
     return scheduler
 

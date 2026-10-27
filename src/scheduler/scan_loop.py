@@ -24,6 +24,7 @@ from src.data.market_data import fetch_batch_eu, fetch_batch_nordic, fetch_batch
 from src.data.watchlist import get_eu_watchlist, get_omxs30_tickers, get_us_tickers
 from src.data.news_fetcher import fetch_market_headlines, fetch_news_for_ticker, format_market_environment
 from src.portfolio.simulator import accept_quote, get_portfolio, persist_portfolio
+from src.scheduler.market_hours import session_date
 
 logger = logging.getLogger(__name__)
 
@@ -353,9 +354,14 @@ def _run_scan(market: MarketType) -> dict:
         return {"market": market, "candidates": [], "decisions": []}
 
     # --- Compute technicals + regime ---
+    # Daily entries decide on completed bars only; the session's forming bar
+    # would make every signal depend on what minute the scan happened to run.
+    daily = settings.entry_schedule == "daily_open"
     analysis_map: dict[str, tuple] = {}
     for ticker, df in ohlcv_map.items():
-        signals = compute_signals(ticker, df)
+        if daily:
+            df = _completed_bars(df, market)
+        signals = compute_signals(ticker, df, last_bar_complete=daily)
         if signals is None:
             continue
         regime = classify_regime(df)
@@ -808,6 +814,11 @@ def _monitor_holdings(market: MarketType) -> dict:
         "candidates": [],
         "decisions": decisions_log,
     }
+
+
+def _completed_bars(df, market: MarketType):
+    """Drop the session's still-forming bar (dated today on the market's clock)."""
+    return df[df.index.date < session_date(market)]
 
 
 def _news_review_due(position, current_price_sek: float) -> bool:

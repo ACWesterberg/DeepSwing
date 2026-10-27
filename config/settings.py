@@ -219,6 +219,14 @@ class Settings(BaseSettings):
     # a 3%-of-price stop. Note that this is an artifact of polling, not of the
     # strategy: a real broker's stop order fills at the level regardless.
     scan_interval_minutes: int = 30
+    # When entries are decided. "daily_open": once per session, shortly after
+    # the open, on completed daily bars only — the bars every signal is built
+    # from — filling at the live quote, so a candidate that gapped more than
+    # max_entry_price_deviation overnight is skipped rather than chased.
+    # "interval": re-scan every scan_interval_minutes against the forming bar,
+    # which bought fast movers on stale daily signals (218 blocked as stale).
+    entry_schedule: Literal["daily_open", "interval"] = "daily_open"
+    daily_entry_delay_minutes: int = 15
     # Kill switch. While true, startup sells every open position at the live quote
     # (exit_reason="paused") and schedules no scan, holdings sweep, weekly prompt
     # search, shadow collection or batch collection — the tracks hold cash and
