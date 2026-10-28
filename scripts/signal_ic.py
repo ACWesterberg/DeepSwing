@@ -93,6 +93,19 @@ def _rowwise_corr(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return np.nansum(a * b, axis=1) / np.sqrt(np.nansum(a * a, axis=1) * np.nansum(b * b, axis=1))
 
 
+def _newey_west_t(x: np.ndarray, lags: int) -> float:
+    """t-stat of the mean with Bartlett-weighted autocovariances: consecutive
+    cross-sections share most of their forward window, so a plain t overstates."""
+    n = len(x)
+    if n <= lags + 2:
+        return float("nan")
+    d = x - x.mean()
+    var = d @ d / n
+    for k in range(1, lags + 1):
+        var += 2 * (1 - k / (lags + 1)) * (d[k:] @ d[:-k]) / n
+    return float(x.mean() / np.sqrt(var / n)) if var > 0 else float("nan")
+
+
 def evaluate(sig: pd.DataFrame, fwd: dict[int, pd.DataFrame], liquid: pd.DataFrame, rows: np.ndarray) -> dict:
     s_all = sig.iloc[rows].where(liquid.iloc[rows])
     out = {}
@@ -104,10 +117,8 @@ def evaluate(sig: pd.DataFrame, fwd: dict[int, pd.DataFrame], liquid: pd.DataFra
         rs = s.rank(axis=1).to_numpy()[ok]
         rf = ff.rank(axis=1).to_numpy()[ok]
         ic = _rowwise_corr(rs, rf)
-        step = max(1, hz // SAMPLE_EVERY)          # non-overlapping windows for the t-stat
-        ind = ic[::step]
-        ind = ind[np.isfinite(ind)]
-        t = float(ind.mean() / ind.std(ddof=1) * np.sqrt(len(ind))) if len(ind) > 2 else float("nan")
+        ic = ic[np.isfinite(ic)]
+        t = _newey_west_t(ic, lags=max(1, hz // SAMPLE_EVERY))
         # Long-only view: top quintile vs the liquid universe, winsorised per date.
         fv = ff.to_numpy()[ok]
         lo_q, hi_q = np.nanpercentile(fv, [1, 99], axis=1, keepdims=True)
@@ -118,7 +129,7 @@ def evaluate(sig: pd.DataFrame, fwd: dict[int, pd.DataFrame], liquid: pd.DataFra
         out[hz] = {
             "ic": float(np.nanmean(ic)),
             "t": t,
-            "ic_pos_share": float(np.mean(ind > 0)) if len(ind) else float("nan"),
+            "ic_pos_share": float(np.mean(ic > 0)) if len(ic) else float("nan"),
             "top_quintile_excess_pct": float(np.nanmean(excess) * 100),
             "avg_names": float(n[ok].mean()) if ok.any() else 0.0,
         }
