@@ -36,6 +36,10 @@ def _panels(data: dict[str, pd.DataFrame], fx: dict[str, float]) -> dict[str, pd
     }
     for col in ("Open", "High", "Low", "Close"):
         frame[col] = frame[col].ffill(limit=3)
+    # The union calendar gives a stock rows on days only another exchange traded
+    # (Oslo open, Stockholm shut). Those carry no volume; leaving them NaN blanked
+    # every rolling volume window for 20 days after each such holiday.
+    frame["Volume"] = frame["Volume"].where(frame["Volume"].notna() | frame["Close"].isna(), 0.0)
     frame["fx"] = pd.Series({t: fx[t] for t in tickers}, dtype="float32")
     return frame
 

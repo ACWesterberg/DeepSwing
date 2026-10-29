@@ -85,3 +85,12 @@ def test_composite_skips_the_rules_flag_and_weak_signals(tmp_path, monkeypatch, 
     assert result["composite"]["60"]["ic"] == pytest.approx(
         ic.evaluate(dict(ic.signals(ic._panels(data, {t: 1.0 for t in data})))["mom_12_1"].rank(axis=1, pct=True),
                     *_setup(data)[1:])[60]["ic"], abs=1e-6)
+
+
+def test_a_holiday_on_one_exchange_does_not_blank_volume_windows():
+    idx = pd.bdate_range("2021-01-01", periods=400)
+    oslo = pd.DataFrame({c: 100.0 for c in ("Open", "High", "Low", "Close")} | {"Volume": 1e6}, index=idx)
+    stockholm = oslo.drop(idx[330])                    # Stockholm shut on a day Oslo traded
+    panels = ic._panels({"EQNR.OL": oslo, "VOLV-B.ST": stockholm}, {"EQNR.OL": 1.0, "VOLV-B.ST": 1.0})
+    median_turnover = (panels["Close"] * panels["Volume"]).rolling(20).median()
+    assert median_turnover["VOLV-B.ST"].iloc[331:350].notna().all()
